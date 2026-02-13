@@ -1,0 +1,345 @@
+generator client {
+  provider = "prisma-client-js"
+  output   = "../node_modules/.prisma/client"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+  relationMode = "prisma"
+}
+
+model User {
+  id                  String    @id @default(cuid())
+  email               String    @unique
+  name                String
+  passwordHash        String?   @map("password_hash")
+  avatarUrl           String?   @map("avatar_url") @db.VarChar(500)
+  role                UserRole  @default(USER)
+  emailVerified       DateTime? @map("email_verified")
+  stripeCustomerId    String?   @unique @map("stripe_customer_id") @db.VarChar(100)
+
+  // Referral fields
+  referralCode        String    @unique @map("referral_code") @db.VarChar(12)
+  referredByUserId    String?   @map("referred_by_user_id")
+  referredBy          User?     @relation("UserReferrals", fields: [referredByUserId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  referredUsers       User[]    @relation("UserReferrals")
+  referralTier        ReferralTier @default(FREE) @map("referral_tier")
+  totalReferrals      Int       @default(0) @map("total_referrals")
+
+  // Credits
+  creditsBalance      Int       @default(0) @map("credits_balance")
+  cashPendingCents    BigInt    @default(0) @map("cash_pending_cents")
+  cashWithdrawnCents  BigInt    @default(0) @map("cash_withdrawn_cents")
+
+  // Relations
+  subscription        Subscription?
+  reelJobs            ReelJob[]
+  channelProfiles     ChannelProfile[]
+  referralsMade       Referral[]  @relation("ReferrerReferrals")
+  referralsReceived   Referral[]  @relation("ReferredReferrals")
+  creditTransactions  CreditTransaction[]
+  mediaAssets         MediaAsset[]
+  accounts            Account[]
+  sessions            Session[]
+
+  createdAt           DateTime  @default(now()) @map("created_at")
+  updatedAt           DateTime  @updatedAt @map("updated_at")
+
+  @@map("users")
+  @@index([referredByUserId])
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String  @map("user_id")
+  type              String
+  provider          String
+  providerAccountId String  @map("provider_account_id")
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@unique([provider, providerAccountId])
+  @@map("accounts")
+  @@index([userId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique @map("session_token")
+  userId       String   @map("user_id")
+  expires      DateTime
+
+  user User @relation(fields: [userId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@map("sessions")
+  @@index([userId])
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+  @@map("verification_tokens")
+}
+
+model Subscription {
+  id                    String             @id @default(cuid())
+  userId                String             @unique @map("user_id")
+  plan                  SubscriptionPlan   @default(FREE)
+  status                SubscriptionStatus @default(ACTIVE)
+  jobsLimit             Int                @map("jobs_limit") @default(3)
+  jobsUsed              Int                @default(0) @map("jobs_used")
+  stripeSubscriptionId  String?            @unique @map("stripe_subscription_id") @db.VarChar(100)
+  stripePriceId         String?            @map("stripe_price_id")
+  currentPeriodStart    DateTime?          @map("current_period_start")
+  currentPeriodEnd      DateTime?          @map("current_period_end")
+  cancelAtPeriodEnd     Boolean            @default(false) @map("cancel_at_period_end")
+
+  user User @relation(fields: [userId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("subscriptions")
+}
+
+model ReelJob {
+  id                String        @id @default(cuid())
+  userId            String        @map("user_id")
+  channelProfileId  String?       @map("channel_profile_id")
+  seriesId          String?       @map("series_id")
+  title             String        @db.VarChar(255)
+  prompt            String        @db.Text
+  script            String?       @db.Text
+  style             String?       @db.VarChar(100)
+  durationSeconds   Int           @default(30) @map("duration_seconds")
+  aspectRatio       String        @default("9:16") @map("aspect_ratio") @db.VarChar(10)
+  status            ReelJobStatus @default(QUEUED)
+  outputUrl         String?       @map("output_url") @db.VarChar(500)
+  thumbnailUrl      String?       @map("thumbnail_url") @db.VarChar(500)
+  platformOutputs   Json?         @map("platform_outputs")
+  aiProvider        String?       @map("ai_provider") @db.VarChar(50)
+  voiceId           String?       @map("voice_id") @db.VarChar(100)
+  musicGenre        String?       @map("music_genre") @db.VarChar(50)
+  captionStyle      String?       @map("caption_style") @db.VarChar(50)
+  errorMessage      String?       @map("error_message") @db.Text
+  processingTimeMs  Int?          @map("processing_time_ms")
+  creditsCost       Int           @default(1) @map("credits_cost")
+
+  user            User            @relation(fields: [userId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  channelProfile  ChannelProfile? @relation(fields: [channelProfileId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  series          ContentSeries?  @relation(fields: [seriesId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  createdAt   DateTime  @default(now()) @map("created_at")
+  completedAt DateTime? @map("completed_at")
+
+  @@map("reel_jobs")
+  @@index([userId])
+  @@index([channelProfileId])
+  @@index([seriesId])
+  @@index([status])
+}
+
+model ChannelProfile {
+  id                  String      @id @default(cuid())
+  userId              String      @map("user_id")
+  name                String      @db.VarChar(150)
+  platform            Platform    @default(MULTI)
+  niche               String      @db.VarChar(100)
+  tone                Tone        @default(PROFESSIONAL)
+  primaryColor        String      @default("#6366F1") @map("primary_color") @db.VarChar(7)
+  secondaryColor      String?     @map("secondary_color") @db.VarChar(7)
+  fontFamily          String?     @map("font_family") @db.VarChar(100)
+  captionStyle        String?     @map("caption_style") @db.VarChar(50)
+  defaultVoiceId      String?     @map("default_voice_id") @db.VarChar(100)
+  introAssetId        String?     @map("intro_asset_id")
+  outroAssetId        String?     @map("outro_asset_id")
+  logoUrl             String?     @map("logo_url") @db.VarChar(500)
+  watermarkEnabled    Boolean     @default(false) @map("watermark_enabled")
+  hookStyle           String?     @map("hook_style") @db.VarChar(50)
+  ctaStyle            String?     @map("cta_style") @db.VarChar(50)
+  musicPreference     String?     @map("music_preference") @db.VarChar(50)
+  consistencyScore    Int         @default(0) @map("consistency_score")
+  totalReelsGenerated Int         @default(0) @map("total_reels_generated")
+  isDefault           Boolean     @default(false) @map("is_default")
+
+  user          User          @relation(fields: [userId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  introAsset    MediaAsset?   @relation("IntroAsset", fields: [introAssetId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  outroAsset    MediaAsset?   @relation("OutroAsset", fields: [outroAssetId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  reelJobs      ReelJob[]
+  contentSeries ContentSeries[]
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("channel_profiles")
+  @@index([userId])
+  @@index([introAssetId])
+  @@index([outroAssetId])
+}
+
+model ContentSeries {
+  id                String   @id @default(cuid())
+  channelProfileId  String   @map("channel_profile_id")
+  name              String   @db.VarChar(150)
+  description       String?  @db.Text
+  templatePrompt    String?  @map("template_prompt") @db.Text
+  episodeCount      Int      @default(0) @map("episode_count")
+
+  channelProfile ChannelProfile @relation(fields: [channelProfileId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  reelJobs       ReelJob[]
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("content_series")
+  @@index([channelProfileId])
+}
+
+model MediaAsset {
+  id        String         @id @default(cuid())
+  userId    String         @map("user_id")
+  type      MediaAssetType
+  url       String         @db.VarChar(500)
+  filename  String         @db.VarChar(255)
+  sizeBytes BigInt         @map("size_bytes")
+  mimeType  String         @map("mime_type") @db.VarChar(100)
+
+  user                  User             @relation(fields: [userId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  introChannelProfiles  ChannelProfile[] @relation("IntroAsset")
+  outroChannelProfiles  ChannelProfile[] @relation("OutroAsset")
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@map("media_assets")
+  @@index([userId])
+}
+
+model Referral {
+  id                    String         @id @default(cuid())
+  referrerUserId        String         @map("referrer_user_id")
+  referredUserId        String         @map("referred_user_id")
+  referralCodeUsed      String         @map("referral_code_used") @db.VarChar(12)
+  status                ReferralStatus @default(PENDING)
+  convertedAt           DateTime?      @map("converted_at")
+  conversionValueCents  Int            @default(0) @map("conversion_value_cents")
+  referrerRewardCredits Int            @default(0) @map("referrer_reward_credits")
+  referrerRewardCashCents Int          @default(0) @map("referrer_reward_cash_cents")
+  isPaid                Boolean        @default(false) @map("is_paid")
+
+  referrer User @relation("ReferrerReferrals", fields: [referrerUserId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  referred User @relation("ReferredReferrals", fields: [referredUserId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@map("referrals")
+  @@index([referrerUserId])
+  @@index([referredUserId])
+}
+
+model CreditTransaction {
+  id          String            @id @default(cuid())
+  userId      String            @map("user_id")
+  amount      Int               // positive = credit, negative = debit
+  type        CreditTransactionType
+  description String?           @db.VarChar(255)
+  referenceId String?           @map("reference_id") @db.VarChar(255) // job id, referral id, etc.
+  balanceAfter Int              @map("balance_after")
+
+  user User @relation(fields: [userId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@map("credit_transactions")
+  @@index([userId])
+}
+
+// Enums
+enum UserRole {
+  USER
+  ADMIN
+}
+
+enum ReferralTier {
+  FREE
+  AFFILIATE
+  PARTNER
+}
+
+enum SubscriptionPlan {
+  FREE
+  STARTER
+  PRO
+  BUSINESS
+  ENTERPRISE
+}
+
+enum SubscriptionStatus {
+  ACTIVE
+  CANCELED
+  PAST_DUE
+  TRIALING
+}
+
+enum ReelJobStatus {
+  QUEUED
+  PROCESSING
+  SCRIPT_GENERATING
+  VOICE_GENERATING
+  VIDEO_GENERATING
+  COMPOSING
+  UPLOADING
+  COMPLETED
+  FAILED
+}
+
+enum Platform {
+  YOUTUBE
+  FACEBOOK
+  INSTAGRAM
+  MULTI
+}
+
+enum Tone {
+  PROFESSIONAL
+  CASUAL
+  ENERGETIC
+  CALM
+  HUMOROUS
+  INSPIRATIONAL
+}
+
+enum MediaAssetType {
+  INTRO
+  OUTRO
+  LOGO
+  WATERMARK
+  BACKGROUND
+  MUSIC
+}
+
+enum ReferralStatus {
+  PENDING
+  COMPLETED
+  PAID
+  CANCELLED
+}
+
+enum CreditTransactionType {
+  PURCHASE
+  REFERRAL_REWARD
+  MILESTONE_REWARD
+  JOB_DEBIT
+  ADMIN_GRANT
+  REFUND
+}

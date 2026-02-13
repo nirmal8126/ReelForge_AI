@@ -1,0 +1,29 @@
+{
+  "name": "reelforge-ai",
+  "version": "1.0.0",
+  "private": true,
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "turbo run dev",
+    "dev:web": "turbo run dev --filter=@reelforge/web",
+    "dev:admin": "turbo run dev --filter=@reelforge/admin",
+    "dev:worker": "turbo run dev --filter=@reelforge/worker",
+    "build": "turbo run build",
+    "lint": "turbo run lint",
+    "db:generate": "turbo run db:generate --filter=@reelforge/db",
+    "db:push": "turbo run db:push --filter=@reelforge/db",
+    "db:studio": "npx prisma studio --schema=packages/db/prisma/schema.prisma",
+    "clean": "rm -rf node_modules apps/*/node_modules packages/*/node_modules apps/*/.next"
+  },
+  "devDependencies": {
+    "turbo": "^2.0.0",
+    "typescript": "^5.4.0",
+    "@types/node": "^20.0.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

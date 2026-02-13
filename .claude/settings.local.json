@@ -1,0 +1,23 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm install:*)",
+      "Bash(docker:*)",
+      "Bash(brew install:*)",
+      "Bash(brew services start:*)",
+      "Bash(mysql:*)",
+      "Bash(brew services:*)",
+      "Bash(lsof:*)",
+      "Bash(/Applications/MAMP/Library/bin/mysql:*)",
+      "Bash(openssl rand:*)",
+      "Bash(npx prisma generate:*)",
+      "Bash(npx prisma db push:*)",
+      "Bash(npx tsx:*)",
+      "Bash(curl:*)",
+      "Bash(node -e \"console.log\\(require\\(''/Users/mac/Desktop/ReelForge_AI/node_modules/next-auth/package.json''\\).version\\)\")",
+      "Bash(kill:*)",
+      "Bash(ls:*)",
+      "Bash(xargs kill)"
+    ]
+  }
+}
