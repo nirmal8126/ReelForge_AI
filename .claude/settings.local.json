@@ -17,7 +17,9 @@
       "Bash(node -e \"console.log\\(require\\(''/Users/mac/Desktop/ReelForge_AI/node_modules/next-auth/package.json''\\).version\\)\")",
       "Bash(kill:*)",
       "Bash(ls:*)",
-      "Bash(xargs kill)"
+      "Bash(xargs kill)",
+      "Bash(pkill:*)",
+      "WebFetch(domain:docs.dev.runwayml.com)"
     ]
   }
 }

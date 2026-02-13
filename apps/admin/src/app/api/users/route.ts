@@ -1,7 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@reelforge/db'
+import { getAdminSessionFromRequest } from '@/lib/auth'
 
 export async function GET(req: NextRequest) {
+  const session = await getAdminSessionFromRequest(req)
+  if (!session) {
+    return NextResponse.json({ message: 'Unauthorized' }, { status: 401 })
+  }
+
   const { searchParams } = new URL(req.url)
   const q = searchParams.get('q') || ''
   const page = parseInt(searchParams.get('page') || '1')

@@ -7,6 +7,7 @@ import { prisma } from '@reelforge/db'
 import { generateReferralCode } from './utils'
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
+  secret: process.env.AUTH_SECRET || process.env.NEXTAUTH_SECRET,
   adapter: PrismaAdapter(prisma),
   session: { strategy: 'jwt' },
   pages: {
@@ -30,15 +31,17 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       },
       async authorize(credentials) {
         if (!credentials?.email || !credentials?.password) return null
+        const email = String(credentials.email).trim().toLowerCase()
+        const password = String(credentials.password)
 
         const user = await prisma.user.findUnique({
-          where: { email: credentials.email as string },
+          where: { email },
         })
 
         if (!user || !user.passwordHash) return null
 
         const isValid = await bcrypt.compare(
-          credentials.password as string,
+          password,
           user.passwordHash
         )
 

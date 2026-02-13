@@ -14,19 +14,19 @@ import {
 import { clsx } from 'clsx'
 
 const navigation = [
-  { name: 'Dashboard', href: '/admin', icon: LayoutDashboard },
-  { name: 'Users', href: '/admin/users', icon: Users },
-  { name: 'Jobs', href: '/admin/jobs', icon: Film },
-  { name: 'Subscriptions', href: '/admin/subscriptions', icon: CreditCard },
-  { name: 'Referrals', href: '/admin/referrals', icon: Gift },
-  { name: 'Analytics', href: '/admin/analytics', icon: BarChart3 },
+  { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
+  { name: 'Users', href: '/users', icon: Users },
+  { name: 'Jobs', href: '/jobs', icon: Film },
+  { name: 'Subscriptions', href: '/subscriptions', icon: CreditCard },
+  { name: 'Referrals', href: '/referrals', icon: Gift },
+  { name: 'Analytics', href: '/analytics', icon: BarChart3 },
 ]
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
 
   function isActive(href: string) {
-    if (href === '/admin') return pathname === '/admin'
+    if (href === '/dashboard') return pathname === '/dashboard'
     return pathname.startsWith(href)
   }
 
@@ -68,8 +68,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         {/* Footer */}
         <div className="p-3 border-t border-white/10">
           <button
-            onClick={() => {
-              window.location.href = '/'
+            onClick={async () => {
+              await fetch('/api/auth/logout', { method: 'POST' })
+              window.location.href = '/login'
             }}
             className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-gray-400 hover:text-red-400 hover:bg-red-500/10 transition-colors w-full"
           >

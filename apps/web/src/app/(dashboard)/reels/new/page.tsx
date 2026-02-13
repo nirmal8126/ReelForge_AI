@@ -35,6 +35,8 @@ const VOICES = [
 ]
 
 const DURATIONS = [
+  { value: 5, label: '5s', desc: 'Ultra short' },
+  { value: 10, label: '10s', desc: 'Quick clip' },
   { value: 15, label: '15s', desc: 'Quick hook' },
   { value: 30, label: '30s', desc: 'Standard reel' },
   { value: 60, label: '60s', desc: 'Deep dive' },

@@ -1,4 +1,6 @@
 import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
+import { writeFileSync, mkdirSync } from 'fs';
+import { join } from 'path';
 import { logger } from '../utils/logger';
 
 const log = logger.child({ service: 'storage' });
@@ -45,17 +47,47 @@ function getS3Client(): S3Client {
 }
 
 // ---------------------------------------------------------------------------
+// Demo Mode Storage (local filesystem)
+// ---------------------------------------------------------------------------
+
+function uploadToLocalStorage(opts: UploadOptions): UploadResult {
+  const { buffer, userId, reelJobId } = opts;
+
+  const outputDir = join('/tmp', 'reelforge-reels', userId);
+  mkdirSync(outputDir, { recursive: true });
+
+  const filePath = join(outputDir, `${reelJobId}.mp4`);
+  writeFileSync(filePath, buffer);
+
+  log.warn({ filePath, sizeBytes: buffer.length }, 'DEMO MODE: Saved to local filesystem (configure R2_ACCOUNT_ID for cloud storage)');
+
+  return {
+    url: `file://${filePath}`,
+    thumbnailUrl: null,
+  };
+}
+
+// ---------------------------------------------------------------------------
 // Public API
 // ---------------------------------------------------------------------------
 
 /**
  * Upload a composed reel to Cloudflare R2 storage.
+ * Falls back to local storage if R2 credentials are not configured (demo mode).
  *
  * Key format: reels/{userId}/{reelJobId}.mp4
  * Returns the public CDN URL and thumbnail URL.
  */
 export async function uploadToStorage(opts: UploadOptions): Promise<UploadResult> {
   const { buffer, userId, reelJobId } = opts;
+
+  // Check if R2 is configured
+  const hasR2Config = process.env.R2_ACCOUNT_ID && process.env.R2_ACCESS_KEY_ID && process.env.R2_SECRET_ACCESS_KEY;
+
+  if (!hasR2Config) {
+    log.warn('R2 credentials not configured - using local storage demo mode');
+    return uploadToLocalStorage(opts);
+  }
 
   const bucket = process.env.R2_BUCKET_NAME || 'reelforge-media';
   const cdnUrl = process.env.CDN_URL || `https://${process.env.R2_ACCOUNT_ID}.r2.dev`;

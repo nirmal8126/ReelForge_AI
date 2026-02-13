@@ -106,7 +106,7 @@ export default async function AdminJobsPage({ searchParams }: JobsPageProps) {
         <div className="flex items-center gap-1.5 flex-wrap">
           <Filter className="w-4 h-4 text-gray-500 mr-1" />
           <Link
-            href="/admin/jobs"
+            href="/jobs"
             className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
               !statusFilter
                 ? 'bg-brand-600/20 text-brand-400 border border-brand-500/20'
@@ -118,7 +118,7 @@ export default async function AdminJobsPage({ searchParams }: JobsPageProps) {
           {allStatuses.map((status) => (
             <Link
               key={status}
-              href={`/admin/jobs?status=${status}${search ? `&q=${search}` : ''}`}
+              href={`/jobs?status=${status}${search ? `&q=${search}` : ''}`}
               className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
                 statusFilter === status
                   ? 'bg-brand-600/20 text-brand-400 border border-brand-500/20'

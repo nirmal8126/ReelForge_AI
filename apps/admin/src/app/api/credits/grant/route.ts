@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@reelforge/db'
 import { z } from 'zod'
+import { getAdminSessionFromRequest } from '@/lib/auth'
 
 const grantSchema = z.object({
   userId: z.string(),
@@ -9,6 +10,11 @@ const grantSchema = z.object({
 })
 
 export async function POST(req: NextRequest) {
+  const session = await getAdminSessionFromRequest(req)
+  if (!session) {
+    return NextResponse.json({ message: 'Unauthorized' }, { status: 401 })
+  }
+
   try {
     const body = await req.json()
     const { userId, amount, reason } = grantSchema.parse(body)

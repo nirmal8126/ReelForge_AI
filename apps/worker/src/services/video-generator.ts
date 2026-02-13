@@ -75,12 +75,14 @@ export async function generateVideo(opts: VideoGenerationOptions): Promise<Buffe
   // -----------------------------------------------------------------------
   log.info({ style, durationSeconds }, 'Initiating RunwayML video generation');
 
-  const initResponse = await client.post<RunwayTaskResponse>('/image_to_video', {
-    model: 'gen3a_turbo',
+  // Veo 3.1 Fast only supports 5s or 10s durations
+  const validDuration = durationSeconds <= 5 ? 5 : 10;
+
+  const initResponse = await client.post<RunwayTaskResponse>('/text_to_video', {
+    model: 'veo3.1_fast',
     promptText: `${style} style: ${prompt}`,
-    duration: Math.min(durationSeconds, 10), // Gen-3 supports up to ~10s clips
-    watermark: false,
-    ratio: '9:16', // vertical short-form
+    duration: validDuration,
+    ratio: '720:1280', // vertical short-form (9:16)
   });
 
   const taskId = initResponse.data.id;

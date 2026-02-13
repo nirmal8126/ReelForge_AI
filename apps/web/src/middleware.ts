@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
+import { getToken } from 'next-auth/jwt'
 
 // Rate limiting store (in-memory for Edge runtime)
 const rateLimitMap = new Map<string, { count: number; resetTime: number }>()
@@ -21,8 +22,41 @@ function rateLimit(ip: string, limit: number, windowMs: number): boolean {
   return true
 }
 
-export function middleware(request: NextRequest) {
+const authPages = new Set(['/login', '/register'])
+const protectedPrefixes = [
+  '/dashboard',
+  '/reels',
+  '/profiles',
+  '/billing',
+  '/settings',
+  '/referrals',
+]
+
+export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
+  const token = await getToken({
+    req: request,
+    secret: process.env.NEXTAUTH_SECRET,
+  })
+  const isAuthenticated = Boolean(token)
+
+  const isProtectedRoute = protectedPrefixes.some(
+    (prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`)
+  )
+
+  if (isProtectedRoute && !isAuthenticated) {
+    const loginUrl = request.nextUrl.clone()
+    loginUrl.pathname = '/login'
+    loginUrl.searchParams.set('callbackUrl', request.nextUrl.pathname + request.nextUrl.search)
+    return NextResponse.redirect(loginUrl)
+  }
+
+  if (authPages.has(pathname) && isAuthenticated) {
+    const dashboardUrl = request.nextUrl.clone()
+    dashboardUrl.pathname = '/dashboard'
+    dashboardUrl.search = ''
+    return NextResponse.redirect(dashboardUrl)
+  }
 
   // Rate limit public API routes
   if (pathname.startsWith('/api/auth/register') || pathname.startsWith('/api/auth/login')) {

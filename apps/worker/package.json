@@ -24,6 +24,7 @@
     "typescript": "^5.0.0",
     "@types/node": "^20.0.0",
     "@types/fluent-ffmpeg": "^2.1.0",
-    "tsx": "^4.0.0"
+    "tsx": "^4.0.0",
+    "pino-pretty": "^10.0.0"
   }
 }

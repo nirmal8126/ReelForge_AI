@@ -1,8 +1,44 @@
-import 'dotenv/config';
+import dotenv from 'dotenv';
+import path from 'path';
+import fs from 'fs';
 import { Worker, Queue } from 'bullmq';
 import IORedis from 'ioredis';
 import { logger } from './utils/logger';
 import { processReelJob } from './jobs/reel-processor';
+
+function loadEnvFiles() {
+  const cwd = process.cwd();
+
+  // Load .env files first (base configuration)
+  const envFiles = [
+    path.resolve(cwd, '../../.env'),
+    path.resolve(cwd, '.env'),
+  ];
+
+  // Then load .env.local files (overrides)
+  const envLocalFiles = [
+    path.resolve(cwd, '../../.env.local'),
+    path.resolve(cwd, '.env.local'),
+  ];
+
+  // Load base .env files without override
+  for (const filePath of envFiles) {
+    if (fs.existsSync(filePath)) {
+      dotenv.config({ path: filePath, override: false });
+      logger.debug({ file: filePath }, 'Loaded .env file');
+    }
+  }
+
+  // Load .env.local files with override to ensure they take precedence
+  for (const filePath of envLocalFiles) {
+    if (fs.existsSync(filePath)) {
+      dotenv.config({ path: filePath, override: true });
+      logger.info({ file: filePath }, 'Loaded .env.local file (with override)');
+    }
+  }
+}
+
+loadEnvFiles();
 
 // ---------------------------------------------------------------------------
 // Redis connection

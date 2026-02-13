@@ -54,5 +54,5 @@ export const CREDIT_PACKAGES = [
   { credits: 100, price: 6999, label: '100 Credits', perCredit: '$0.70' },
 ] as const
 
-export const REEL_DURATIONS = [15, 30, 60] as const
+export const REEL_DURATIONS = [5, 10, 15, 30, 60] as const
 export const ASPECT_RATIOS = ['9:16', '1:1', '16:9'] as const

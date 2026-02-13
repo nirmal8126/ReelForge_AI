@@ -22,6 +22,7 @@ import {
 } from 'lucide-react'
 import { getJobStatusLabel, getJobStatusColor } from '@/lib/utils'
 import { DeleteReelButton } from './delete-button'
+import { AutoRefresh } from './auto-refresh'
 
 interface ReelDetailPageProps {
   params: { id: string }
@@ -87,6 +88,8 @@ export default async function ReelDetailPage({ params }: ReelDetailPageProps) {
 
   return (
     <div>
+      <AutoRefresh enabled={isProcessing} />
+
       {/* Back navigation */}
       <Link
         href="/reels"

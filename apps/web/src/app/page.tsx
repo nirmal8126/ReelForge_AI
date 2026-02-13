@@ -66,12 +66,13 @@ export default function HomePage() {
                 <span className="h-1 w-1 rounded-full bg-gray-700" />
                 <span>Cancel anytime</span>
               </div>
+
             </div>
           </div>
         </section>
 
         {/* Features */}
-        <section id="features" className="py-24 px-6 lg:px-8">
+        <section id="features" className="px-6 lg:px-8">
           <div className="mx-auto max-w-7xl">
             <div className="text-center mb-16">
               <h2 className="text-3xl font-bold text-white sm:text-4xl">Everything You Need to Create Viral Reels</h2>
