@@ -122,6 +122,7 @@ model ReelJob {
   prompt            String        @db.Text
   script            String?       @db.Text
   style             String?       @db.VarChar(100)
+  language          String?       @default("en") @map("language") @db.VarChar(10)
   durationSeconds   Int           @default(30) @map("duration_seconds")
   aspectRatio       String        @default("9:16") @map("aspect_ratio") @db.VarChar(10)
   status            ReelJobStatus @default(QUEUED)
@@ -162,6 +163,7 @@ model ChannelProfile {
   fontFamily          String?     @map("font_family") @db.VarChar(100)
   captionStyle        String?     @map("caption_style") @db.VarChar(50)
   defaultVoiceId      String?     @map("default_voice_id") @db.VarChar(100)
+  defaultLanguage     String?     @default("en") @map("default_language") @db.VarChar(10)
   introAssetId        String?     @map("intro_asset_id")
   outroAssetId        String?     @map("outro_asset_id")
   logoUrl             String?     @map("logo_url") @db.VarChar(500)

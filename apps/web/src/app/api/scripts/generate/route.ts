@@ -5,10 +5,29 @@ import Anthropic from '@anthropic-ai/sdk'
 
 const scriptSchema = z.object({
   prompt: z.string().min(10).max(2000),
-  duration: z.number().min(15).max(60),
+  duration: z.number().min(5).max(60),
+  language: z.string().regex(/^[a-z]{2}$/).default('en'),
   tone: z.string().optional(),
   niche: z.string().optional(),
 })
+
+function getLanguageName(code: string): string {
+  const names: Record<string, string> = {
+    en: 'English',
+    es: 'Spanish (Español)',
+    fr: 'French (Français)',
+    de: 'German (Deutsch)',
+    it: 'Italian (Italiano)',
+    pt: 'Portuguese (Português)',
+    ja: 'Japanese (日本語)',
+    ko: 'Korean (한국어)',
+    zh: 'Chinese (中文)',
+    ar: 'Arabic (العربية)',
+    hi: 'Hindi (हिन्दी)',
+    pl: 'Polish (Polski)',
+  }
+  return names[code] || 'English'
+}
 
 function resolveProviderOrder(): Array<'gemini' | 'anthropic'> {
   const provider = (process.env.AI_PROVIDER || process.env.NEXT_PUBLIC_AI_PROVIDER || '')
@@ -32,6 +51,7 @@ function resolveProviderOrder(): Array<'gemini' | 'anthropic'> {
 async function generateWithAnthropic(
   prompt: string,
   duration: number,
+  language: string,
   tone?: string,
   niche?: string
 ): Promise<string> {
@@ -41,20 +61,23 @@ async function generateWithAnthropic(
   }
 
   const wordsTarget = Math.round(duration * 2.5)
+  const languageName = getLanguageName(language)
   const anthropic = new Anthropic({ apiKey })
   const response = await anthropic.messages.create({
     model: 'claude-sonnet-4-5-20250929',
     max_tokens: 1024,
-    system: `You are an expert short-form video scriptwriter. Write engaging, viral-worthy scripts.
+    system: `You are an expert short-form video scriptwriter. Write engaging, viral-worthy scripts in ${languageName}.
+CRITICAL: Write the ENTIRE script in ${languageName} language. Every word must be in ${languageName}.
 Rules:
+- Language: ${languageName} (ISO code: ${language})
 - Write ~${wordsTarget} words for a ${duration}-second video
 - Tone: ${tone || 'professional'}
 - Niche: ${niche || 'general'}
 - Start with a strong hook in the first 3 seconds
-- End with a call-to-action
+- End with a call-to-action in ${languageName}
 - One sentence per line for caption timing
 - Return ONLY the script text, no titles or labels`,
-    messages: [{ role: 'user', content: `Write 3 different script variations about: ${prompt}\n\nSeparate each variation with ---` }],
+    messages: [{ role: 'user', content: `Write 3 different script variations in ${languageName} about: ${prompt}\n\nSeparate each variation with ---` }],
   })
 
   return response.content[0].type === 'text' ? response.content[0].text : ''
@@ -63,6 +86,7 @@ Rules:
 async function generateWithGemini(
   prompt: string,
   duration: number,
+  language: string,
   tone?: string,
   niche?: string
 ): Promise<string> {
@@ -73,6 +97,7 @@ async function generateWithGemini(
 
   const model = process.env.GEMINI_MODEL || 'gemini-2.5-flash'
   const wordsTarget = Math.round(duration * 2.5)
+  const languageName = getLanguageName(language)
 
   const response = await fetch(
     `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
@@ -83,20 +108,22 @@ async function generateWithGemini(
         contents: [
           {
             role: 'user',
-            parts: [{ text: `Write 3 different script variations about: ${prompt}\n\nSeparate each variation with ---` }],
+            parts: [{ text: `Write 3 different script variations in ${languageName} about: ${prompt}\n\nSeparate each variation with ---` }],
           },
         ],
         systemInstruction: {
           role: 'system',
           parts: [
             {
-              text: `You are an expert short-form video scriptwriter. Write engaging, viral-worthy scripts.
+              text: `You are an expert short-form video scriptwriter. Write engaging, viral-worthy scripts in ${languageName}.
+CRITICAL: Write the ENTIRE script in ${languageName} language. Every word must be in ${languageName}.
 Rules:
+- Language: ${languageName} (ISO code: ${language})
 - Write ~${wordsTarget} words for a ${duration}-second video
 - Tone: ${tone || 'professional'}
 - Niche: ${niche || 'general'}
 - Start with a strong hook in the first 3 seconds
-- End with a call-to-action
+- End with a call-to-action in ${languageName}
 - One sentence per line for caption timing
 - Return ONLY the script text, no titles or labels`,
             },
@@ -127,7 +154,7 @@ export async function POST(req: NextRequest) {
 
   try {
     const body = await req.json()
-    const { prompt, duration, tone, niche } = scriptSchema.parse(body)
+    const { prompt, duration, language, tone, niche } = scriptSchema.parse(body)
 
     let text = ''
     let lastError: Error | null = null
@@ -136,8 +163,8 @@ export async function POST(req: NextRequest) {
       try {
         text =
           provider === 'gemini'
-            ? await generateWithGemini(prompt, duration, tone, niche)
-            : await generateWithAnthropic(prompt, duration, tone, niche)
+            ? await generateWithGemini(prompt, duration, language, tone, niche)
+            : await generateWithAnthropic(prompt, duration, language, tone, niche)
         break
       } catch (err) {
         lastError = err instanceof Error ? err : new Error(String(err))

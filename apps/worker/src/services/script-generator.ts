@@ -45,8 +45,27 @@ export interface ScriptGenerationOptions {
   prompt: string;
   tone: string;
   niche: string;
+  language: string;
   durationSeconds: number;
   hookStyle: string;
+}
+
+function getLanguageName(code: string): string {
+  const names: Record<string, string> = {
+    en: 'English',
+    es: 'Spanish (Español)',
+    fr: 'French (Français)',
+    de: 'German (Deutsch)',
+    it: 'Italian (Italiano)',
+    pt: 'Portuguese (Português)',
+    ja: 'Japanese (日本語)',
+    ko: 'Korean (한국어)',
+    zh: 'Chinese (中文)',
+    ar: 'Arabic (العربية)',
+    hi: 'Hindi (हिन्दी)',
+    pl: 'Polish (Polski)',
+  };
+  return names[code] || 'English';
 }
 
 // ---------------------------------------------------------------------------
@@ -57,10 +76,14 @@ function buildSystemPrompt(opts: ScriptGenerationOptions): string {
   // More generous word count: 3 words/sec for short videos, 2.5 for longer
   const wordsPerSecond = opts.durationSeconds <= 10 ? 3 : 2.5;
   const wordTarget = Math.round(opts.durationSeconds * wordsPerSecond);
+  const languageName = getLanguageName(opts.language);
 
   return `You are an expert short-form video scriptwriter specialising in ${opts.niche} content.
 
+CRITICAL: Write the ENTIRE script in ${languageName} language. Every word must be in ${languageName}.
+
 REQUIREMENTS:
+- Language: ${languageName} (ISO code: ${opts.language})
 - Tone: ${opts.tone.toLowerCase()}
 - Duration: ~${opts.durationSeconds} seconds (~${wordTarget} words)
 - Hook style: ${opts.hookStyle}
@@ -68,9 +91,9 @@ REQUIREMENTS:
 - CRITICAL: Write a COMPLETE script with proper ending. Do NOT cut off mid-sentence.
 
 STRUCTURE (ALL THREE PARTS REQUIRED):
-1. HOOK (first 3 seconds) — grab attention immediately using a ${opts.hookStyle} style hook.
-2. BODY — deliver the core value clearly and concisely with complete thoughts.
-3. CTA — end with a strong, complete call-to-action (follow, like, comment, share).
+1. HOOK (first 3 seconds) — grab attention immediately using a ${opts.hookStyle} style hook in ${languageName}.
+2. BODY — deliver the core value clearly and concisely with complete thoughts in ${languageName}.
+3. CTA — end with a strong, complete call-to-action in ${languageName} (follow, like, comment, share).
 
 IMPORTANT: Ensure the script conveys a complete message from start to finish. Every sentence must be complete. The CTA must be present and complete.
 
@@ -83,15 +106,16 @@ Output the raw script text only. Do not include labels like "Hook:", "Body:", "C
 
 async function generateWithClaude(opts: ScriptGenerationOptions): Promise<string> {
   const client = getAnthropicClient();
+  const languageName = getLanguageName(opts.language);
 
   const response = await client.messages.create({
     model: 'claude-sonnet-4-5-20250929',
-    max_tokens: 1024,
+    max_tokens: 2048,
     system: buildSystemPrompt(opts),
     messages: [
       {
         role: 'user',
-        content: `Write a short-form video script about: ${opts.prompt}`,
+        content: `Write a short-form video script in ${languageName} about: ${opts.prompt}`,
       },
     ],
   });
@@ -140,6 +164,8 @@ async function generateWithGemini(opts: ScriptGenerationOptions): Promise<string
   }
 
   const model = process.env.GEMINI_MODEL || 'gemini-2.5-flash';
+  const languageName = getLanguageName(opts.language);
+
   const response = await fetch(
     `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
     {
@@ -149,7 +175,7 @@ async function generateWithGemini(opts: ScriptGenerationOptions): Promise<string
         contents: [
           {
             role: 'user',
-            parts: [{ text: `Write a short-form video script about: ${opts.prompt}` }],
+            parts: [{ text: `Write a short-form video script in ${languageName} about: ${opts.prompt}` }],
           },
         ],
         systemInstruction: {

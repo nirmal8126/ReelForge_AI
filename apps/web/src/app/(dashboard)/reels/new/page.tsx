@@ -7,6 +7,7 @@ import {
   ArrowLeft, ArrowRight, Check, Loader2, Film,
 } from 'lucide-react'
 import toast from 'react-hot-toast'
+import { SUPPORTED_LANGUAGES, LANGUAGE_VOICE_MAP } from '@/lib/constants'
 
 const STYLES = [
   { id: 'cinematic', name: 'Cinematic', color: '#1E293B', desc: 'Movie-like visuals' },
@@ -71,6 +72,7 @@ export default function CreateReelPage() {
     title: '',
     prompt: '',
     style: 'cinematic',
+    language: 'en',
     voiceId: VOICES[0].id,
     durationSeconds: 30,
     aspectRatio: '9:16',
@@ -98,6 +100,7 @@ export default function CreateReelPage() {
         body: JSON.stringify({
           prompt: form.prompt,
           duration: form.durationSeconds,
+          language: form.language,
           tone: profiles.find(p => p.id === form.channelProfileId)?.tone || 'professional',
           niche: profiles.find(p => p.id === form.channelProfileId)?.niche || 'general',
         }),
@@ -128,6 +131,7 @@ export default function CreateReelPage() {
           prompt: form.prompt,
           script: scriptVariations[form.selectedScript] || undefined,
           style: form.style,
+          language: form.language,
           voiceId: form.voiceId,
           durationSeconds: form.durationSeconds,
           aspectRatio: form.aspectRatio,
@@ -264,6 +268,33 @@ export default function CreateReelPage() {
             </div>
           </div>
 
+          {/* Language Selection */}
+          <div>
+            <label className="block text-sm font-medium text-gray-300 mb-4">Language</label>
+            <p className="text-xs text-gray-400 mb-3">
+              Script and voiceover will be generated in this language
+            </p>
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+              {SUPPORTED_LANGUAGES.map((lang) => (
+                <button
+                  key={lang.code}
+                  type="button"
+                  onClick={() => setForm({ ...form, language: lang.code })}
+                  className={`rounded-lg border p-3 text-left transition ${
+                    form.language === lang.code
+                      ? 'border-brand-500 bg-brand-500/10 ring-1 ring-brand-500'
+                      : 'border-white/10 bg-white/5 hover:bg-white/10'
+                  }`}
+                >
+                  <div className="flex items-center gap-2">
+                    <span className="text-2xl">{lang.flag}</span>
+                    <span className="text-sm font-medium text-white">{lang.name}</span>
+                  </div>
+                </button>
+              ))}
+            </div>
+          </div>
+
           <div className="flex justify-between">
             <button onClick={() => setStep(1)} className="inline-flex items-center gap-2 rounded-lg bg-white/10 px-6 py-2.5 text-sm font-medium text-white hover:bg-white/20 transition">
               <ArrowLeft className="h-4 w-4" /> Back
@@ -325,23 +356,60 @@ export default function CreateReelPage() {
         <div className="space-y-8">
           <div>
             <label className="block text-sm font-medium text-gray-300 mb-4">AI Voice</label>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              {VOICES.map((voice) => (
-                <button
-                  key={voice.id}
-                  onClick={() => setForm({ ...form, voiceId: voice.id })}
-                  className={`flex items-center gap-3 rounded-lg border p-4 text-left transition ${
-                    form.voiceId === voice.id
-                      ? 'border-brand-500 bg-brand-500/10'
-                      : 'border-white/10 bg-white/5 hover:bg-white/10'
-                  }`}
-                >
-                  <Mic className={`h-5 w-5 flex-shrink-0 ${form.voiceId === voice.id ? 'text-brand-400' : 'text-gray-500'}`} />
-                  <span className="text-sm text-white">{voice.name}</span>
-                  {form.voiceId === voice.id && <Check className="h-4 w-4 text-brand-400 ml-auto" />}
-                </button>
-              ))}
-            </div>
+            {(() => {
+              const availableVoices = LANGUAGE_VOICE_MAP[form.language] || []
+              const filteredVoices = VOICES.filter(v => availableVoices.includes(v.id))
+
+              if (filteredVoices.length === 0) {
+                return (
+                  <>
+                    <div className="rounded-lg bg-yellow-500/10 border border-yellow-500/20 p-4 mb-4">
+                      <p className="text-sm text-yellow-400">
+                        Voices for {SUPPORTED_LANGUAGES.find(l => l.code === form.language)?.name} coming soon!
+                        Using English voices as temporary fallback.
+                      </p>
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      {VOICES.map((voice) => (
+                        <button
+                          key={voice.id}
+                          onClick={() => setForm({ ...form, voiceId: voice.id })}
+                          className={`flex items-center gap-3 rounded-lg border p-4 text-left transition ${
+                            form.voiceId === voice.id
+                              ? 'border-brand-500 bg-brand-500/10'
+                              : 'border-white/10 bg-white/5 hover:bg-white/10'
+                          }`}
+                        >
+                          <Mic className={`h-5 w-5 flex-shrink-0 ${form.voiceId === voice.id ? 'text-brand-400' : 'text-gray-500'}`} />
+                          <span className="text-sm text-white">{voice.name}</span>
+                          {form.voiceId === voice.id && <Check className="h-4 w-4 text-brand-400 ml-auto" />}
+                        </button>
+                      ))}
+                    </div>
+                  </>
+                )
+              }
+
+              return (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  {filteredVoices.map((voice) => (
+                    <button
+                      key={voice.id}
+                      onClick={() => setForm({ ...form, voiceId: voice.id })}
+                      className={`flex items-center gap-3 rounded-lg border p-4 text-left transition ${
+                        form.voiceId === voice.id
+                          ? 'border-brand-500 bg-brand-500/10'
+                          : 'border-white/10 bg-white/5 hover:bg-white/10'
+                      }`}
+                    >
+                      <Mic className={`h-5 w-5 flex-shrink-0 ${form.voiceId === voice.id ? 'text-brand-400' : 'text-gray-500'}`} />
+                      <span className="text-sm text-white">{voice.name}</span>
+                      {form.voiceId === voice.id && <Check className="h-4 w-4 text-brand-400 ml-auto" />}
+                    </button>
+                  ))}
+                </div>
+              )
+            })()}
           </div>
 
           <div>
@@ -418,6 +486,10 @@ export default function CreateReelPage() {
               <div>
                 <p className="text-xs text-gray-400 mb-1">Style</p>
                 <p className="text-white capitalize">{form.style}</p>
+              </div>
+              <div>
+                <p className="text-xs text-gray-400 mb-1">Language</p>
+                <p className="text-white">{SUPPORTED_LANGUAGES.find(l => l.code === form.language)?.name || 'English'}</p>
               </div>
               <div>
                 <p className="text-xs text-gray-400 mb-1">Voice</p>

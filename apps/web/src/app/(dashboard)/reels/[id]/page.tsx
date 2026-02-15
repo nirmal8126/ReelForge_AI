@@ -49,6 +49,11 @@ export default async function ReelDetailPage({ params }: ReelDetailPageProps) {
   const isFailed = reel.status === 'FAILED'
   const isProcessing = !isCompleted && !isFailed
 
+  // Use API endpoint for local file:// URLs
+  const videoUrl = reel.outputUrl?.startsWith('file://')
+    ? `/api/reels/${reel.id}/video`
+    : reel.outputUrl
+
   // Define the pipeline stages for the status timeline
   const stages = [
     { key: 'QUEUED', label: 'Queued', icon: Clock },
@@ -70,6 +75,7 @@ export default async function ReelDetailPage({ params }: ReelDetailPageProps) {
       if (failedIndex === currentIndex) return 'failed'
       return 'pending'
     }
+    if (isCompleted) return 'completed'
     const stageIndex = stageOrder.indexOf(stageKey)
     if (stageIndex < currentIndex) return 'completed'
     if (stageIndex === currentIndex) return 'active'
@@ -121,9 +127,9 @@ export default async function ReelDetailPage({ params }: ReelDetailPageProps) {
         </div>
 
         <div className="flex items-center gap-3 ml-4">
-          {isCompleted && reel.outputUrl && (
+          {isCompleted && videoUrl && (
             <a
-              href={reel.outputUrl}
+              href={videoUrl}
               download
               target="_blank"
               rel="noopener noreferrer"
@@ -142,10 +148,10 @@ export default async function ReelDetailPage({ params }: ReelDetailPageProps) {
         <div className="lg:col-span-2 space-y-6">
           {/* Video Preview */}
           <div className="rounded-xl border border-white/10 bg-white/5 overflow-hidden">
-            {isCompleted && reel.outputUrl ? (
+            {isCompleted && videoUrl ? (
               <div className="aspect-video bg-black">
                 <video
-                  src={reel.outputUrl}
+                  src={videoUrl}
                   controls
                   className="w-full h-full"
                   poster={reel.thumbnailUrl || undefined}

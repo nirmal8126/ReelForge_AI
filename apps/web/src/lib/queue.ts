@@ -33,7 +33,9 @@ export async function enqueueReelJob(data: {
   reelJobId: string
   userId: string
   prompt: string
+  script?: string
   style?: string
+  language?: string
   voiceId?: string
   durationSeconds: number
   aspectRatio: string

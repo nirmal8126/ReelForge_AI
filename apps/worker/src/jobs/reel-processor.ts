@@ -11,8 +11,10 @@ export interface ReelJobData {
   reelJobId: string;
   userId: string;
   prompt: string;
+  script?: string;
   title: string;
   durationSeconds: number;
+  language?: string;
   style?: string;
   tone?: string;
   niche?: string;
@@ -53,13 +55,20 @@ export async function processReelJob(job: Job<ReelJobData>): Promise<ReelJobResu
     await updateStatus(reelJobId, 'SCRIPT_GENERATING');
     await job.updateProgress(10);
 
-    const script = await generateScript({
-      prompt,
-      tone: job.data.tone || 'PROFESSIONAL',
-      niche: job.data.niche || 'general',
-      durationSeconds,
-      hookStyle: job.data.hookStyle || 'question',
-    });
+    let script: string;
+    if (job.data.script) {
+      script = job.data.script;
+      log.info({ scriptLength: script.length }, 'Using pre-generated script');
+    } else {
+      script = await generateScript({
+        prompt,
+        tone: job.data.tone || 'PROFESSIONAL',
+        niche: job.data.niche || 'general',
+        language: job.data.language || 'en',
+        durationSeconds,
+        hookStyle: job.data.hookStyle || 'question',
+      });
+    }
 
     await prisma.reelJob.update({
       where: { id: reelJobId },
@@ -78,6 +87,7 @@ export async function processReelJob(job: Job<ReelJobData>): Promise<ReelJobResu
     const audioBuffer = await generateVoiceover({
       script,
       voiceId: job.data.voiceId || 'EXAVITQu4vr4xnSDxMaL', // default: Sarah
+      language: job.data.language || 'en',
     });
 
     log.info({ audioSizeBytes: audioBuffer.length }, 'Voiceover generated');

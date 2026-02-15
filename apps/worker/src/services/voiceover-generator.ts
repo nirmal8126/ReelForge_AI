@@ -12,6 +12,7 @@ const ELEVENLABS_API_URL = 'https://api.elevenlabs.io/v1';
 export interface VoiceoverOptions {
   script: string;
   voiceId: string;
+  language?: string;
 }
 
 // ---------------------------------------------------------------------------
@@ -25,27 +26,34 @@ export interface VoiceoverOptions {
  * Returns raw audio data as a Buffer (mpeg format).
  */
 export async function generateVoiceover(opts: VoiceoverOptions): Promise<Buffer> {
-  const { script, voiceId } = opts;
+  const { script, voiceId, language } = opts;
 
   const apiKey = process.env.ELEVENLABS_API_KEY;
   if (!apiKey) {
     throw new Error('ELEVENLABS_API_KEY is not set');
   }
 
-  log.info({ voiceId, scriptLength: script.length }, 'Generating voiceover via ElevenLabs');
+  log.info({ voiceId, language, scriptLength: script.length }, 'Generating voiceover via ElevenLabs');
+
+  const requestBody: Record<string, unknown> = {
+    text: script,
+    model_id: 'eleven_turbo_v2',
+    voice_settings: {
+      stability: 0.5,
+      similarity_boost: 0.8,
+      style: 0.0,
+      use_speaker_boost: true,
+    },
+  };
+
+  // Add language parameter if not English
+  if (language && language !== 'en') {
+    requestBody.language_code = language;
+  }
 
   const response = await axios.post(
     `${ELEVENLABS_API_URL}/text-to-speech/${voiceId}`,
-    {
-      text: script,
-      model_id: 'eleven_turbo_v2',
-      voice_settings: {
-        stability: 0.5,
-        similarity_boost: 0.8,
-        style: 0.0,
-        use_speaker_boost: true,
-      },
-    },
+    requestBody,
     {
       headers: {
         'xi-api-key': apiKey,
@@ -60,7 +68,7 @@ export async function generateVoiceover(opts: VoiceoverOptions): Promise<Buffer>
   const audioBuffer = Buffer.from(response.data);
 
   log.info(
-    { voiceId, audioSizeBytes: audioBuffer.length, contentType: response.headers['content-type'] },
+    { voiceId, language, audioSizeBytes: audioBuffer.length, contentType: response.headers['content-type'] },
     'Voiceover generated successfully',
   );
 

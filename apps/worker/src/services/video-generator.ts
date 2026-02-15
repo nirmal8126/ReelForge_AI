@@ -75,15 +75,31 @@ export async function generateVideo(opts: VideoGenerationOptions): Promise<Buffe
   // -----------------------------------------------------------------------
   log.info({ style, durationSeconds }, 'Initiating RunwayML video generation');
 
-  // Veo 3.1 Fast only supports 5s or 10s durations
+  // Gen 4.5 only supports 5s or 10s durations
   const validDuration = durationSeconds <= 5 ? 5 : 10;
 
-  const initResponse = await client.post<RunwayTaskResponse>('/text_to_video', {
-    model: 'veo3.1_fast',
+  const requestBody = {
+    model: 'gen4.5',
     promptText: `${style} style: ${prompt}`,
     duration: validDuration,
     ratio: '720:1280', // vertical short-form (9:16)
-  });
+  };
+
+  log.info({ requestBody }, 'Sending RunwayML API request');
+
+  let initResponse;
+  try {
+    initResponse = await client.post<RunwayTaskResponse>('/text_to_video', requestBody);
+  } catch (error: any) {
+    log.error({
+      error: error.message,
+      status: error.response?.status,
+      statusText: error.response?.statusText,
+      data: error.response?.data,
+      requestBody,
+    }, 'RunwayML API request failed');
+    throw error;
+  }
 
   const taskId = initResponse.data.id;
   log.info({ taskId }, 'Video generation task created');
