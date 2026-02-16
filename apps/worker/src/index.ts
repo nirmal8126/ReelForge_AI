@@ -5,6 +5,7 @@ import { Worker, Queue } from 'bullmq';
 import IORedis from 'ioredis';
 import { logger } from './utils/logger';
 import { processReelJob } from './jobs/reel-processor';
+import { processLongFormJob } from './jobs/long-form-processor';
 
 function loadEnvFiles() {
   const cwd = process.cwd();
@@ -86,6 +87,35 @@ reelWorker.on('error', (err) => {
 });
 
 // ---------------------------------------------------------------------------
+// Long-form video worker
+// ---------------------------------------------------------------------------
+const longFormWorker = new Worker(
+  'long-form-jobs',
+  async (job) => {
+    logger.info({ jobId: job.id, data: job.data }, 'Processing long-form job');
+    return processLongFormJob(job);
+  },
+  {
+    connection,
+    concurrency: 2, // Lower concurrency for long-running jobs
+    removeOnComplete: { count: 500 },
+    removeOnFail: { count: 250 },
+  },
+);
+
+longFormWorker.on('completed', (job) => {
+  logger.info({ jobId: job.id }, 'Long-form job completed successfully');
+});
+
+longFormWorker.on('failed', (job, err) => {
+  logger.error({ jobId: job?.id, err: err.message }, 'Long-form job failed');
+});
+
+longFormWorker.on('error', (err) => {
+  logger.error({ err }, 'Long-form worker error');
+});
+
+// ---------------------------------------------------------------------------
 // Email notification worker
 // ---------------------------------------------------------------------------
 const emailWorker = new Worker(
@@ -127,6 +157,7 @@ const shutdown = async (signal: string) => {
 
   await Promise.allSettled([
     reelWorker.close(),
+    longFormWorker.close(),
     emailWorker.close(),
   ]);
 
@@ -143,8 +174,8 @@ process.on('SIGINT', () => shutdown('SIGINT'));
 // ---------------------------------------------------------------------------
 logger.info(
   {
-    queues: ['reel-jobs', 'email-notifications'],
-    concurrency: { reelJobs: 5, emailNotifications: 10 },
+    queues: ['reel-jobs', 'long-form-jobs', 'email-notifications'],
+    concurrency: { reelJobs: 5, longFormJobs: 2, emailNotifications: 10 },
     redis: process.env.REDIS_URL ? '(configured)' : 'redis://localhost:6379',
   },
   'ReelForge worker service started',

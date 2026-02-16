@@ -1,53 +1,56 @@
 generator client {
   provider = "prisma-client-js"
-  output   = "../../../node_modules/.prisma/client"
 }
 
 datasource db {
-  provider = "mysql"
-  url      = env("DATABASE_URL")
+  provider     = "mysql"
+  url          = env("DATABASE_URL")
   relationMode = "prisma"
 }
 
 model User {
-  id                  String    @id @default(cuid())
-  email               String    @unique
-  name                String
-  passwordHash        String?   @map("password_hash")
-  avatarUrl           String?   @map("avatar_url") @db.VarChar(500)
-  role                UserRole  @default(USER)
-  emailVerified       DateTime? @map("email_verified")
-  stripeCustomerId    String?   @unique @map("stripe_customer_id") @db.VarChar(100)
+  id               String    @id @default(cuid())
+  email            String    @unique
+  name             String
+  passwordHash     String?   @map("password_hash")
+  avatarUrl        String?   @map("avatar_url") @db.VarChar(500)
+  role             UserRole  @default(USER)
+  emailVerified    DateTime? @map("email_verified")
+  stripeCustomerId String?   @unique @map("stripe_customer_id") @db.VarChar(100)
 
   // Referral fields
-  referralCode        String    @unique @map("referral_code") @db.VarChar(12)
-  referredByUserId    String?   @map("referred_by_user_id")
-  referredBy          User?     @relation("UserReferrals", fields: [referredByUserId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  referredUsers       User[]    @relation("UserReferrals")
-  referralTier        ReferralTier @default(FREE) @map("referral_tier")
-  totalReferrals      Int       @default(0) @map("total_referrals")
+  referralCode     String       @unique @map("referral_code") @db.VarChar(12)
+  referredByUserId String?      @map("referred_by_user_id")
+  referredBy       User?        @relation("UserReferrals", fields: [referredByUserId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  referredUsers    User[]       @relation("UserReferrals")
+  referralTier     ReferralTier @default(FREE) @map("referral_tier")
+  totalReferrals   Int          @default(0) @map("total_referrals")
 
   // Credits
-  creditsBalance      Int       @default(0) @map("credits_balance")
-  cashPendingCents    BigInt    @default(0) @map("cash_pending_cents")
-  cashWithdrawnCents  BigInt    @default(0) @map("cash_withdrawn_cents")
+  creditsBalance     Int    @default(0) @map("credits_balance")
+  cashPendingCents   BigInt @default(0) @map("cash_pending_cents")
+  cashWithdrawnCents BigInt @default(0) @map("cash_withdrawn_cents")
 
   // Relations
-  subscription        Subscription?
-  reelJobs            ReelJob[]
-  channelProfiles     ChannelProfile[]
-  referralsMade       Referral[]  @relation("ReferrerReferrals")
-  referralsReceived   Referral[]  @relation("ReferredReferrals")
-  creditTransactions  CreditTransaction[]
-  mediaAssets         MediaAsset[]
-  accounts            Account[]
-  sessions            Session[]
+  subscription       Subscription?
+  reelJobs           ReelJob[]
+  longFormJobs       LongFormJob[]
+  channelProfiles    ChannelProfile[]
+  youtubeConnection  YouTubeConnection?
+  autopilotSchedules AutopilotSchedule[]
+  contentCalendar    ContentCalendar[]
+  referralsMade      Referral[]          @relation("ReferrerReferrals")
+  referralsReceived  Referral[]          @relation("ReferredReferrals")
+  creditTransactions CreditTransaction[]
+  mediaAssets        MediaAsset[]
+  accounts           Account[]
+  sessions           Session[]
 
-  createdAt           DateTime  @default(now()) @map("created_at")
-  updatedAt           DateTime  @updatedAt @map("updated_at")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
 
-  @@map("users")
   @@index([referredByUserId])
+  @@map("users")
 }
 
 model Account {
@@ -67,8 +70,8 @@ model Account {
   user User @relation(fields: [userId], references: [id], onDelete: NoAction, onUpdate: NoAction)
 
   @@unique([provider, providerAccountId])
-  @@map("accounts")
   @@index([userId])
+  @@map("accounts")
 }
 
 model Session {
@@ -79,8 +82,8 @@ model Session {
 
   user User @relation(fields: [userId], references: [id], onDelete: NoAction, onUpdate: NoAction)
 
-  @@map("sessions")
   @@index([userId])
+  @@map("sessions")
 }
 
 model VerificationToken {
@@ -93,17 +96,17 @@ model VerificationToken {
 }
 
 model Subscription {
-  id                    String             @id @default(cuid())
-  userId                String             @unique @map("user_id")
-  plan                  SubscriptionPlan   @default(FREE)
-  status                SubscriptionStatus @default(ACTIVE)
-  jobsLimit             Int                @map("jobs_limit") @default(3)
-  jobsUsed              Int                @default(0) @map("jobs_used")
-  stripeSubscriptionId  String?            @unique @map("stripe_subscription_id") @db.VarChar(100)
-  stripePriceId         String?            @map("stripe_price_id")
-  currentPeriodStart    DateTime?          @map("current_period_start")
-  currentPeriodEnd      DateTime?          @map("current_period_end")
-  cancelAtPeriodEnd     Boolean            @default(false) @map("cancel_at_period_end")
+  id                   String             @id @default(cuid())
+  userId               String             @unique @map("user_id")
+  plan                 SubscriptionPlan   @default(FREE)
+  status               SubscriptionStatus @default(ACTIVE)
+  jobsLimit            Int                @default(3) @map("jobs_limit")
+  jobsUsed             Int                @default(0) @map("jobs_used")
+  stripeSubscriptionId String?            @unique @map("stripe_subscription_id") @db.VarChar(100)
+  stripePriceId        String?            @map("stripe_price_id")
+  currentPeriodStart   DateTime?          @map("current_period_start")
+  currentPeriodEnd     DateTime?          @map("current_period_end")
+  cancelAtPeriodEnd    Boolean            @default(false) @map("cancel_at_period_end")
 
   user User @relation(fields: [userId], references: [id], onDelete: NoAction, onUpdate: NoAction)
 
@@ -114,89 +117,91 @@ model Subscription {
 }
 
 model ReelJob {
-  id                String        @id @default(cuid())
-  userId            String        @map("user_id")
-  channelProfileId  String?       @map("channel_profile_id")
-  seriesId          String?       @map("series_id")
-  title             String        @db.VarChar(255)
-  prompt            String        @db.Text
-  script            String?       @db.Text
-  style             String?       @db.VarChar(100)
-  language          String?       @default("en") @map("language") @db.VarChar(10)
-  durationSeconds   Int           @default(30) @map("duration_seconds")
-  aspectRatio       String        @default("9:16") @map("aspect_ratio") @db.VarChar(10)
-  status            ReelJobStatus @default(QUEUED)
-  outputUrl         String?       @map("output_url") @db.VarChar(500)
-  thumbnailUrl      String?       @map("thumbnail_url") @db.VarChar(500)
-  platformOutputs   Json?         @map("platform_outputs")
-  aiProvider        String?       @map("ai_provider") @db.VarChar(50)
-  voiceId           String?       @map("voice_id") @db.VarChar(100)
-  musicGenre        String?       @map("music_genre") @db.VarChar(50)
-  captionStyle      String?       @map("caption_style") @db.VarChar(50)
-  errorMessage      String?       @map("error_message") @db.Text
-  processingTimeMs  Int?          @map("processing_time_ms")
-  creditsCost       Int           @default(1) @map("credits_cost")
+  id               String        @id @default(cuid())
+  userId           String        @map("user_id")
+  channelProfileId String?       @map("channel_profile_id")
+  seriesId         String?       @map("series_id")
+  title            String        @db.VarChar(255)
+  prompt           String        @db.Text
+  script           String?       @db.Text
+  style            String?       @db.VarChar(100)
+  language         String?       @default("en") @map("language") @db.VarChar(10)
+  durationSeconds  Int           @default(30) @map("duration_seconds")
+  aspectRatio      String        @default("9:16") @map("aspect_ratio") @db.VarChar(10)
+  status           ReelJobStatus @default(QUEUED)
+  outputUrl        String?       @map("output_url") @db.VarChar(500)
+  thumbnailUrl     String?       @map("thumbnail_url") @db.VarChar(500)
+  platformOutputs  Json?         @map("platform_outputs")
+  aiProvider       String?       @map("ai_provider") @db.VarChar(50)
+  voiceId          String?       @map("voice_id") @db.VarChar(100)
+  musicGenre       String?       @map("music_genre") @db.VarChar(50)
+  captionStyle     String?       @map("caption_style") @db.VarChar(50)
+  errorMessage     String?       @map("error_message") @db.Text
+  processingTimeMs Int?          @map("processing_time_ms")
+  creditsCost      Int           @default(1) @map("credits_cost")
 
-  user            User            @relation(fields: [userId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  channelProfile  ChannelProfile? @relation(fields: [channelProfileId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  series          ContentSeries?  @relation(fields: [seriesId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  user           User            @relation(fields: [userId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  channelProfile ChannelProfile? @relation(fields: [channelProfileId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  series         ContentSeries?  @relation(fields: [seriesId], references: [id], onDelete: NoAction, onUpdate: NoAction)
 
   createdAt   DateTime  @default(now()) @map("created_at")
   completedAt DateTime? @map("completed_at")
 
-  @@map("reel_jobs")
   @@index([userId])
   @@index([channelProfileId])
   @@index([seriesId])
   @@index([status])
+  @@map("reel_jobs")
 }
 
 model ChannelProfile {
-  id                  String      @id @default(cuid())
-  userId              String      @map("user_id")
-  name                String      @db.VarChar(150)
-  platform            Platform    @default(MULTI)
-  niche               String      @db.VarChar(100)
-  tone                Tone        @default(PROFESSIONAL)
-  primaryColor        String      @default("#6366F1") @map("primary_color") @db.VarChar(7)
-  secondaryColor      String?     @map("secondary_color") @db.VarChar(7)
-  fontFamily          String?     @map("font_family") @db.VarChar(100)
-  captionStyle        String?     @map("caption_style") @db.VarChar(50)
-  defaultVoiceId      String?     @map("default_voice_id") @db.VarChar(100)
-  defaultLanguage     String?     @default("en") @map("default_language") @db.VarChar(10)
-  introAssetId        String?     @map("intro_asset_id")
-  outroAssetId        String?     @map("outro_asset_id")
-  logoUrl             String?     @map("logo_url") @db.VarChar(500)
-  watermarkEnabled    Boolean     @default(false) @map("watermark_enabled")
-  hookStyle           String?     @map("hook_style") @db.VarChar(50)
-  ctaStyle            String?     @map("cta_style") @db.VarChar(50)
-  musicPreference     String?     @map("music_preference") @db.VarChar(50)
-  consistencyScore    Int         @default(0) @map("consistency_score")
-  totalReelsGenerated Int         @default(0) @map("total_reels_generated")
-  isDefault           Boolean     @default(false) @map("is_default")
+  id                  String   @id @default(cuid())
+  userId              String   @map("user_id")
+  name                String   @db.VarChar(150)
+  platform            Platform @default(MULTI)
+  niche               String   @db.VarChar(100)
+  tone                Tone     @default(PROFESSIONAL)
+  primaryColor        String   @default("#6366F1") @map("primary_color") @db.VarChar(7)
+  secondaryColor      String?  @map("secondary_color") @db.VarChar(7)
+  fontFamily          String?  @map("font_family") @db.VarChar(100)
+  captionStyle        String?  @map("caption_style") @db.VarChar(50)
+  defaultVoiceId      String?  @map("default_voice_id") @db.VarChar(100)
+  defaultLanguage     String?  @default("en") @map("default_language") @db.VarChar(10)
+  introAssetId        String?  @map("intro_asset_id")
+  outroAssetId        String?  @map("outro_asset_id")
+  logoUrl             String?  @map("logo_url") @db.VarChar(500)
+  watermarkEnabled    Boolean  @default(false) @map("watermark_enabled")
+  hookStyle           String?  @map("hook_style") @db.VarChar(50)
+  ctaStyle            String?  @map("cta_style") @db.VarChar(50)
+  musicPreference     String?  @map("music_preference") @db.VarChar(50)
+  consistencyScore    Int      @default(0) @map("consistency_score")
+  totalReelsGenerated Int      @default(0) @map("total_reels_generated")
+  isDefault           Boolean  @default(false) @map("is_default")
 
-  user          User          @relation(fields: [userId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  introAsset    MediaAsset?   @relation("IntroAsset", fields: [introAssetId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  outroAsset    MediaAsset?   @relation("OutroAsset", fields: [outroAssetId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  reelJobs      ReelJob[]
-  contentSeries ContentSeries[]
+  user               User                @relation(fields: [userId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  introAsset         MediaAsset?         @relation("IntroAsset", fields: [introAssetId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  outroAsset         MediaAsset?         @relation("OutroAsset", fields: [outroAssetId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  reelJobs           ReelJob[]
+  longFormJobs       LongFormJob[]
+  contentSeries      ContentSeries[]
+  autopilotSchedules AutopilotSchedule[]
 
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
-  @@map("channel_profiles")
   @@index([userId])
   @@index([introAssetId])
   @@index([outroAssetId])
+  @@map("channel_profiles")
 }
 
 model ContentSeries {
-  id                String   @id @default(cuid())
-  channelProfileId  String   @map("channel_profile_id")
-  name              String   @db.VarChar(150)
-  description       String?  @db.Text
-  templatePrompt    String?  @map("template_prompt") @db.Text
-  episodeCount      Int      @default(0) @map("episode_count")
+  id               String  @id @default(cuid())
+  channelProfileId String  @map("channel_profile_id")
+  name             String  @db.VarChar(150)
+  description      String? @db.Text
+  templatePrompt   String? @map("template_prompt") @db.Text
+  episodeCount     Int     @default(0) @map("episode_count")
 
   channelProfile ChannelProfile @relation(fields: [channelProfileId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   reelJobs       ReelJob[]
@@ -204,8 +209,8 @@ model ContentSeries {
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
-  @@map("content_series")
   @@index([channelProfileId])
+  @@map("content_series")
 }
 
 model MediaAsset {
@@ -217,53 +222,335 @@ model MediaAsset {
   sizeBytes BigInt         @map("size_bytes")
   mimeType  String         @map("mime_type") @db.VarChar(100)
 
-  user                  User             @relation(fields: [userId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  introChannelProfiles  ChannelProfile[] @relation("IntroAsset")
-  outroChannelProfiles  ChannelProfile[] @relation("OutroAsset")
+  user                 User             @relation(fields: [userId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  introChannelProfiles ChannelProfile[] @relation("IntroAsset")
+  outroChannelProfiles ChannelProfile[] @relation("OutroAsset")
 
   createdAt DateTime @default(now()) @map("created_at")
 
-  @@map("media_assets")
   @@index([userId])
+  @@map("media_assets")
 }
 
 model Referral {
-  id                    String         @id @default(cuid())
-  referrerUserId        String         @map("referrer_user_id")
-  referredUserId        String         @map("referred_user_id")
-  referralCodeUsed      String         @map("referral_code_used") @db.VarChar(12)
-  status                ReferralStatus @default(PENDING)
-  convertedAt           DateTime?      @map("converted_at")
-  conversionValueCents  Int            @default(0) @map("conversion_value_cents")
-  referrerRewardCredits Int            @default(0) @map("referrer_reward_credits")
-  referrerRewardCashCents Int          @default(0) @map("referrer_reward_cash_cents")
-  isPaid                Boolean        @default(false) @map("is_paid")
+  id                      String         @id @default(cuid())
+  referrerUserId          String         @map("referrer_user_id")
+  referredUserId          String         @map("referred_user_id")
+  referralCodeUsed        String         @map("referral_code_used") @db.VarChar(12)
+  status                  ReferralStatus @default(PENDING)
+  convertedAt             DateTime?      @map("converted_at")
+  conversionValueCents    Int            @default(0) @map("conversion_value_cents")
+  referrerRewardCredits   Int            @default(0) @map("referrer_reward_credits")
+  referrerRewardCashCents Int            @default(0) @map("referrer_reward_cash_cents")
+  isPaid                  Boolean        @default(false) @map("is_paid")
 
   referrer User @relation("ReferrerReferrals", fields: [referrerUserId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   referred User @relation("ReferredReferrals", fields: [referredUserId], references: [id], onDelete: NoAction, onUpdate: NoAction)
 
   createdAt DateTime @default(now()) @map("created_at")
 
-  @@map("referrals")
   @@index([referrerUserId])
   @@index([referredUserId])
+  @@map("referrals")
 }
 
 model CreditTransaction {
-  id          String            @id @default(cuid())
-  userId      String            @map("user_id")
-  amount      Int               // positive = credit, negative = debit
-  type        CreditTransactionType
-  description String?           @db.VarChar(255)
-  referenceId String?           @map("reference_id") @db.VarChar(255) // job id, referral id, etc.
-  balanceAfter Int              @map("balance_after")
+  id           String                @id @default(cuid())
+  userId       String                @map("user_id")
+  amount       Int // positive = credit, negative = debit
+  type         CreditTransactionType
+  description  String?               @db.VarChar(255)
+  referenceId  String?               @map("reference_id") @db.VarChar(255) // job id, referral id, etc.
+  balanceAfter Int                   @map("balance_after")
 
   user User @relation(fields: [userId], references: [id], onDelete: NoAction, onUpdate: NoAction)
 
   createdAt DateTime @default(now()) @map("created_at")
 
-  @@map("credit_transactions")
   @@index([userId])
+  @@map("credit_transactions")
+}
+
+// Long-form video job (5-30 minutes)
+model LongFormJob {
+  id                  String  @id @default(cuid())
+  userId              String  @map("user_id")
+  channelProfileId    String? @map("channel_profile_id")
+  seriesId            String? @map("series_id")
+  autopilotScheduleId String? @map("autopilot_schedule_id")
+
+  // Content details
+  title           String  @db.VarChar(255)
+  prompt          String  @db.Text
+  script          String? @db.MediumText
+  outline         Json? // Chapter structure
+  durationMinutes Int     @default(10) @map("duration_minutes") // 5-30
+
+  // Generation settings
+  style       String? @db.VarChar(100)
+  language    String  @default("en") @map("language") @db.VarChar(10)
+  voiceId     String? @map("voice_id") @db.VarChar(100)
+  aspectRatio String  @default("16:9") @map("aspect_ratio") @db.VarChar(10)
+
+  // Hybrid approach settings
+  aiClipRatio      Float   @default(0.3) @map("ai_clip_ratio") // % of AI clips vs stock
+  useStockFootage  Boolean @default(true) @map("use_stock_footage")
+  useStaticVisuals Boolean @default(true) @map("use_static_visuals")
+
+  // Status and progress
+  status       LongFormJobStatus @default(QUEUED)
+  progress     Int               @default(0) // 0-100
+  currentStage String?           @map("current_stage") @db.VarChar(100)
+
+  // Output
+  outputUrl    String? @map("output_url") @db.VarChar(500)
+  thumbnailUrl String? @map("thumbnail_url") @db.VarChar(500)
+
+  // YouTube integration
+  publishToYouTube Boolean        @default(false) @map("publish_to_youtube")
+  youtubeVideoId   String?        @unique @map("youtube_video_id") @db.VarChar(100)
+  youtubeStatus    YouTubeStatus? @map("youtube_status")
+
+  // Metadata
+  errorMessage       String? @map("error_message") @db.Text
+  processingTimeMs   Int?    @map("processing_time_ms")
+  creditsCost        Int     @default(5) @map("credits_cost")
+  estimatedCostCents Int?    @map("estimated_cost_cents")
+
+  // Relations
+  user              User               @relation(fields: [userId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  channelProfile    ChannelProfile?    @relation(fields: [channelProfileId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  autopilotSchedule AutopilotSchedule? @relation(fields: [autopilotScheduleId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  segments          LongFormSegment[]
+  youtubeMetadata   YouTubeMetadata?
+  calendarEntry     ContentCalendar?
+
+  createdAt   DateTime  @default(now()) @map("created_at")
+  completedAt DateTime? @map("completed_at")
+
+  @@index([userId])
+  @@index([channelProfileId])
+  @@index([autopilotScheduleId])
+  @@index([status])
+  @@index([youtubeVideoId])
+  @@map("long_form_jobs")
+}
+
+// Video segments (chapters/scenes)
+model LongFormSegment {
+  id            String @id @default(cuid())
+  longFormJobId String @map("long_form_job_id")
+  segmentIndex  Int    @map("segment_index")
+
+  // Content
+  title      String @db.VarChar(255)
+  scriptText String @db.Text
+  startTime  Float  @map("start_time") // seconds
+  endTime    Float  @map("end_time")
+
+  // Assets
+  visualType    SegmentVisualType @map("visual_type") // AI_CLIP, STOCK_VIDEO, STATIC_IMAGE
+  assetUrl      String?           @map("asset_url") @db.VarChar(500)
+  assetMetadata Json?             @map("asset_metadata")
+
+  // Processing
+  status       SegmentStatus @default(PENDING)
+  errorMessage String?       @map("error_message") @db.Text
+
+  longFormJob LongFormJob @relation(fields: [longFormJobId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@unique([longFormJobId, segmentIndex])
+  @@index([longFormJobId])
+  @@map("long_form_segments")
+}
+
+// YouTube metadata and SEO
+model YouTubeMetadata {
+  id            String @id @default(cuid())
+  longFormJobId String @unique @map("long_form_job_id")
+
+  // Auto-generated SEO
+  title       String @db.VarChar(100)
+  description String @db.Text
+  tags        Json // Array of strings
+  category    String @db.VarChar(50)
+
+  // Thumbnail
+  thumbnailPath String? @map("thumbnail_path") @db.VarChar(500)
+
+  // Publishing settings
+  privacyStatus String    @default("private") @db.VarChar(20) // private, unlisted, public
+  publishedAt   DateTime? @map("published_at")
+  scheduledFor  DateTime? @map("scheduled_for")
+
+  // Analytics (updated via YouTube API webhook)
+  viewCount    Int       @default(0) @map("view_count")
+  likeCount    Int       @default(0) @map("like_count")
+  commentCount Int       @default(0) @map("comment_count")
+  lastSyncedAt DateTime? @map("last_synced_at")
+
+  longFormJob LongFormJob @relation(fields: [longFormJobId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("youtube_metadata")
+}
+
+// YouTube OAuth tokens
+model YouTubeConnection {
+  id     String @id @default(cuid())
+  userId String @unique @map("user_id")
+
+  channelId    String @map("channel_id") @db.VarChar(100)
+  channelTitle String @map("channel_title") @db.VarChar(255)
+
+  accessToken  String   @map("access_token") @db.Text
+  refreshToken String   @map("refresh_token") @db.Text
+  expiresAt    DateTime @map("expires_at")
+
+  isActive Boolean @default(true) @map("is_active")
+
+  user User @relation(fields: [userId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("youtube_connections")
+}
+
+// Autopilot scheduling
+model AutopilotSchedule {
+  id               String @id @default(cuid())
+  userId           String @map("user_id")
+  channelProfileId String @map("channel_profile_id")
+
+  name     String  @db.VarChar(150)
+  isActive Boolean @default(true) @map("is_active")
+
+  // Schedule settings
+  frequency      AutopilotFrequency @default(WEEKLY)
+  cronExpression String?            @map("cron_expression") @db.VarChar(100)
+  timezone       String             @default("UTC") @db.VarChar(50)
+
+  // Content generation
+  useTrendingTopics  Boolean @default(false) @map("use_trending_topics")
+  trendingCategories Json?   @map("trending_categories") // Array of categories to monitor
+  customTopics       Json?   @map("custom_topics") // Predefined topic pool
+
+  // Video settings (template)
+  durationMinutes Int     @default(10) @map("duration_minutes")
+  style           String? @db.VarChar(100)
+  language        String  @default("en") @db.VarChar(10)
+  voiceId         String? @map("voice_id") @db.VarChar(100)
+
+  // YouTube auto-publish
+  autoPublish   Boolean @default(false) @map("auto_publish")
+  publishDelay  Int     @default(0) @map("publish_delay") // minutes after generation
+  privacyStatus String  @default("private") @db.VarChar(20)
+
+  // Stats
+  totalGenerated Int       @default(0) @map("total_generated")
+  lastRunAt      DateTime? @map("last_run_at")
+  nextRunAt      DateTime? @map("next_run_at")
+
+  user            User              @relation(fields: [userId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  channelProfile  ChannelProfile    @relation(fields: [channelProfileId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  longFormJobs    LongFormJob[]
+  calendarEntries ContentCalendar[]
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([userId])
+  @@index([channelProfileId])
+  @@index([isActive, nextRunAt])
+  @@map("autopilot_schedules")
+}
+
+// Content calendar for manual planning
+model ContentCalendar {
+  id                  String  @id @default(cuid())
+  userId              String  @map("user_id")
+  autopilotScheduleId String? @map("autopilot_schedule_id")
+
+  title         String   @db.VarChar(255)
+  topic         String   @db.Text
+  scheduledDate DateTime @map("scheduled_date")
+
+  status        CalendarEntryStatus @default(PLANNED)
+  longFormJobId String?             @unique @map("long_form_job_id")
+
+  notes String? @db.Text
+
+  user              User               @relation(fields: [userId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  autopilotSchedule AutopilotSchedule? @relation(fields: [autopilotScheduleId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  longFormJob       LongFormJob?       @relation(fields: [longFormJobId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([userId])
+  @@index([autopilotScheduleId])
+  @@index([scheduledDate])
+  @@map("content_calendar")
+}
+
+// Trending topics cache
+model TrendingTopic {
+  id String @id @default(cuid())
+
+  source   TrendingSource // GOOGLE_TRENDS, YOUTUBE, TIKTOK
+  category String         @db.VarChar(100)
+  keyword  String         @db.VarChar(255)
+
+  // Metrics
+  searchVolume Int?   @map("search_volume")
+  growthRate   Float? @map("growth_rate")
+  trendScore   Int    @default(0) @map("trend_score") // 0-100
+
+  // Metadata
+  relatedTopics Json?  @map("related_topics")
+  region        String @default("US") @db.VarChar(10)
+
+  // Freshness
+  detectedAt DateTime @default(now()) @map("detected_at")
+  expiresAt  DateTime @map("expires_at")
+
+  @@unique([source, keyword, region])
+  @@index([source, category])
+  @@index([trendScore])
+  @@index([expiresAt])
+  @@map("trending_topics")
+}
+
+// Stock footage cache
+model StockFootageCache {
+  id String @id @default(cuid())
+
+  provider   String @db.VarChar(50) // pexels, pixabay, storyblocks
+  externalId String @map("external_id") @db.VarChar(255)
+
+  query        String  @db.VarChar(255)
+  url          String  @db.VarChar(500)
+  thumbnailUrl String? @map("thumbnail_url") @db.VarChar(500)
+
+  duration Int? // seconds
+  width    Int?
+  height   Int?
+
+  metadata Json?
+
+  downloadCount Int       @default(0) @map("download_count")
+  lastUsedAt    DateTime? @map("last_used_at")
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@unique([provider, externalId])
+  @@index([query])
+  @@map("stock_footage_cache")
 }
 
 // Enums
@@ -344,4 +631,59 @@ enum CreditTransactionType {
   JOB_DEBIT
   ADMIN_GRANT
   REFUND
+}
+
+enum LongFormJobStatus {
+  QUEUED
+  PLANNING // Generating outline/chapters
+  SCRIPT_GENERATING
+  SEGMENT_PROCESSING // Parallel segment generation
+  COMPOSING // Final FFmpeg composition
+  UPLOADING
+  YOUTUBE_PUBLISHING
+  COMPLETED
+  FAILED
+}
+
+enum SegmentStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+}
+
+enum SegmentVisualType {
+  AI_CLIP
+  STOCK_VIDEO
+  STATIC_IMAGE
+  TEXT_OVERLAY
+}
+
+enum YouTubeStatus {
+  PENDING
+  UPLOADING
+  PUBLISHED
+  FAILED
+}
+
+enum AutopilotFrequency {
+  DAILY
+  WEEKLY
+  BIWEEKLY
+  MONTHLY
+  CUSTOM
+}
+
+enum CalendarEntryStatus {
+  PLANNED
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
+enum TrendingSource {
+  GOOGLE_TRENDS
+  YOUTUBE
+  TIKTOK
+  REDDIT
 }

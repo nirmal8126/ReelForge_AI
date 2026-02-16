@@ -55,3 +55,44 @@ export async function enqueueReelJob(data: {
 
   return job.id
 }
+
+// Long-form video queue
+let longFormQueue: Queue | null = null
+
+export function getLongFormQueue() {
+  if (!longFormQueue) {
+    longFormQueue = new Queue('long-form-jobs', { connection: getConnection() })
+  }
+  return longFormQueue
+}
+
+export async function enqueueLongFormJob(data: {
+  longFormJobId: string
+  userId: string
+  prompt: string
+  title: string
+  durationMinutes: number
+  style?: string
+  language?: string
+  voiceId?: string
+  aspectRatio: string
+  aiClipRatio: number
+  useStockFootage: boolean
+  useStaticVisuals: boolean
+  publishToYouTube: boolean
+  channelProfileId?: string
+  plan: string
+}) {
+  const queue = getLongFormQueue()
+  const priority = PLAN_PRIORITY[data.plan] || 5
+
+  const job = await queue.add('generate-long-form', data, {
+    priority,
+    attempts: 2, // Fewer retries due to longer jobs
+    backoff: { type: 'exponential', delay: 10000 },
+    removeOnComplete: { count: 500 },
+    removeOnFail: { count: 250 },
+  })
+
+  return job.id
+}
