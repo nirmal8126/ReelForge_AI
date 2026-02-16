@@ -15,6 +15,7 @@ import {
   ChevronUp,
   Check,
 } from 'lucide-react'
+import { SUPPORTED_LANGUAGES } from '@/lib/constants'
 
 interface Character {
   id: string
@@ -39,6 +40,34 @@ interface Series {
 
 const DEFAULT_COLORS = ['#EF4444', '#3B82F6', '#10B981', '#F59E0B', '#8B5CF6', '#EC4899', '#06B6D4', '#F97316']
 
+const VOICES = [
+  { id: 'EXAVITQu4vr4xnSDxMaL', name: 'Sarah - Professional Female' },
+  { id: 'TX3LPaxmHKxFdv7VOQHJ', name: 'Liam - Professional Male' },
+  { id: 'XB0fDUnXU5powFXDhCwa', name: 'Charlotte - Energetic Female' },
+  { id: 'pqHfZKP75CvOlQylNhV4', name: 'Bill - Energetic Male' },
+  { id: 'Xb7hH8MSUJpSbSDYk0k2', name: 'Alice - Calm Female' },
+  { id: 'CwhRBWXzGAHq8TQ4Fs17', name: 'Roger - Calm Male' },
+  { id: 'jBpfuIE2acCO8z3wKNLl', name: 'Emily - Casual Female' },
+  { id: 'bIHbv24MWmeRgasZH58o', name: 'Will - Casual Male' },
+]
+
+const ART_STYLES = [
+  { value: 'cartoon', label: 'Cartoon' },
+  { value: 'anime', label: 'Anime' },
+  { value: 'watercolor', label: 'Watercolor' },
+  { value: 'comic', label: 'Comic Book' },
+  { value: 'pixel', label: 'Pixel Art' },
+  { value: '3d', label: '3D Render' },
+]
+
+const AUDIENCES = [
+  { value: 'kids-3-6', label: 'Kids (3-6)' },
+  { value: 'kids-7-12', label: 'Kids (7-12)' },
+  { value: 'teens', label: 'Teens (13-17)' },
+  { value: 'adults', label: 'Adults (18+)' },
+  { value: 'family', label: 'Family (All ages)' },
+]
+
 export default function EditSeriesPage() {
   const params = useParams()
   const router = useRouter()
@@ -47,12 +76,14 @@ export default function EditSeriesPage() {
   const [series, setSeries] = useState<Series | null>(null)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
+  const [errors, setErrors] = useState<Record<string, string>>({})
 
   // Editable fields
   const [name, setName] = useState('')
   const [description, setDescription] = useState('')
   const [targetAudience, setTargetAudience] = useState('')
   const [artStyle, setArtStyle] = useState('')
+  const [language, setLanguage] = useState('en')
   const [narratorVoiceId, setNarratorVoiceId] = useState('')
 
   // Character editing state
@@ -75,6 +106,7 @@ export default function EditSeriesPage() {
           setDescription(data.series.description || '')
           setTargetAudience(data.series.targetAudience || '')
           setArtStyle(data.series.artStyle || '')
+          setLanguage(data.series.language || 'en')
           setNarratorVoiceId(data.series.narratorVoiceId || '')
         }
       })
@@ -82,6 +114,12 @@ export default function EditSeriesPage() {
   }, [seriesId])
 
   async function handleSave() {
+    if (!name.trim()) {
+      setErrors({ name: 'Series name is required' })
+      return
+    }
+    setErrors({})
+
     setSaving(true)
     try {
       const res = await fetch(`/api/cartoon-studio/series/${seriesId}`, {
@@ -92,6 +130,7 @@ export default function EditSeriesPage() {
           description: description || undefined,
           targetAudience: targetAudience || undefined,
           artStyle: artStyle || undefined,
+          language,
           narratorVoiceId: narratorVoiceId || undefined,
         }),
       })
@@ -264,13 +303,16 @@ export default function EditSeriesPage() {
           <h2 className="text-lg font-semibold text-white mb-5">Series Info</h2>
           <div className="space-y-4">
             <div>
-              <label className="text-sm font-medium text-gray-300 mb-1.5 block">Series Name</label>
+              <label className="text-sm font-medium text-gray-300 mb-1.5 block">Series Name <span className="text-red-400">*</span></label>
               <input
                 type="text"
                 value={name}
-                onChange={(e) => setName(e.target.value)}
-                className="w-full rounded-lg border border-white/10 bg-white/5 px-4 py-2.5 text-sm text-white focus:border-brand-500 focus:outline-none"
+                onChange={(e) => { setName(e.target.value); setErrors((prev) => ({ ...prev, name: '' })) }}
+                className={`w-full rounded-lg border bg-white/5 px-4 py-2.5 text-sm text-white focus:outline-none ${
+                  errors.name ? 'border-red-500/50 focus:border-red-500' : 'border-white/10 focus:border-brand-500'
+                }`}
               />
+              {errors.name && <p className="text-xs text-red-400 mt-1.5">{errors.name}</p>}
             </div>
             <div>
               <label className="text-sm font-medium text-gray-300 mb-1.5 block">Description</label>
@@ -281,33 +323,64 @@ export default function EditSeriesPage() {
                 className="w-full rounded-lg border border-white/10 bg-white/5 px-4 py-2.5 text-sm text-white focus:border-brand-500 focus:outline-none resize-none"
               />
             </div>
-            <div>
-              <label className="text-sm font-medium text-gray-300 mb-1.5 block">Target Audience</label>
-              <input
-                type="text"
-                value={targetAudience}
-                onChange={(e) => setTargetAudience(e.target.value)}
-                className="w-full rounded-lg border border-white/10 bg-white/5 px-4 py-2.5 text-sm text-white focus:border-brand-500 focus:outline-none"
-              />
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="text-sm font-medium text-gray-300 mb-1.5 block">Target Audience</label>
+                <select
+                  value={targetAudience}
+                  onChange={(e) => setTargetAudience(e.target.value)}
+                  className="w-full rounded-lg border border-white/10 bg-white/5 px-4 py-2.5 text-sm text-white focus:border-brand-500 focus:outline-none"
+                >
+                  {AUDIENCES.map((a) => (
+                    <option key={a.value} value={a.value}>{a.label}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="text-sm font-medium text-gray-300 mb-1.5 block">Art Style</label>
+                <select
+                  value={artStyle}
+                  onChange={(e) => setArtStyle(e.target.value)}
+                  className="w-full rounded-lg border border-white/10 bg-white/5 px-4 py-2.5 text-sm text-white focus:border-brand-500 focus:outline-none"
+                >
+                  {ART_STYLES.map((s) => (
+                    <option key={s.value} value={s.value}>{s.label}</option>
+                  ))}
+                </select>
+              </div>
             </div>
             <div>
-              <label className="text-sm font-medium text-gray-300 mb-1.5 block">Art Style</label>
-              <input
-                type="text"
-                value={artStyle}
-                onChange={(e) => setArtStyle(e.target.value)}
-                className="w-full rounded-lg border border-white/10 bg-white/5 px-4 py-2.5 text-sm text-white focus:border-brand-500 focus:outline-none"
-              />
+              <label className="text-sm font-medium text-gray-300 mb-1.5 block">Language</label>
+              <div className="flex flex-wrap gap-2">
+                {SUPPORTED_LANGUAGES.map((lang) => (
+                  <button
+                    key={lang.code}
+                    type="button"
+                    onClick={() => setLanguage(lang.code)}
+                    className={`inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-medium transition ${
+                      language === lang.code
+                        ? 'border-brand-500 bg-brand-500/15 text-brand-400'
+                        : 'border-white/10 bg-white/5 text-gray-400 hover:bg-white/10 hover:text-gray-300'
+                    }`}
+                  >
+                    <span className="text-sm">{lang.flag}</span>
+                    {lang.name}
+                  </button>
+                ))}
+              </div>
             </div>
             <div>
-              <label className="text-sm font-medium text-gray-300 mb-1.5 block">Narrator Voice ID</label>
-              <input
-                type="text"
+              <label className="text-sm font-medium text-gray-300 mb-1.5 block">Narrator Voice</label>
+              <select
                 value={narratorVoiceId}
                 onChange={(e) => setNarratorVoiceId(e.target.value)}
-                placeholder="ElevenLabs voice ID for narrator"
-                className="w-full rounded-lg border border-white/10 bg-white/5 px-4 py-2.5 text-sm text-white placeholder-gray-600 focus:border-brand-500 focus:outline-none"
-              />
+                className="w-full rounded-lg border border-white/10 bg-white/5 px-4 py-2.5 text-sm text-white focus:border-brand-500 focus:outline-none"
+              >
+                <option value="">No narrator voice</option>
+                {VOICES.map((v) => (
+                  <option key={v.id} value={v.id}>{v.name}</option>
+                ))}
+              </select>
             </div>
             <div className="flex justify-start pt-2">
               <button
@@ -382,7 +455,7 @@ export default function EditSeriesPage() {
                   {isExpanded && edit && (
                     <div className="border-t border-white/10 p-4 space-y-3">
                       <div>
-                        <label className="text-xs text-gray-500 mb-1 block">Name *</label>
+                        <label className="text-xs text-gray-500 mb-1 block">Name <span className="text-red-400">*</span></label>
                         <input
                           type="text"
                           value={edit.name}
@@ -431,15 +504,18 @@ export default function EditSeriesPage() {
 
                       <div>
                         <label className="text-xs text-gray-500 mb-1 block">
-                          Voice ID <span className="text-gray-600">(optional)</span>
+                          Voice <span className="text-gray-600">(optional)</span>
                         </label>
-                        <input
-                          type="text"
+                        <select
                           value={edit.voiceId}
                           onChange={(e) => updateEditingChar(char.id, 'voiceId', e.target.value)}
-                          placeholder="ElevenLabs voice ID"
-                          className="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-white placeholder-gray-600 focus:border-brand-500 focus:outline-none"
-                        />
+                          className="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-white focus:border-brand-500 focus:outline-none"
+                        >
+                          <option value="">No voice</option>
+                          {VOICES.map((v) => (
+                            <option key={v.id} value={v.id}>{v.name}</option>
+                          ))}
+                        </select>
                       </div>
 
                       <div className="flex items-center justify-between pt-1">
@@ -483,7 +559,7 @@ export default function EditSeriesPage() {
                 <span className="text-sm font-medium text-brand-300">New Character</span>
 
                 <div>
-                  <label className="text-xs text-gray-500 mb-1 block">Name *</label>
+                  <label className="text-xs text-gray-500 mb-1 block">Name <span className="text-red-400">*</span></label>
                   <input
                     type="text"
                     value={newChar.name}
@@ -534,15 +610,18 @@ export default function EditSeriesPage() {
 
                 <div>
                   <label className="text-xs text-gray-500 mb-1 block">
-                    Voice ID <span className="text-gray-600">(optional)</span>
+                    Voice <span className="text-gray-600">(optional)</span>
                   </label>
-                  <input
-                    type="text"
+                  <select
                     value={newChar.voiceId}
                     onChange={(e) => setNewChar({ ...newChar, voiceId: e.target.value })}
-                    placeholder="ElevenLabs voice ID"
-                    className="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-white placeholder-gray-600 focus:border-brand-500 focus:outline-none"
-                  />
+                    className="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-white focus:border-brand-500 focus:outline-none"
+                  >
+                    <option value="">No voice</option>
+                    {VOICES.map((v) => (
+                      <option key={v.id} value={v.id}>{v.name}</option>
+                    ))}
+                  </select>
                 </div>
 
                 <div className="flex items-center justify-end gap-2 pt-1">

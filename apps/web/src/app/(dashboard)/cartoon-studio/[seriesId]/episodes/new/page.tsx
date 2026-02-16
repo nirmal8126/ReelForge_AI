@@ -21,6 +21,7 @@ export default function NewEpisodePage() {
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [isGenerating, setIsGenerating] = useState(false)
   const [loading, setLoading] = useState(true)
+  const [errors, setErrors] = useState<Record<string, string>>({})
 
   useEffect(() => {
     fetch(`/api/cartoon-studio/series/${seriesId}`)
@@ -59,8 +60,15 @@ export default function NewEpisodePage() {
   }
 
   async function handleSubmit() {
-    if (!title.trim()) { toast.error('Enter an episode title'); return }
-    if (prompt.trim().length < 10) { toast.error('Prompt must be at least 10 characters'); return }
+    const newErrors: Record<string, string> = {}
+    if (!title.trim()) newErrors.title = 'Episode title is required'
+    if (prompt.trim().length < 10) newErrors.prompt = 'Prompt must be at least 10 characters'
+
+    if (Object.keys(newErrors).length > 0) {
+      setErrors(newErrors)
+      return
+    }
+    setErrors({})
 
     setIsSubmitting(true)
     try {
@@ -148,28 +156,37 @@ export default function NewEpisodePage() {
         </div>
 
         <div>
-          <label className="text-sm font-medium text-gray-300 mb-1.5 block">Episode Title *</label>
+          <label className="text-sm font-medium text-gray-300 mb-1.5 block">Episode Title <span className="text-red-400">*</span></label>
           <input
             type="text"
             value={title}
-            onChange={(e) => setTitle(e.target.value)}
+            onChange={(e) => { setTitle(e.target.value); setErrors((prev) => ({ ...prev, title: '' })) }}
             placeholder="e.g., The Missing Treasure"
-            className="w-full rounded-lg border border-white/10 bg-white/5 px-4 py-2.5 text-sm text-white placeholder-gray-500 focus:border-brand-500 focus:outline-none"
+            className={`w-full rounded-lg border bg-white/5 px-4 py-2.5 text-sm text-white placeholder-gray-500 focus:outline-none ${
+              errors.title ? 'border-red-500/50 focus:border-red-500' : 'border-white/10 focus:border-brand-500'
+            }`}
           />
+          {errors.title && <p className="text-xs text-red-400 mt-1.5">{errors.title}</p>}
         </div>
 
         <div>
-          <label className="text-sm font-medium text-gray-300 mb-1.5 block">Story Prompt *</label>
+          <label className="text-sm font-medium text-gray-300 mb-1.5 block">Story Prompt <span className="text-red-400">*</span></label>
           <textarea
             value={prompt}
-            onChange={(e) => setPrompt(e.target.value)}
+            onChange={(e) => { setPrompt(e.target.value); setErrors((prev) => ({ ...prev, prompt: '' })) }}
             placeholder="Describe what happens in this episode. The AI will expand this into a full story with scenes and dialogue for your characters. Be specific about the plot, key events, and lessons."
             rows={6}
-            className="w-full rounded-lg border border-white/10 bg-white/5 px-4 py-2.5 text-sm text-white placeholder-gray-500 focus:border-brand-500 focus:outline-none resize-none"
+            className={`w-full rounded-lg border bg-white/5 px-4 py-2.5 text-sm text-white placeholder-gray-500 focus:outline-none resize-none ${
+              errors.prompt ? 'border-red-500/50 focus:border-red-500' : 'border-white/10 focus:border-brand-500'
+            }`}
           />
-          <p className="text-[10px] text-gray-600 mt-1">
-            {prompt.length}/3000 characters — more detail produces better stories
-          </p>
+          {errors.prompt ? (
+            <p className="text-xs text-red-400 mt-1.5">{errors.prompt}</p>
+          ) : (
+            <p className="text-[10px] text-gray-600 mt-1">
+              {prompt.length}/3000 characters — more detail produces better stories
+            </p>
+          )}
         </div>
 
         <div>

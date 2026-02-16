@@ -177,143 +177,241 @@ export default function EpisodeDetailPage() {
         </div>
       </div>
 
-      {/* Progress Pipeline */}
-      <div className="rounded-xl border border-white/10 bg-white/5 p-4 mb-6">
-        <div className="flex items-center justify-between mb-3">
-          <span className="text-xs text-gray-500 font-medium uppercase">Pipeline Status</span>
-          {isProcessing && (
-            <span className="text-xs text-brand-400">{episode.progress}%</span>
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* LEFT — Scenes */}
+        <div className="lg:col-span-2 space-y-6">
+          {/* Scenes */}
+          {episode.scenes.length > 0 ? (
+            <div className="rounded-xl border border-white/10 bg-white/5 p-5">
+              <h2 className="text-lg font-semibold text-white mb-4">
+                Scenes ({episode.scenes.length})
+              </h2>
+              <div className="space-y-3">
+                {episode.scenes.map((scene) => (
+                  <div
+                    key={scene.id}
+                    className="rounded-lg border border-white/10 bg-white/[0.03] p-4"
+                  >
+                    <div className="flex items-start gap-4">
+                      {/* Scene image thumbnail */}
+                      <div className="w-28 h-20 rounded-lg bg-white/5 flex-shrink-0 overflow-hidden flex items-center justify-center">
+                        {scene.imageUrl ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img src={scene.imageUrl} alt="" className="w-full h-full object-cover" />
+                        ) : (
+                          <ImageIcon className="h-5 w-5 text-gray-600" />
+                        )}
+                      </div>
+
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 mb-1">
+                          <span className="text-xs font-semibold text-brand-400">
+                            Scene {scene.sceneIndex + 1}
+                          </span>
+                          <span className="text-[10px] text-gray-600">
+                            {Math.round(scene.endTime - scene.startTime)}s
+                          </span>
+                          <span className={`text-[10px] font-medium ${
+                            scene.status === 'COMPLETED' ? 'text-green-400' :
+                            scene.status === 'PROCESSING' ? 'text-yellow-400' :
+                            scene.status === 'FAILED' ? 'text-red-400' : 'text-gray-600'
+                          }`}>
+                            {scene.status === 'COMPLETED' ? 'Done' :
+                             scene.status === 'PROCESSING' ? 'Processing' :
+                             scene.status === 'FAILED' ? 'Failed' : 'Pending'}
+                          </span>
+                        </div>
+
+                        <p className="text-sm text-gray-300 mb-2">{scene.description}</p>
+
+                        {/* Narration */}
+                        {scene.narration && (
+                          <p className="text-xs text-gray-500 italic mb-2">
+                            <span className="text-gray-600">Narrator:</span> {scene.narration}
+                          </p>
+                        )}
+
+                        {/* Dialogue */}
+                        {scene.dialogue && Array.isArray(scene.dialogue) && scene.dialogue.length > 0 && (
+                          <div className="space-y-1 mt-2 pt-2 border-t border-white/5">
+                            {scene.dialogue.map((line: { characterName: string; text: string }, i: number) => {
+                              const char = charMap.get(line.characterName)
+                              return (
+                                <div key={i} className="flex items-start gap-2 text-xs">
+                                  <span
+                                    className="font-medium flex-shrink-0"
+                                    style={{ color: char?.color || '#9CA3AF' }}
+                                  >
+                                    {line.characterName}:
+                                  </span>
+                                  <span className="text-gray-400">{line.text}</span>
+                                </div>
+                              )
+                            })}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ) : (
+            <div className="rounded-xl border border-white/10 bg-white/5 p-8 text-center">
+              <MessageSquare className="h-8 w-8 text-gray-600 mx-auto mb-3" />
+              <p className="text-gray-400 text-sm">No scenes generated yet</p>
+              <p className="text-gray-600 text-xs mt-1">Scenes will appear here once the story is generated</p>
+            </div>
+          )}
+
+          {/* Story Script */}
+          {episode.storyScript && (
+            <div className="rounded-xl border border-white/10 bg-white/5 p-5">
+              <h2 className="text-lg font-semibold text-white mb-4">Story Script</h2>
+              <div className="bg-black/30 rounded-lg p-4 max-h-80 overflow-y-auto">
+                <pre className="text-sm text-gray-300 whitespace-pre-wrap font-sans leading-relaxed">
+                  {episode.storyScript}
+                </pre>
+              </div>
+            </div>
           )}
         </div>
-        {isProcessing && (
-          <div className="w-full h-1.5 rounded-full bg-white/10 mb-4 overflow-hidden">
-            <div
-              className="h-full bg-brand-500 rounded-full transition-all duration-500"
-              style={{ width: `${episode.progress}%` }}
-            />
-          </div>
-        )}
-        <div className="flex items-center gap-1">
-          {STAGE_ORDER.map((stage, i) => {
-            const isActive = episode.status === stage
-            const isDone = currentIdx > i || episode.status === 'COMPLETED'
-            const isFailed = episode.status === 'FAILED' && currentIdx === i
 
-            return (
-              <div key={stage} className="flex items-center gap-1 flex-1">
-                <div className={`flex items-center gap-1.5 text-[10px] font-medium ${
-                  isDone ? 'text-green-400' :
-                  isActive ? 'text-brand-400' :
-                  isFailed ? 'text-red-400' : 'text-gray-600'
-                }`}>
-                  {isDone ? (
-                    <CheckCircle2 className="h-3.5 w-3.5" />
-                  ) : isActive ? (
-                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                  ) : isFailed ? (
-                    <XCircle className="h-3.5 w-3.5" />
-                  ) : (
-                    <Clock className="h-3.5 w-3.5" />
-                  )}
-                  <span className="hidden md:inline">{STAGE_LABELS[stage]}</span>
-                </div>
-                {i < STAGE_ORDER.length - 1 && (
-                  <div className={`flex-1 h-px ${isDone ? 'bg-green-400/30' : 'bg-white/10'}`} />
-                )}
+        {/* RIGHT — Pipeline + Preview */}
+        <div className="space-y-6">
+          {/* Video Preview */}
+          {episode.status === 'COMPLETED' && episode.outputUrl && (
+            <div className="rounded-xl border border-white/10 bg-black overflow-hidden">
+              <video
+                src={episode.outputUrl}
+                controls
+                className="w-full"
+                playsInline
+              />
+            </div>
+          )}
+
+          {/* Processing State */}
+          {isProcessing && (
+            <div className="rounded-xl border border-brand-500/20 bg-brand-500/5 p-5">
+              <div className="flex items-center gap-2 mb-3">
+                <Loader2 className="h-4 w-4 text-brand-400 animate-spin" />
+                <span className="text-sm font-medium text-white">Processing...</span>
+                <span className="text-xs text-brand-400 ml-auto">{episode.progress}%</span>
               </div>
-            )
-          })}
-        </div>
-      </div>
+              <div className="w-full h-1.5 rounded-full bg-white/10 overflow-hidden">
+                <div
+                  className="h-full bg-brand-500 rounded-full transition-all duration-500"
+                  style={{ width: `${episode.progress}%` }}
+                />
+              </div>
+            </div>
+          )}
 
-      {/* Error */}
-      {episode.status === 'FAILED' && episode.errorMessage && (
-        <div className="rounded-lg border border-red-500/30 bg-red-500/10 p-4 mb-6">
-          <p className="text-sm text-red-400 font-medium mb-1">Generation Failed</p>
-          <p className="text-xs text-red-300/70">{episode.errorMessage}</p>
-        </div>
-      )}
+          {/* Error */}
+          {episode.status === 'FAILED' && episode.errorMessage && (
+            <div className="rounded-xl border border-red-500/30 bg-red-500/10 p-4">
+              <p className="text-sm text-red-400 font-medium mb-1">Generation Failed</p>
+              <p className="text-xs text-red-300/70">{episode.errorMessage}</p>
+            </div>
+          )}
 
-      {/* Video Preview */}
-      {episode.status === 'COMPLETED' && episode.outputUrl && (
-        <div className="rounded-xl border border-white/10 bg-black overflow-hidden mb-6">
-          <video
-            src={episode.outputUrl}
-            controls
-            className="w-full max-h-[500px]"
-            playsInline
-          />
-        </div>
-      )}
+          {/* Pipeline Status */}
+          <div className="rounded-xl border border-white/10 bg-white/5 p-5">
+            <h2 className="text-sm font-semibold text-gray-400 uppercase tracking-wide mb-4">Pipeline</h2>
+            <div className="space-y-0">
+              {STAGE_ORDER.map((stage, i) => {
+                const isActive = episode.status === stage
+                const isDone = currentIdx > i || episode.status === 'COMPLETED'
+                const isFailed = episode.status === 'FAILED' && currentIdx === i
+                const isLast = i === STAGE_ORDER.length - 1
 
-      {/* Scenes */}
-      {episode.scenes.length > 0 && (
-        <section>
-          <h2 className="text-lg font-semibold text-white mb-4">
-            Scenes ({episode.scenes.length})
-          </h2>
-          <div className="space-y-3">
-            {episode.scenes.map((scene) => (
-              <div
-                key={scene.id}
-                className="rounded-lg border border-white/10 bg-white/5 p-4"
-              >
-                <div className="flex items-start gap-4">
-                  {/* Scene image thumbnail */}
-                  <div className="w-24 h-16 rounded-lg bg-white/5 flex-shrink-0 overflow-hidden flex items-center justify-center">
-                    {scene.imageUrl ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img src={scene.imageUrl} alt="" className="w-full h-full object-cover" />
-                    ) : (
-                      <ImageIcon className="h-5 w-5 text-gray-600" />
+                return (
+                  <div key={stage} className="relative flex gap-3">
+                    {/* Connector line */}
+                    {!isLast && (
+                      <div
+                        className={`absolute left-[11px] top-[24px] w-0.5 h-[calc(100%-4px)] ${
+                          isDone ? 'bg-green-500/40' :
+                          isActive ? 'bg-brand-500/40' :
+                          isFailed ? 'bg-red-500/40' : 'bg-white/10'
+                        }`}
+                      />
                     )}
-                  </div>
 
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 mb-1">
-                      <span className="text-xs font-medium text-gray-400">
-                        Scene {scene.sceneIndex + 1}
-                      </span>
-                      <span className="text-[10px] text-gray-600">
-                        {Math.round(scene.endTime - scene.startTime)}s
-                      </span>
+                    {/* Icon */}
+                    <div
+                      className={`relative z-10 flex h-6 w-6 items-center justify-center rounded-full flex-shrink-0 ${
+                        isDone ? 'bg-green-500/20 text-green-400' :
+                        isActive ? 'bg-brand-500/20 text-brand-400' :
+                        isFailed ? 'bg-red-500/20 text-red-400' : 'bg-white/5 text-gray-600'
+                      }`}
+                    >
+                      {isDone ? (
+                        <CheckCircle2 className="h-3.5 w-3.5" />
+                      ) : isActive ? (
+                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                      ) : isFailed ? (
+                        <XCircle className="h-3.5 w-3.5" />
+                      ) : (
+                        <Clock className="h-3.5 w-3.5" />
+                      )}
                     </div>
 
-                    <p className="text-sm text-gray-300 mb-2">{scene.description}</p>
-
-                    {/* Narration */}
-                    {scene.narration && (
-                      <p className="text-xs text-gray-500 italic mb-2">
-                        <span className="text-gray-600">Narrator:</span> {scene.narration}
+                    {/* Label */}
+                    <div className="pb-4">
+                      <p className={`text-xs font-medium ${
+                        isDone ? 'text-green-400' :
+                        isActive ? 'text-brand-400' :
+                        isFailed ? 'text-red-400' : 'text-gray-600'
+                      }`}>
+                        {STAGE_LABELS[stage]}
                       </p>
-                    )}
-
-                    {/* Dialogue */}
-                    {scene.dialogue && Array.isArray(scene.dialogue) && scene.dialogue.length > 0 && (
-                      <div className="space-y-1">
-                        {scene.dialogue.map((line: { characterName: string; text: string }, i: number) => {
-                          const char = charMap.get(line.characterName)
-                          return (
-                            <div key={i} className="flex items-start gap-2 text-xs">
-                              <span
-                                className="font-medium flex-shrink-0"
-                                style={{ color: char?.color || '#9CA3AF' }}
-                              >
-                                {line.characterName}:
-                              </span>
-                              <span className="text-gray-400">{line.text}</span>
-                            </div>
-                          )
-                        })}
-                      </div>
-                    )}
+                    </div>
                   </div>
-                </div>
-              </div>
-            ))}
+                )
+              })}
+            </div>
           </div>
-        </section>
-      )}
+
+          {/* Episode Details */}
+          <div className="rounded-xl border border-white/10 bg-white/5 p-5">
+            <h2 className="text-sm font-semibold text-gray-400 uppercase tracking-wide mb-4">Details</h2>
+            <dl className="space-y-3 text-sm">
+              <div className="flex justify-between">
+                <dt className="text-gray-500">Status</dt>
+                <dd className={`font-medium ${
+                  episode.status === 'COMPLETED' ? 'text-green-400' :
+                  episode.status === 'FAILED' ? 'text-red-400' :
+                  'text-brand-400'
+                }`}>
+                  {STAGE_LABELS[episode.status] || episode.status}
+                </dd>
+              </div>
+              {episode.durationSeconds && (
+                <div className="flex justify-between">
+                  <dt className="text-gray-500">Duration</dt>
+                  <dd className="text-white">{Math.floor(episode.durationSeconds / 60)}m {episode.durationSeconds % 60}s</dd>
+                </div>
+              )}
+              <div className="flex justify-between">
+                <dt className="text-gray-500">Scenes</dt>
+                <dd className="text-white">{episode.scenes.length}</dd>
+              </div>
+              <div className="flex justify-between">
+                <dt className="text-gray-500">Episode</dt>
+                <dd className="text-white">#{episode.episodeNumber}</dd>
+              </div>
+            </dl>
+          </div>
+
+          {/* Prompt */}
+          <div className="rounded-xl border border-white/10 bg-white/5 p-5">
+            <h2 className="text-sm font-semibold text-gray-400 uppercase tracking-wide mb-3">Prompt</h2>
+            <p className="text-sm text-gray-300 leading-relaxed">{episode.prompt}</p>
+          </div>
+        </div>
+      </div>
     </div>
   )
 }
