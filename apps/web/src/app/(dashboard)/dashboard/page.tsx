@@ -24,9 +24,9 @@ export default async function DashboardPage() {
 
   return (
     <div>
-      <div className="mb-8">
-        <h1 className="text-2xl font-bold text-white">Welcome back, {session.user.name?.split(' ')[0]}</h1>
-        <p className="text-gray-400 mt-1">Here&apos;s your content creation overview</p>
+      <div className="mb-8 pb-6 border-b border-white/[0.06]">
+        <h1 className="text-3xl font-bold text-white tracking-tight">Welcome back, {session.user.name?.split(' ')[0]}</h1>
+        <p className="text-sm text-gray-500 mt-2">Here&apos;s your content creation overview</p>
       </div>
 
       {/* Stats */}

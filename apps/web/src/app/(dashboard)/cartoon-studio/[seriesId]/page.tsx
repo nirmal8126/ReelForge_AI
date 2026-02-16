@@ -53,7 +53,7 @@ export default async function SeriesDetailPage({
   return (
     <div>
       {/* Header */}
-      <div className="mb-6">
+      <div className="mb-8 pb-6 border-b border-white/[0.06]">
         <Link
           href="/cartoon-studio"
           className="inline-flex items-center gap-2 text-sm text-gray-400 hover:text-white transition mb-4"
@@ -63,14 +63,17 @@ export default async function SeriesDetailPage({
         </Link>
 
         <div className="flex items-center justify-between">
-          <h1 className="text-2xl font-bold text-white">{series.name}</h1>
-          <Link
-            href={`/cartoon-studio/${seriesId}/edit`}
-            className="inline-flex items-center gap-2 rounded-lg border border-white/10 px-3 py-2 text-sm text-gray-400 hover:text-white hover:bg-white/5 transition flex-shrink-0"
-          >
-            <Settings className="h-4 w-4" />
-            Edit Series
-          </Link>
+          <h1 className="text-3xl font-bold text-white tracking-tight">{series.name}</h1>
+          <div className="flex items-center gap-3">
+            <WeeklyPlanner seriesId={seriesId} />
+            <Link
+              href={`/cartoon-studio/${seriesId}/edit`}
+              className="inline-flex items-center gap-2 rounded-lg border border-white/10 px-3 py-2 text-sm text-gray-400 hover:text-white hover:bg-white/5 transition flex-shrink-0"
+            >
+              <Settings className="h-4 w-4" />
+              Edit Series
+            </Link>
+          </div>
         </div>
       </div>
 
@@ -135,11 +138,6 @@ export default async function SeriesDetailPage({
 
         {/* RIGHT — Episodes */}
         <div className="space-y-6">
-          {/* Weekly Planner */}
-          <div>
-            <WeeklyPlanner seriesId={seriesId} />
-          </div>
-
           {/* Episodes List */}
           <div className="rounded-xl border border-white/10 bg-white/5 p-5">
             <div className="flex items-center justify-between mb-4">

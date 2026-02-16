@@ -137,9 +137,9 @@ export default async function LongFormDetailPage({ params }: LongFormDetailPageP
       </Link>
 
       {/* Header */}
-      <div className="flex items-start justify-between mb-8">
+      <div className="flex items-start justify-between mb-8 pb-6 border-b border-white/[0.06]">
         <div className="flex-1 min-w-0">
-          <h1 className="text-2xl font-bold text-white truncate">{job.title}</h1>
+          <h1 className="text-3xl font-bold text-white tracking-tight truncate">{job.title}</h1>
           <div className="flex items-center gap-4 mt-2">
             <span
               className={`inline-flex items-center gap-1.5 text-sm font-medium ${getJobStatusColor(

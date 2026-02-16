@@ -147,7 +147,7 @@ export default function EpisodeDetailPage() {
   return (
     <div>
       {/* Header */}
-      <div className="mb-6">
+      <div className="mb-8 pb-6 border-b border-white/[0.06]">
         <Link
           href={`/cartoon-studio/${seriesId}`}
           className="inline-flex items-center gap-2 text-sm text-gray-400 hover:text-white transition mb-4"
@@ -157,11 +157,11 @@ export default function EpisodeDetailPage() {
         </Link>
         <div className="flex items-start justify-between">
           <div>
-            <h1 className="text-2xl font-bold text-white">
+            <h1 className="text-3xl font-bold text-white tracking-tight">
               Ep. {episode.episodeNumber}: {episode.title}
             </h1>
             {episode.synopsis && (
-              <p className="text-gray-400 text-sm mt-1">{episode.synopsis}</p>
+              <p className="text-sm text-gray-500 mt-2">{episode.synopsis}</p>
             )}
           </div>
           {episode.status === 'FAILED' && (

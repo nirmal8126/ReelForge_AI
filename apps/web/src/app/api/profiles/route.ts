@@ -11,6 +11,8 @@ const profileSchema = z.object({
   primaryColor: z.string().regex(/^#[0-9A-Fa-f]{6}$/),
   hookStyle: z.string().optional(),
   musicPreference: z.string().optional(),
+  defaultVoiceId: z.string().max(100).optional().nullable(),
+  defaultLanguage: z.string().max(10).optional().nullable(),
 })
 
 export async function GET() {
@@ -66,6 +68,8 @@ export async function POST(req: NextRequest) {
         primaryColor: data.primaryColor,
         hookStyle: data.hookStyle,
         musicPreference: data.musicPreference,
+        defaultVoiceId: data.defaultVoiceId || null,
+        defaultLanguage: data.defaultLanguage || null,
         isDefault: isFirst,
       },
     })

@@ -4,10 +4,17 @@ import { useState, useEffect } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import {
   Sparkles, Mic, Clock, Monitor, Send,
-  ArrowLeft, ArrowRight, Check, Loader2, Film,
+  ArrowLeft, ArrowRight, Check, Loader2, Film, Wand2,
 } from 'lucide-react'
 import toast from 'react-hot-toast'
-import { SUPPORTED_LANGUAGES, LANGUAGE_VOICE_MAP } from '@/lib/constants'
+import { SUPPORTED_LANGUAGES, LANGUAGE_VOICE_MAP, NICHE_PRESETS } from '@/lib/constants'
+
+const NICHE_ORDER = ['motivation', 'tech', 'finance', 'fitness', 'education', 'business', 'health', 'cooking', 'gaming', 'travel', 'beauty', 'comedy'] as const
+const NICHES = NICHE_ORDER.map(id => ({
+  id,
+  name: NICHE_PRESETS[id].name,
+  color: NICHE_PRESETS[id].primaryColor,
+}))
 
 const STYLES = [
   { id: 'cinematic', name: 'Cinematic', color: '#1E293B', desc: 'Movie-like visuals' },
@@ -55,6 +62,8 @@ interface Profile {
   niche: string
   primaryColor: string
   tone: string
+  defaultVoiceId: string | null
+  defaultLanguage: string | null
 }
 
 export default function CreateReelPage() {
@@ -67,12 +76,14 @@ export default function CreateReelPage() {
   const [profiles, setProfiles] = useState<Profile[]>([])
   const [scriptVariations, setScriptVariations] = useState<string[]>([])
   const [generatingScript, setGeneratingScript] = useState(false)
+  const [niche, setNiche] = useState('')
+  const [generatingIdea, setGeneratingIdea] = useState(false)
 
   const [form, setForm] = useState({
     title: '',
     prompt: '',
     style: 'cinematic',
-    language: 'en',
+    language: 'hi',
     voiceId: VOICES[0].id,
     durationSeconds: 30,
     aspectRatio: '9:16',
@@ -86,6 +97,36 @@ export default function CreateReelPage() {
       .then(data => setProfiles(Array.isArray(data) ? data : []))
       .catch(() => {})
   }, [])
+
+  const handleGenerateIdea = async () => {
+    setGeneratingIdea(true)
+    try {
+      const selectedProfile = profiles.find(p => p.id === form.channelProfileId)
+      const res = await fetch('/api/generate-idea', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          type: 'reel',
+          niche: niche || undefined,
+          language: form.language,
+          channelProfile: selectedProfile
+            ? { name: selectedProfile.name, niche: selectedProfile.niche, tone: selectedProfile.tone }
+            : undefined,
+        }),
+      })
+      const data = await res.json()
+      if (data.title && data.prompt) {
+        setForm(prev => ({ ...prev, title: data.title, prompt: data.prompt }))
+        toast.success('Idea generated!')
+      } else {
+        toast.error(data.error || 'Failed to generate idea')
+      }
+    } catch {
+      toast.error('Failed to generate idea')
+    } finally {
+      setGeneratingIdea(false)
+    }
+  }
 
   const handleGenerateScripts = async () => {
     if (!form.prompt || form.prompt.length < 10) {
@@ -163,10 +204,10 @@ export default function CreateReelPage() {
   ]
 
   return (
-    <div className="max-w-4xl mx-auto">
-      <div className="mb-8">
-        <h1 className="text-2xl font-bold text-white">Create New Reel</h1>
-        <p className="text-gray-400 mt-1">AI-powered reel generation in 5 steps</p>
+    <div className="mx-auto" style={{ maxWidth: step === 1 ? '100%' : '56rem' }}>
+      <div className="mb-8 pb-6 border-b border-white/[0.06]">
+        <h1 className="text-3xl font-bold text-white tracking-tight">Create New Reel</h1>
+        <p className="text-sm text-gray-500 mt-2">AI-powered reel generation in 5 steps</p>
       </div>
 
       {/* Step Progress */}
@@ -194,43 +235,146 @@ export default function CreateReelPage() {
       {/* Step 1: Topic & Prompt */}
       {step === 1 && (
         <div className="space-y-6">
-          <div>
-            <label className="block text-sm font-medium text-gray-300 mb-2">Reel Title (optional)</label>
-            <input
-              type="text"
-              value={form.title}
-              onChange={(e) => setForm({ ...form, title: e.target.value })}
-              className="w-full rounded-lg bg-white/10 border border-white/10 px-4 py-3 text-white placeholder-gray-500 focus:border-brand-500 focus:ring-1 focus:ring-brand-500 outline-none"
-              placeholder="e.g. 5 AI Tools You Need in 2025"
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-300 mb-2">What&apos;s your reel about? *</label>
-            <textarea
-              value={form.prompt}
-              onChange={(e) => setForm({ ...form, prompt: e.target.value })}
-              rows={5}
-              className="w-full rounded-lg bg-white/10 border border-white/10 px-4 py-3 text-white placeholder-gray-500 focus:border-brand-500 focus:ring-1 focus:ring-brand-500 outline-none resize-none"
-              placeholder="Describe your reel topic in detail. The more context you provide, the better the AI can generate a script.&#10;&#10;Example: Create a 30-second reel about the top 5 AI tools that every content creator should be using in 2025, with emphasis on free tools that save time."
-            />
-            <p className="text-xs text-gray-500 mt-1">{form.prompt.length}/2000 characters</p>
-          </div>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* ── Left: Preferences ── */}
+            <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-6 space-y-5">
+              <div>
+                <h3 className="text-sm font-semibold text-white mb-0.5">Preferences</h3>
+                <p className="text-xs text-gray-500">Choose a profile or niche and language</p>
+              </div>
 
-          {profiles.length > 0 && (
-            <div>
-              <label className="block text-sm font-medium text-gray-300 mb-2">Channel Profile (optional)</label>
-              <select
-                value={form.channelProfileId}
-                onChange={(e) => setForm({ ...form, channelProfileId: e.target.value })}
-                className="w-full rounded-lg bg-white/10 border border-white/10 px-4 py-3 text-white focus:border-brand-500 focus:ring-1 focus:ring-brand-500 outline-none"
-              >
-                <option value="">No profile — use defaults</option>
-                {profiles.map((p) => (
-                  <option key={p.id} value={p.id}>{p.name} ({p.niche})</option>
-                ))}
-              </select>
+              {/* Channel Profile */}
+              {profiles.length > 0 && (
+                <div>
+                  <label className="block text-xs font-medium text-gray-400 mb-1.5">Channel Profile</label>
+                  <select
+                    value={form.channelProfileId}
+                    onChange={(e) => {
+                      const profileId = e.target.value
+                      const profile = profiles.find(p => p.id === profileId)
+                      const updates: Record<string, any> = { channelProfileId: profileId }
+                      if (profile) {
+                        if (profile.defaultLanguage) updates.language = profile.defaultLanguage
+                        if (profile.defaultVoiceId) updates.voiceId = profile.defaultVoiceId
+                        setNiche('')
+                      }
+                      setForm(prev => ({ ...prev, ...updates }))
+                    }}
+                    className="w-full rounded-lg bg-white/10 border border-white/10 px-4 py-2.5 text-sm text-white focus:border-brand-500 focus:ring-1 focus:ring-brand-500 outline-none"
+                  >
+                    <option value="">No profile — use defaults</option>
+                    {profiles.map((p) => (
+                      <option key={p.id} value={p.id}>{p.name} ({p.niche})</option>
+                    ))}
+                  </select>
+                </div>
+              )}
+
+              {/* Niche Selection */}
+              {!form.channelProfileId && (
+                <div>
+                  <label className="block text-xs font-medium text-gray-400 mb-1.5">Niche</label>
+                  <div className="flex flex-wrap gap-2">
+                    {NICHES.map((n) => (
+                      <button
+                        key={n.id}
+                        type="button"
+                        onClick={() => setNiche(niche === n.id ? '' : n.id)}
+                        className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium transition border ${
+                          niche === n.id
+                            ? 'border-brand-500 bg-brand-500/15 text-brand-400'
+                            : 'border-white/10 bg-white/5 text-gray-400 hover:bg-white/10 hover:text-gray-300'
+                        }`}
+                      >
+                        <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: n.color }} />
+                        {n.name}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Language */}
+              <div>
+                <label className="block text-xs font-medium text-gray-400 mb-1.5">Language</label>
+                <div className="flex flex-wrap gap-2">
+                  {SUPPORTED_LANGUAGES.map((lang) => (
+                    <button
+                      key={lang.code}
+                      type="button"
+                      onClick={() => setForm({ ...form, language: lang.code })}
+                      className={`inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-medium transition ${
+                        form.language === lang.code
+                          ? 'border-brand-500 bg-brand-500/15 text-brand-400'
+                          : 'border-white/10 bg-white/5 text-gray-400 hover:bg-white/10 hover:text-gray-300'
+                      }`}
+                    >
+                      <span className="text-sm">{lang.flag}</span>
+                      {lang.name}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Generate Idea */}
+              <div className="rounded-xl border border-dashed border-white/15 bg-white/[0.02] p-3.5 space-y-3">
+                <div>
+                  <p className="text-sm font-medium text-gray-300">Need inspiration?</p>
+                  <p className="text-xs text-gray-500 mt-0.5">
+                    {form.channelProfileId
+                      ? 'Generate an idea based on your channel profile'
+                      : niche
+                      ? `Generate an idea for ${NICHE_PRESETS[niche as keyof typeof NICHE_PRESETS]?.name || niche}`
+                      : 'Select a niche above, or generate a random idea'}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={handleGenerateIdea}
+                  disabled={generatingIdea}
+                  className="w-full inline-flex items-center justify-center gap-2 rounded-lg bg-gradient-to-r from-purple-600 to-brand-600 px-4 py-2.5 text-sm font-medium text-white hover:from-purple-500 hover:to-brand-500 transition disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {generatingIdea ? (
+                    <><Loader2 className="h-4 w-4 animate-spin" /> Generating...</>
+                  ) : (
+                    <><Wand2 className="h-4 w-4" /> Generate Idea</>
+                  )}
+                </button>
+              </div>
             </div>
-          )}
+
+            {/* ── Right: Content ── */}
+            <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-6 flex flex-col">
+              <div className="mb-5">
+                <h3 className="text-sm font-semibold text-white mb-0.5">Content</h3>
+                <p className="text-xs text-gray-500">Enter your reel title and describe what it should be about</p>
+              </div>
+
+              {/* Title */}
+              <div className="mb-4">
+                <label className="block text-xs font-medium text-gray-400 mb-1.5">Reel Title (optional)</label>
+                <input
+                  type="text"
+                  value={form.title}
+                  onChange={(e) => setForm({ ...form, title: e.target.value })}
+                  className="w-full rounded-lg bg-white/10 border border-white/10 px-4 py-2.5 text-sm text-white placeholder-gray-500 focus:border-brand-500 focus:ring-1 focus:ring-brand-500 outline-none"
+                  placeholder="e.g. 5 AI Tools You Need in 2025"
+                />
+              </div>
+
+              {/* Prompt */}
+              <div className="flex-1 flex flex-col">
+                <label className="block text-xs font-medium text-gray-400 mb-1.5">What&apos;s your reel about? *</label>
+                <textarea
+                  value={form.prompt}
+                  onChange={(e) => setForm({ ...form, prompt: e.target.value })}
+                  className="w-full flex-1 min-h-[200px] rounded-lg bg-white/10 border border-white/10 px-4 py-2.5 text-sm text-white placeholder-gray-500 focus:border-brand-500 focus:ring-1 focus:ring-brand-500 outline-none resize-none"
+                  placeholder="Describe your reel topic in detail. The more context you provide, the better the AI can generate a script.&#10;&#10;Example: Create a 30-second reel about the top 5 AI tools that every content creator should be using in 2025, with emphasis on free tools that save time."
+                />
+                <p className="text-xs text-gray-500 mt-1.5">{form.prompt.length}/2000 characters</p>
+              </div>
+            </div>
+          </div>
 
           <div className="flex justify-end">
             <button

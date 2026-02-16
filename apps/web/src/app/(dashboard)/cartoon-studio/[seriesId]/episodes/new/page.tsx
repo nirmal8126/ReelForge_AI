@@ -100,7 +100,7 @@ export default function NewEpisodePage() {
 
   return (
     <div className="max-w-2xl mx-auto">
-      <div className="mb-8">
+      <div className="mb-8 pb-6 border-b border-white/[0.06]">
         <Link
           href={`/cartoon-studio/${seriesId}`}
           className="inline-flex items-center gap-2 text-sm text-gray-400 hover:text-white transition mb-4"
@@ -108,8 +108,8 @@ export default function NewEpisodePage() {
           <ArrowLeft className="h-4 w-4" />
           Back to {seriesName || 'Series'}
         </Link>
-        <h1 className="text-2xl font-bold text-white">New Episode</h1>
-        <p className="text-gray-400 text-sm mt-1">
+        <h1 className="text-3xl font-bold text-white tracking-tight">New Episode</h1>
+        <p className="text-sm text-gray-500 mt-2">
           Describe the episode story or let AI generate an idea for you
         </p>
       </div>

@@ -5,10 +5,17 @@ import { useRouter } from 'next/navigation'
 import {
   Sparkles, Mic, Send, ArrowLeft, ArrowRight, Loader2, Youtube, Zap,
   LayoutList, GripVertical, Trash2, Plus, Pencil, ChevronDown, ChevronUp,
-  Clock, Eye,
+  Clock, Eye, Wand2,
 } from 'lucide-react'
 import toast from 'react-hot-toast'
-import { SUPPORTED_LANGUAGES } from '@/lib/constants'
+import { SUPPORTED_LANGUAGES, NICHE_PRESETS } from '@/lib/constants'
+
+const NICHE_ORDER = ['motivation', 'tech', 'finance', 'fitness', 'education', 'business', 'health', 'cooking', 'gaming', 'travel', 'beauty', 'comedy'] as const
+const NICHES = NICHE_ORDER.map(id => ({
+  id,
+  name: NICHE_PRESETS[id].name,
+  color: NICHE_PRESETS[id].primaryColor,
+}))
 
 const STYLES = [
   { id: 'cinematic', name: 'Cinematic', color: '#1E293B', desc: 'Movie-like visuals' },
@@ -53,6 +60,8 @@ interface Profile {
   niche: string
   primaryColor: string
   tone: string
+  defaultVoiceId: string | null
+  defaultLanguage: string | null
 }
 
 interface OutlineSegment {
@@ -70,6 +79,8 @@ export default function CreateLongFormPage() {
   const [loading, setLoading] = useState(false)
   const [generatingOutline, setGeneratingOutline] = useState(false)
   const [profiles, setProfiles] = useState<Profile[]>([])
+  const [niche, setNiche] = useState('')
+  const [generatingIdea, setGeneratingIdea] = useState(false)
   const [estimatedCost, setEstimatedCost] = useState({ credits: 5, cents: 280 })
   const [outline, setOutline] = useState<{ segments: OutlineSegment[] } | null>(null)
   const [editingSegmentIndex, setEditingSegmentIndex] = useState<number | null>(null)
@@ -78,9 +89,9 @@ export default function CreateLongFormPage() {
   const [form, setForm] = useState({
     title: '',
     prompt: '',
-    durationMinutes: 10,
+    durationMinutes: 5,
     style: 'cinematic',
-    language: 'en',
+    language: 'hi',
     voiceId: VOICES[0].id,
     aspectRatio: '16:9',
     aiClipRatio: 0.3,
@@ -112,6 +123,39 @@ export default function CreateLongFormPage() {
 
     setEstimatedCost({ credits: creditsCost, cents: estimatedCostCents })
   }, [form.durationMinutes, form.aiClipRatio])
+
+  // ---------------------------------------------------------------------------
+  // Generate Idea
+  // ---------------------------------------------------------------------------
+  const handleGenerateIdea = async () => {
+    setGeneratingIdea(true)
+    try {
+      const selectedProfile = profiles.find(p => p.id === form.channelProfileId)
+      const res = await fetch('/api/generate-idea', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          type: 'long-form',
+          niche: niche || undefined,
+          language: form.language,
+          channelProfile: selectedProfile
+            ? { name: selectedProfile.name, niche: selectedProfile.niche, tone: selectedProfile.tone }
+            : undefined,
+        }),
+      })
+      const data = await res.json()
+      if (data.title && data.prompt) {
+        setForm(prev => ({ ...prev, title: data.title, prompt: data.prompt }))
+        toast.success('Idea generated!')
+      } else {
+        toast.error(data.error || 'Failed to generate idea')
+      }
+    } catch {
+      toast.error('Failed to generate idea')
+    } finally {
+      setGeneratingIdea(false)
+    }
+  }
 
   // ---------------------------------------------------------------------------
   // Generate Outline (Plan Mode)
@@ -253,10 +297,10 @@ export default function CreateLongFormPage() {
     : 0
 
   return (
-    <div className="max-w-4xl mx-auto">
-      <div className="mb-8">
-        <h1 className="text-2xl font-bold text-white">Create Long-Form Video</h1>
-        <p className="text-gray-400 mt-1">AI-powered video generation with plan preview</p>
+    <div className="mx-auto" style={{ maxWidth: step === 1 ? '100%' : '56rem' }}>
+      <div className="mb-8 pb-6 border-b border-white/[0.06]">
+        <h1 className="text-3xl font-bold text-white tracking-tight">Create Long-Form Video</h1>
+        <p className="text-sm text-gray-500 mt-2">AI-powered video generation with plan preview</p>
       </div>
 
       {/* Step Progress */}
@@ -286,63 +330,168 @@ export default function CreateLongFormPage() {
       {/* ================================================================== */}
       {step === 1 && (
         <div className="space-y-6">
-          <div>
-            <label className="block text-sm font-medium text-gray-300 mb-2">Video Title (optional)</label>
-            <input
-              type="text"
-              value={form.title}
-              onChange={e => setForm({ ...form, title: e.target.value })}
-              placeholder="e.g., How to Build a Successful YouTube Channel"
-              className="w-full rounded-lg border border-white/10 bg-white/5 px-4 py-2.5 text-white placeholder-gray-500 focus:border-brand-500 focus:ring focus:ring-brand-500/20 transition"
-            />
-          </div>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* ── Left: Preferences ── */}
+            <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-6 space-y-5">
+              <div>
+                <h3 className="text-sm font-semibold text-white mb-0.5">Preferences</h3>
+                <p className="text-xs text-gray-500">Choose a profile or niche and language</p>
+              </div>
 
-          <div>
-            <label className="block text-sm font-medium text-gray-300 mb-2">
-              Video Topic / Prompt <span className="text-red-400">*</span>
-            </label>
-            <textarea
-              value={form.prompt}
-              onChange={e => setForm({ ...form, prompt: e.target.value })}
-              placeholder="Describe the topic for your long-form video. Be specific about the key points you want to cover..."
-              rows={5}
-              className="w-full rounded-lg border border-white/10 bg-white/5 px-4 py-2.5 text-white placeholder-gray-500 focus:border-brand-500 focus:ring focus:ring-brand-500/20 transition"
-            />
-            <p className="text-xs text-gray-500 mt-1">{form.prompt.length} / 2000 characters</p>
-          </div>
+              {/* Channel Profile */}
+              {profiles.length > 0 && (
+                <div>
+                  <label className="block text-xs font-medium text-gray-400 mb-1.5">Channel Profile</label>
+                  <select
+                    value={form.channelProfileId}
+                    onChange={e => {
+                      const profileId = e.target.value
+                      const profile = profiles.find(p => p.id === profileId)
+                      const updates: Record<string, any> = { channelProfileId: profileId }
+                      if (profile) {
+                        if (profile.defaultLanguage) updates.language = profile.defaultLanguage
+                        if (profile.defaultVoiceId) updates.voiceId = profile.defaultVoiceId
+                        setNiche('')
+                      }
+                      setForm(prev => ({ ...prev, ...updates }))
+                    }}
+                    className="w-full rounded-lg border border-white/10 bg-white/5 px-4 py-2.5 text-sm text-white focus:border-brand-500 focus:ring focus:ring-brand-500/20 transition"
+                  >
+                    <option value="">No profile (use defaults)</option>
+                    {profiles.map(profile => (
+                      <option key={profile.id} value={profile.id}>{profile.name} ({profile.niche})</option>
+                    ))}
+                  </select>
+                </div>
+              )}
 
-          <div>
-            <label className="block text-sm font-medium text-gray-300 mb-3">Duration</label>
-            <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
-              {DURATIONS.map(duration => (
+              {/* Niche Selection */}
+              {!form.channelProfileId && (
+                <div>
+                  <label className="block text-xs font-medium text-gray-400 mb-1.5">Niche</label>
+                  <div className="flex flex-wrap gap-2">
+                    {NICHES.map((n) => (
+                      <button
+                        key={n.id}
+                        type="button"
+                        onClick={() => setNiche(niche === n.id ? '' : n.id)}
+                        className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium transition border ${
+                          niche === n.id
+                            ? 'border-brand-500 bg-brand-500/15 text-brand-400'
+                            : 'border-white/10 bg-white/5 text-gray-400 hover:bg-white/10 hover:text-gray-300'
+                        }`}
+                      >
+                        <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: n.color }} />
+                        {n.name}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Language */}
+              <div>
+                <label className="block text-xs font-medium text-gray-400 mb-1.5">Language</label>
+                <div className="flex flex-wrap gap-2">
+                  {SUPPORTED_LANGUAGES.map((lang) => (
+                    <button
+                      key={lang.code}
+                      type="button"
+                      onClick={() => setForm({ ...form, language: lang.code })}
+                      className={`inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-medium transition ${
+                        form.language === lang.code
+                          ? 'border-brand-500 bg-brand-500/15 text-brand-400'
+                          : 'border-white/10 bg-white/5 text-gray-400 hover:bg-white/10 hover:text-gray-300'
+                      }`}
+                    >
+                      <span className="text-sm">{lang.flag}</span>
+                      {lang.name}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Generate Idea */}
+              <div className="rounded-xl border border-dashed border-white/15 bg-white/[0.02] p-3.5 space-y-3">
+                <div>
+                  <p className="text-sm font-medium text-gray-300">Need inspiration?</p>
+                  <p className="text-xs text-gray-500 mt-0.5">
+                    {form.channelProfileId
+                      ? 'Generate an idea based on your channel profile'
+                      : niche
+                      ? `Generate an idea for ${NICHE_PRESETS[niche as keyof typeof NICHE_PRESETS]?.name || niche}`
+                      : 'Select a niche above, or generate a random idea'}
+                  </p>
+                </div>
                 <button
-                  key={duration.value}
-                  onClick={() => setForm({ ...form, durationMinutes: duration.value })}
-                  className={`rounded-lg border p-4 text-center transition ${
-                    form.durationMinutes === duration.value
-                      ? 'border-brand-500 bg-brand-500/10 text-brand-400'
-                      : 'border-white/10 bg-white/5 text-gray-400 hover:border-white/20'
-                  }`}
+                  type="button"
+                  onClick={handleGenerateIdea}
+                  disabled={generatingIdea}
+                  className="w-full inline-flex items-center justify-center gap-2 rounded-lg bg-gradient-to-r from-purple-600 to-brand-600 px-4 py-2.5 text-sm font-medium text-white hover:from-purple-500 hover:to-brand-500 transition disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  <div className="text-lg font-semibold">{duration.label}</div>
-                  <div className="text-xs mt-1">{duration.desc}</div>
+                  {generatingIdea ? (
+                    <><Loader2 className="h-4 w-4 animate-spin" /> Generating...</>
+                  ) : (
+                    <><Wand2 className="h-4 w-4" /> Generate Idea</>
+                  )}
                 </button>
-              ))}
+              </div>
             </div>
-          </div>
 
-          <div>
-            <label className="block text-sm font-medium text-gray-300 mb-2">Channel Profile (optional)</label>
-            <select
-              value={form.channelProfileId}
-              onChange={e => setForm({ ...form, channelProfileId: e.target.value })}
-              className="w-full rounded-lg border border-white/10 bg-white/5 px-4 py-2.5 text-white focus:border-brand-500 focus:ring focus:ring-brand-500/20 transition"
-            >
-              <option value="">No profile (use defaults)</option>
-              {profiles.map(profile => (
-                <option key={profile.id} value={profile.id}>{profile.name} ({profile.niche})</option>
-              ))}
-            </select>
+            {/* ── Right: Content ── */}
+            <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-6 flex flex-col">
+              <div className="mb-5">
+                <h3 className="text-sm font-semibold text-white mb-0.5">Content</h3>
+                <p className="text-xs text-gray-500">Enter your video title, describe the topic, and pick a duration</p>
+              </div>
+
+              {/* Title */}
+              <div className="mb-4">
+                <label className="block text-xs font-medium text-gray-400 mb-1.5">Video Title (optional)</label>
+                <input
+                  type="text"
+                  value={form.title}
+                  onChange={e => setForm({ ...form, title: e.target.value })}
+                  placeholder="e.g., How to Build a Successful YouTube Channel"
+                  className="w-full rounded-lg border border-white/10 bg-white/5 px-4 py-2.5 text-sm text-white placeholder-gray-500 focus:border-brand-500 focus:ring focus:ring-brand-500/20 transition"
+                />
+              </div>
+
+              {/* Prompt */}
+              <div className="flex-1 flex flex-col mb-4">
+                <label className="block text-xs font-medium text-gray-400 mb-1.5">
+                  Video Topic / Prompt <span className="text-red-400">*</span>
+                </label>
+                <textarea
+                  value={form.prompt}
+                  onChange={e => setForm({ ...form, prompt: e.target.value })}
+                  placeholder="Describe the topic for your long-form video. Be specific about the key points you want to cover..."
+                  className="w-full flex-1 min-h-[160px] rounded-lg border border-white/10 bg-white/5 px-4 py-2.5 text-sm text-white placeholder-gray-500 focus:border-brand-500 focus:ring focus:ring-brand-500/20 transition resize-none"
+                />
+                <p className="text-xs text-gray-500 mt-1.5">{form.prompt.length} / 2000 characters</p>
+              </div>
+
+              {/* Duration */}
+              <div>
+                <label className="block text-xs font-medium text-gray-400 mb-2">Duration</label>
+                <div className="grid grid-cols-3 md:grid-cols-5 gap-2">
+                  {DURATIONS.map(duration => (
+                    <button
+                      key={duration.value}
+                      onClick={() => setForm({ ...form, durationMinutes: duration.value })}
+                      className={`rounded-lg border p-2.5 text-center transition ${
+                        form.durationMinutes === duration.value
+                          ? 'border-brand-500 bg-brand-500/10 text-brand-400'
+                          : 'border-white/10 bg-white/5 text-gray-400 hover:border-white/20'
+                      }`}
+                    >
+                      <div className="text-sm font-semibold">{duration.label}</div>
+                      <div className="text-[10px] mt-0.5">{duration.desc}</div>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
           </div>
 
           <div className="flex justify-end">

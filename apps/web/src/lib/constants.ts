@@ -58,18 +58,15 @@ export const REEL_DURATIONS = [5, 10, 15, 30, 60] as const
 export const ASPECT_RATIOS = ['9:16', '1:1', '16:9'] as const
 
 export const SUPPORTED_LANGUAGES = [
-  { code: 'en', name: 'English', flag: '🇺🇸' },
-  { code: 'es', name: 'Spanish', flag: '🇪🇸' },
-  { code: 'fr', name: 'French', flag: '🇫🇷' },
-  { code: 'de', name: 'German', flag: '🇩🇪' },
-  { code: 'it', name: 'Italian', flag: '🇮🇹' },
-  { code: 'pt', name: 'Portuguese', flag: '🇧🇷' },
-  { code: 'ja', name: 'Japanese', flag: '🇯🇵' },
-  { code: 'ko', name: 'Korean', flag: '🇰🇷' },
-  { code: 'zh', name: 'Chinese', flag: '🇨🇳' },
-  { code: 'ar', name: 'Arabic', flag: '🇸🇦' },
   { code: 'hi', name: 'Hindi', flag: '🇮🇳' },
-  { code: 'pl', name: 'Polish', flag: '🇵🇱' },
+  { code: 'en', name: 'English', flag: '🇺🇸' },
+  { code: 'pa', name: 'Punjabi', flag: '🇮🇳' },
+  { code: 'ur', name: 'Urdu', flag: '🇵🇰' },
+  { code: 'bn', name: 'Bengali', flag: '🇮🇳' },
+  { code: 'ta', name: 'Tamil', flag: '🇮🇳' },
+  { code: 'te', name: 'Telugu', flag: '🇮🇳' },
+  { code: 'mr', name: 'Marathi', flag: '🇮🇳' },
+  { code: 'gu', name: 'Gujarati', flag: '🇮🇳' },
 ] as const
 
 // Map languages to available voices (initially only English has voices)
