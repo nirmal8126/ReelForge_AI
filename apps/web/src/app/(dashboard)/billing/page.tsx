@@ -1,19 +1,23 @@
 import { auth } from '@/lib/auth'
 import { prisma } from '@reelforge/db'
 import { redirect } from 'next/navigation'
-import { CreditCard, Zap, ArrowUpRight } from 'lucide-react'
+import { Zap, BarChart3, Crown, Check, Sparkles, ShieldCheck, Clock } from 'lucide-react'
 import { BillingActions } from '@/components/billing/billing-actions'
-import { PLANS } from '@/lib/constants'
 
 export default async function BillingPage() {
   const session = await auth()
   if (!session) redirect('/login')
 
-  const [subscription, user] = await Promise.all([
+  const [subscription, user, recentTransactions] = await Promise.all([
     prisma.subscription.findUnique({ where: { userId: session.user.id } }),
     prisma.user.findUnique({
       where: { id: session.user.id },
       select: { creditsBalance: true, stripeCustomerId: true },
+    }),
+    prisma.creditTransaction.findMany({
+      where: { userId: session.user.id },
+      orderBy: { createdAt: 'desc' },
+      take: 5,
     }),
   ])
 
@@ -21,6 +25,7 @@ export default async function BillingPage() {
   const jobsUsed = subscription?.jobsUsed || 0
   const jobsLimit = subscription?.jobsLimit || 3
   const usagePercent = jobsLimit > 0 ? Math.round((jobsUsed / jobsLimit) * 100) : 0
+  const remaining = Math.max(0, jobsLimit - jobsUsed)
 
   const plans = [
     { key: 'FREE', name: 'Free', price: '$0', monthly: '/mo', reels: '3 reels/mo', features: ['AI script generation', 'Basic voices', '720p quality', 'Watermarked'] },
@@ -29,137 +34,329 @@ export default async function BillingPage() {
     { key: 'BUSINESS', name: 'Business', price: '$99', monthly: '/mo', reels: '200 reels/mo', features: ['Everything in Pro', 'Unlimited profiles', 'Team collaboration', 'API access', 'White-label option'] },
   ]
 
+  const creditPacks = [
+    { credits: 10, price: '$9.99', perCredit: '$1.00', savings: null, index: 0 },
+    { credits: 50, price: '$39.99', perCredit: '$0.80', savings: '20% off', index: 1, popular: true },
+    { credits: 100, price: '$69.99', perCredit: '$0.70', savings: '30% off', index: 2 },
+  ]
+
+  const formatDate = (date: Date) => {
+    return new Date(date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+  }
+
   return (
     <div>
-      <div className="mb-8">
-        <h1 className="text-2xl font-bold text-white">Billing & Subscription</h1>
-        <p className="text-gray-400 mt-1">Manage your plan, usage, and credits</p>
+      <div className="flex items-center justify-between mb-8">
+        <div>
+          <h1 className="text-2xl font-bold text-white">Billing & Subscription</h1>
+          <p className="text-gray-400 mt-1">Manage your plan, usage, and credits</p>
+        </div>
+        <BillingActions
+          currentPlan={currentPlan}
+          hasStripeCustomer={!!user?.stripeCustomerId}
+        />
       </div>
 
-      {/* Current Plan Summary */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-        <div className="rounded-xl border border-white/10 bg-white/5 p-6">
+      {/* Stats Row */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
+        {/* Current Plan */}
+        <div className="rounded-xl border border-white/10 bg-white/5 p-5">
           <div className="flex items-center justify-between mb-3">
-            <span className="text-sm text-gray-400">Current Plan</span>
-            <CreditCard className="h-5 w-5 text-brand-400" />
+            <span className="text-xs font-medium text-gray-400 uppercase tracking-wider">Current Plan</span>
+            <div className={`h-9 w-9 rounded-lg flex items-center justify-center ${
+              currentPlan === 'FREE' ? 'bg-gray-500/10' :
+              currentPlan === 'STARTER' ? 'bg-blue-500/10' :
+              currentPlan === 'PRO' ? 'bg-brand-500/10' :
+              'bg-amber-500/10'
+            }`}>
+              <Crown className={`h-4.5 w-4.5 ${
+                currentPlan === 'FREE' ? 'text-gray-400' :
+                currentPlan === 'STARTER' ? 'text-blue-400' :
+                currentPlan === 'PRO' ? 'text-brand-400' :
+                'text-amber-400'
+              }`} />
+            </div>
           </div>
           <p className="text-2xl font-bold text-white capitalize">{currentPlan.toLowerCase()}</p>
           <p className="text-xs text-gray-500 mt-1">
-            {subscription?.currentPeriodEnd
-              ? `Renews ${new Date(subscription.currentPeriodEnd).toLocaleDateString()}`
-              : 'Free tier'}
+            {subscription?.currentPeriodEnd ? (
+              <span className="flex items-center gap-1">
+                <Clock className="h-3 w-3" />
+                Renews {formatDate(subscription.currentPeriodEnd)}
+              </span>
+            ) : (
+              'Free tier — no billing'
+            )}
           </p>
         </div>
 
-        <div className="rounded-xl border border-white/10 bg-white/5 p-6">
+        {/* Usage */}
+        <div className="rounded-xl border border-white/10 bg-white/5 p-5">
           <div className="flex items-center justify-between mb-3">
-            <span className="text-sm text-gray-400">Usage This Period</span>
+            <span className="text-xs font-medium text-gray-400 uppercase tracking-wider">Usage</span>
+            <div className="h-9 w-9 rounded-lg bg-purple-500/10 flex items-center justify-center">
+              <BarChart3 className="h-4.5 w-4.5 text-purple-400" />
+            </div>
           </div>
-          <p className="text-2xl font-bold text-white">{jobsUsed} / {jobsLimit}</p>
-          <div className="mt-3">
-            <div className="h-2 rounded-full bg-white/10">
+          <div className="flex items-baseline gap-1">
+            <p className="text-2xl font-bold text-white">{jobsUsed}</p>
+            <span className="text-sm text-gray-500">/ {jobsLimit}</span>
+          </div>
+          <div className="mt-2.5">
+            <div className="h-2 rounded-full bg-white/10 overflow-hidden">
               <div
-                className={`h-2 rounded-full transition-all ${usagePercent >= 90 ? 'bg-red-500' : usagePercent >= 70 ? 'bg-yellow-500' : 'bg-brand-500'}`}
+                className={`h-full rounded-full transition-all ${
+                  usagePercent >= 90 ? 'bg-red-500' : usagePercent >= 70 ? 'bg-yellow-500' : 'bg-brand-500'
+                }`}
                 style={{ width: `${Math.min(usagePercent, 100)}%` }}
               />
             </div>
-            <p className="text-xs text-gray-500 mt-1">{usagePercent}% used</p>
-          </div>
-        </div>
-
-        <div className="rounded-xl border border-white/10 bg-white/5 p-6">
-          <div className="flex items-center justify-between mb-3">
-            <span className="text-sm text-gray-400">Credit Balance</span>
-            <Zap className="h-5 w-5 text-yellow-400" />
-          </div>
-          <p className="text-2xl font-bold text-white">{user?.creditsBalance || 0} credits</p>
-          <p className="text-xs text-gray-500 mt-1">1 credit = 1 reel generation</p>
-        </div>
-      </div>
-
-      {/* Plan Management Actions */}
-      <BillingActions
-        currentPlan={currentPlan}
-        hasStripeCustomer={!!user?.stripeCustomerId}
-      />
-
-      {/* Plan Comparison */}
-      <div className="mb-8">
-        <h2 className="text-lg font-semibold text-white mb-6">Compare Plans</h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-          {plans.map((plan) => {
-            const isCurrent = plan.key === currentPlan
-            return (
-              <div
-                key={plan.key}
-                className={`rounded-xl border p-6 transition ${
-                  plan.popular
-                    ? 'border-brand-500 bg-brand-500/10 ring-1 ring-brand-500'
-                    : isCurrent
-                    ? 'border-green-500/50 bg-green-500/5'
-                    : 'border-white/10 bg-white/5'
-                }`}
-              >
-                {plan.popular && <p className="text-brand-400 text-xs font-medium mb-3">Most Popular</p>}
-                {isCurrent && <p className="text-green-400 text-xs font-medium mb-3">Current Plan</p>}
-
-                <h3 className="text-lg font-bold text-white">{plan.name}</h3>
-                <div className="mt-2 flex items-baseline gap-1">
-                  <span className="text-3xl font-bold text-white">{plan.price}</span>
-                  <span className="text-gray-400 text-sm">{plan.monthly}</span>
-                </div>
-                <p className="mt-1 text-sm text-gray-400">{plan.reels}</p>
-
-                <ul className="mt-6 space-y-2.5">
-                  {plan.features.map((f) => (
-                    <li key={f} className="flex items-start gap-2 text-sm text-gray-300">
-                      <svg className="h-4 w-4 text-brand-400 mt-0.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
-                      </svg>
-                      {f}
-                    </li>
-                  ))}
-                </ul>
-
-                {!isCurrent && plan.key !== 'FREE' && (
-                  <BillingActions
-                    currentPlan={currentPlan}
-                    targetPlan={plan.key}
-                    hasStripeCustomer={!!user?.stripeCustomerId}
-                    buttonOnly
-                  />
-                )}
-                {isCurrent && (
-                  <div className="mt-6 w-full text-center rounded-lg bg-white/10 py-2 text-sm font-medium text-gray-400">
-                    Current Plan
-                  </div>
-                )}
-              </div>
-            )
-          })}
-        </div>
-      </div>
-
-      {/* Credit Packs */}
-      <div>
-        <h2 className="text-lg font-semibold text-white mb-6">Buy Extra Credits</h2>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          {[
-            { credits: 10, price: '$9.99', perCredit: '$1.00/credit', index: 0 },
-            { credits: 50, price: '$39.99', perCredit: '$0.80/credit', index: 1, popular: true },
-            { credits: 100, price: '$69.99', perCredit: '$0.70/credit', index: 2 },
-          ].map((pack) => (
-            <div
-              key={pack.credits}
-              className={`rounded-xl border p-6 ${pack.popular ? 'border-yellow-500/50 bg-yellow-500/5' : 'border-white/10 bg-white/5'}`}
-            >
-              {pack.popular && <p className="text-yellow-400 text-xs font-medium mb-2">Best Value</p>}
-              <p className="text-2xl font-bold text-white">{pack.credits} Credits</p>
-              <p className="text-3xl font-bold text-white mt-2">{pack.price}</p>
-              <p className="text-sm text-gray-400 mt-1">{pack.perCredit}</p>
-              <BillingActions creditPackIndex={pack.index} buttonOnly creditPurchase />
+            <div className="flex items-center justify-between mt-1.5">
+              <p className="text-xs text-gray-500">{usagePercent}% used</p>
+              <p className="text-xs text-gray-500">{remaining} remaining</p>
             </div>
-          ))}
+          </div>
+        </div>
+
+        {/* Credits */}
+        <div className="rounded-xl border border-white/10 bg-white/5 p-5">
+          <div className="flex items-center justify-between mb-3">
+            <span className="text-xs font-medium text-gray-400 uppercase tracking-wider">Credits</span>
+            <div className="h-9 w-9 rounded-lg bg-yellow-500/10 flex items-center justify-center">
+              <Zap className="h-4.5 w-4.5 text-yellow-400" />
+            </div>
+          </div>
+          <div className="flex items-baseline gap-1.5">
+            <p className="text-2xl font-bold text-white">{user?.creditsBalance || 0}</p>
+            <span className="text-sm text-gray-500">credits</span>
+          </div>
+          <p className="text-xs text-gray-500 mt-1">1 credit = 1 extra reel generation</p>
+        </div>
+      </div>
+
+      {/* Two-column layout */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+        {/* LEFT — Plans (takes 2 cols) */}
+        <div className="lg:col-span-2">
+          <div className="flex items-center justify-between mb-5">
+            <h2 className="text-lg font-semibold text-white">Plans</h2>
+            <span className="text-xs text-gray-500">Billed monthly</span>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            {plans.map((plan) => {
+              const isCurrent = plan.key === currentPlan
+              const planOrder = ['FREE', 'STARTER', 'PRO', 'BUSINESS']
+              const isDowngrade = planOrder.indexOf(plan.key) < planOrder.indexOf(currentPlan)
+              return (
+                <div
+                  key={plan.key}
+                  className={`rounded-xl border p-5 relative transition ${
+                    plan.popular
+                      ? 'border-brand-500/50 bg-brand-500/5'
+                      : isCurrent
+                      ? 'border-green-500/30 bg-green-500/5'
+                      : 'border-white/10 bg-white/5 hover:border-white/20'
+                  }`}
+                >
+                  {/* Badges */}
+                  <div className="flex items-center gap-2 mb-3">
+                    {plan.popular && (
+                      <span className="text-[10px] font-semibold uppercase tracking-wider text-brand-400 bg-brand-500/10 px-2 py-0.5 rounded-full">
+                        Popular
+                      </span>
+                    )}
+                    {isCurrent && (
+                      <span className="text-[10px] font-semibold uppercase tracking-wider text-green-400 bg-green-500/10 px-2 py-0.5 rounded-full flex items-center gap-1">
+                        <ShieldCheck className="h-3 w-3" />
+                        Current
+                      </span>
+                    )}
+                    {!plan.popular && !isCurrent && <div className="h-5" />}
+                  </div>
+
+                  <h3 className="text-base font-bold text-white">{plan.name}</h3>
+                  <div className="mt-1.5 flex items-baseline gap-0.5">
+                    <span className="text-2xl font-bold text-white">{plan.price}</span>
+                    <span className="text-sm text-gray-500">{plan.monthly}</span>
+                  </div>
+                  <p className="mt-1 text-xs font-medium text-gray-400">{plan.reels}</p>
+
+                  <ul className="mt-4 space-y-2">
+                    {plan.features.map((f) => (
+                      <li key={f} className="flex items-start gap-2 text-sm text-gray-300">
+                        <Check className={`h-3.5 w-3.5 mt-0.5 flex-shrink-0 ${
+                          plan.popular ? 'text-brand-400' : isCurrent ? 'text-green-400' : 'text-gray-500'
+                        }`} />
+                        {f}
+                      </li>
+                    ))}
+                  </ul>
+
+                  {/* Action Button */}
+                  <div className="mt-5">
+                    {isCurrent ? (
+                      <div className="w-full text-center rounded-lg bg-white/5 border border-white/10 py-2.5 text-sm font-medium text-gray-500">
+                        Current Plan
+                      </div>
+                    ) : plan.key === 'FREE' ? (
+                      isDowngrade ? (
+                        <BillingActions
+                          currentPlan={currentPlan}
+                          targetPlan={plan.key}
+                          hasStripeCustomer={!!user?.stripeCustomerId}
+                          buttonOnly
+                        />
+                      ) : null
+                    ) : (
+                      <BillingActions
+                        currentPlan={currentPlan}
+                        targetPlan={plan.key}
+                        hasStripeCustomer={!!user?.stripeCustomerId}
+                        buttonOnly
+                      />
+                    )}
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        </div>
+
+        {/* RIGHT — Credit Packs + Recent Activity */}
+        <div className="space-y-6">
+          {/* Credit Packs */}
+          <div>
+            <div className="flex items-center gap-2 mb-5">
+              <Sparkles className="h-4.5 w-4.5 text-yellow-400" />
+              <h2 className="text-lg font-semibold text-white">Buy Credits</h2>
+            </div>
+            <div className="space-y-3">
+              {creditPacks.map((pack) => (
+                <div
+                  key={pack.credits}
+                  className={`rounded-xl border p-4 transition ${
+                    pack.popular
+                      ? 'border-yellow-500/30 bg-yellow-500/5'
+                      : 'border-white/10 bg-white/5 hover:border-white/20'
+                  }`}
+                >
+                  <div className="flex items-center justify-between mb-1">
+                    <div className="flex items-center gap-2.5">
+                      <div className={`h-8 w-8 rounded-lg flex items-center justify-center ${
+                        pack.popular ? 'bg-yellow-500/10' : 'bg-white/5'
+                      }`}>
+                        <Zap className={`h-4 w-4 ${pack.popular ? 'text-yellow-400' : 'text-gray-500'}`} />
+                      </div>
+                      <div>
+                        <p className="text-sm font-semibold text-white">{pack.credits} Credits</p>
+                        <p className="text-xs text-gray-500">{pack.perCredit}/credit</p>
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-base font-bold text-white">{pack.price}</p>
+                      {pack.savings && (
+                        <span className="text-[10px] font-semibold text-yellow-400 bg-yellow-400/10 px-1.5 py-0.5 rounded">
+                          {pack.savings}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                  <BillingActions creditPackIndex={pack.index} buttonOnly creditPurchase />
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Recent Transactions */}
+          <div className="rounded-xl border border-white/10 bg-white/5 overflow-hidden">
+            <div className="p-4 border-b border-white/10">
+              <h3 className="text-sm font-semibold text-white">Recent Transactions</h3>
+            </div>
+            {recentTransactions.length === 0 ? (
+              <div className="p-6 text-center">
+                <p className="text-xs text-gray-600">No transactions yet</p>
+              </div>
+            ) : (
+              <div className="divide-y divide-white/5">
+                {recentTransactions.map((tx) => (
+                  <div key={tx.id} className="flex items-center justify-between px-4 py-3">
+                    <div className="min-w-0">
+                      <p className="text-xs font-medium text-white truncate">
+                        {tx.type === 'REFERRAL_REWARD' ? 'Referral reward' :
+                         tx.type === 'CREDIT_PURCHASE' ? 'Credit purchase' :
+                         tx.type === 'REEL_GENERATION' ? 'Reel generated' :
+                         tx.description || tx.type}
+                      </p>
+                      <p className="text-[10px] text-gray-600">{formatDate(tx.createdAt)}</p>
+                    </div>
+                    <span className={`text-xs font-semibold flex-shrink-0 ${
+                      tx.amount > 0 ? 'text-green-400' : 'text-red-400'
+                    }`}>
+                      {tx.amount > 0 ? '+' : ''}{tx.amount} cr
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* Feature Comparison Table */}
+      <div className="rounded-xl border border-white/10 bg-white/5 overflow-hidden">
+        <div className="p-6 border-b border-white/10">
+          <h2 className="text-lg font-semibold text-white">Feature Comparison</h2>
+          <p className="text-xs text-gray-500 mt-1">See what each plan includes</p>
+        </div>
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-white/10">
+                <th className="text-left text-xs font-medium text-gray-400 uppercase tracking-wider px-6 py-3">Feature</th>
+                {plans.map((p) => (
+                  <th key={p.key} className={`text-center text-xs font-medium uppercase tracking-wider px-4 py-3 ${
+                    p.key === currentPlan ? 'text-green-400' : 'text-gray-400'
+                  }`}>
+                    {p.name}
+                    {p.key === currentPlan && <span className="block text-[10px] font-normal text-green-400/60 mt-0.5">Current</span>}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-white/5">
+              {[
+                { feature: 'Reels per month', values: ['3', '25', '75', '200'] },
+                { feature: 'Video quality', values: ['720p', '1080p', '1080p', '1080p'] },
+                { feature: 'AI voices', values: ['Basic', '50+', '50+', '50+'] },
+                { feature: 'Channel profiles', values: ['-', '1', '5', 'Unlimited'] },
+                { feature: 'Watermark', values: ['Yes', 'No', 'No', 'No'] },
+                { feature: 'Priority queue', values: ['-', '-', 'Yes', 'Yes'] },
+                { feature: 'Custom intros/outros', values: ['-', '-', 'Yes', 'Yes'] },
+                { feature: 'Analytics', values: ['-', '-', 'Yes', 'Yes'] },
+                { feature: 'API access', values: ['-', '-', '-', 'Yes'] },
+                { feature: 'Team collaboration', values: ['-', '-', '-', 'Yes'] },
+              ].map((row) => (
+                <tr key={row.feature} className="hover:bg-white/[0.02] transition">
+                  <td className="px-6 py-3 text-sm text-gray-300">{row.feature}</td>
+                  {row.values.map((val, i) => (
+                    <td key={i} className="text-center px-4 py-3">
+                      {val === 'Yes' ? (
+                        <Check className="h-4 w-4 text-green-400 mx-auto" />
+                      ) : val === '-' ? (
+                        <span className="text-gray-600">-</span>
+                      ) : val === 'No' ? (
+                        <span className="text-gray-500 text-xs">Watermark</span>
+                      ) : (
+                        <span className={`text-sm ${plans[i].key === currentPlan ? 'text-white font-medium' : 'text-gray-400'}`}>
+                          {val}
+                        </span>
+                      )}
+                    </td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
       </div>
     </div>

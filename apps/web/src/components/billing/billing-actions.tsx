@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { ArrowUpRight, Loader2 } from 'lucide-react'
+import { ArrowUpRight, Loader2, CreditCard } from 'lucide-react'
 import toast from 'react-hot-toast'
 
 interface BillingActionsProps {
@@ -86,58 +86,65 @@ export function BillingActions({
     }
   }
 
+  // Credit purchase button
   if (creditPurchase && creditPackIndex !== undefined) {
     return (
       <button
         onClick={() => handleCreditPurchase(creditPackIndex)}
         disabled={loading}
-        className="mt-4 w-full rounded-lg bg-brand-600 py-2.5 text-sm font-medium text-white hover:bg-brand-500 transition disabled:opacity-50"
+        className="mt-3 w-full rounded-lg bg-white/10 border border-white/10 py-2 text-sm font-medium text-white hover:bg-white/20 transition disabled:opacity-50"
       >
-        {loading ? <Loader2 className="h-4 w-4 animate-spin mx-auto" /> : 'Buy Credits'}
+        {loading ? <Loader2 className="h-4 w-4 animate-spin mx-auto" /> : 'Buy Now'}
       </button>
     )
   }
 
+  // Plan upgrade/switch button (inside plan cards)
   if (buttonOnly && targetPlan) {
-    const isUpgrade = ['FREE', 'STARTER', 'PRO', 'BUSINESS', 'ENTERPRISE'].indexOf(targetPlan) >
-      ['FREE', 'STARTER', 'PRO', 'BUSINESS', 'ENTERPRISE'].indexOf(currentPlan || 'FREE')
+    const planOrder = ['FREE', 'STARTER', 'PRO', 'BUSINESS', 'ENTERPRISE']
+    const isUpgrade = planOrder.indexOf(targetPlan) > planOrder.indexOf(currentPlan || 'FREE')
 
     return (
       <button
         onClick={() => handleUpgrade(targetPlan)}
         disabled={loading}
-        className="mt-6 w-full rounded-lg bg-brand-600 py-2.5 text-sm font-medium text-white hover:bg-brand-500 transition disabled:opacity-50"
+        className={`w-full rounded-lg py-2.5 text-sm font-medium transition disabled:opacity-50 ${
+          isUpgrade
+            ? 'bg-brand-600 text-white hover:bg-brand-500'
+            : 'bg-white/10 border border-white/10 text-gray-300 hover:bg-white/20'
+        }`}
       >
         {loading ? (
           <Loader2 className="h-4 w-4 animate-spin mx-auto" />
         ) : isUpgrade ? (
           'Upgrade'
         ) : (
-          'Switch Plan'
+          'Downgrade'
         )}
       </button>
     )
   }
 
-  // Full management section
+  // Top-level management buttons (header area)
   return (
-    <div className="flex gap-3 mb-8">
+    <div className="flex items-center gap-2.5">
       {hasStripeCustomer && (
         <button
           onClick={handleManageBilling}
           disabled={loading}
-          className="inline-flex items-center gap-2 rounded-lg bg-white/10 px-4 py-2.5 text-sm font-medium text-white hover:bg-white/20 transition disabled:opacity-50"
+          className="inline-flex items-center gap-2 rounded-lg bg-white/10 border border-white/10 px-4 py-2 text-sm font-medium text-white hover:bg-white/20 transition disabled:opacity-50"
         >
-          <ArrowUpRight className="h-4 w-4" />
-          Manage Subscription
+          <CreditCard className="h-4 w-4" />
+          Manage Billing
         </button>
       )}
       {currentPlan === 'FREE' && (
         <button
           onClick={() => handleUpgrade('PRO')}
           disabled={loading}
-          className="inline-flex items-center gap-2 rounded-lg bg-brand-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-brand-500 transition disabled:opacity-50"
+          className="inline-flex items-center gap-2 rounded-lg bg-brand-600 px-4 py-2 text-sm font-medium text-white hover:bg-brand-500 transition disabled:opacity-50"
         >
+          {loading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <ArrowUpRight className="h-4 w-4" />}
           Upgrade to Pro
         </button>
       )}
