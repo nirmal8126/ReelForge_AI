@@ -1,7 +1,8 @@
 'use client'
 
 import { useRef } from 'react'
-import { Search, Upload, Zap, Film, Image as ImageIcon, ChevronDown } from 'lucide-react'
+import { Search, Upload, Zap, Film, Image as ImageIcon, Type, FileText, Clock, Layers, Captions, LetterText, ArrowRightLeft } from 'lucide-react'
+import { SearchableSelect } from '@/components/ui/searchable-select'
 import type { EditorSegment } from './types'
 
 interface PropertiesPanelProps {
@@ -11,21 +12,31 @@ interface PropertiesPanelProps {
   onUploadFile: (file: File) => void
 }
 
-const VISUAL_TYPE_LABELS: Record<string, { label: string; color: string; icon: typeof Film }> = {
-  AI_CLIP: { label: 'AI Clip', color: 'text-purple-400', icon: Zap },
-  STOCK_VIDEO: { label: 'Stock Video', color: 'text-blue-400', icon: Film },
-  STATIC_IMAGE: { label: 'Static Image', color: 'text-gray-400', icon: ImageIcon },
+const VISUAL_TYPE_LABELS: Record<string, { label: string; color: string; bg: string; icon: typeof Film }> = {
+  AI_CLIP: { label: 'AI Clip', color: 'text-purple-400', bg: 'bg-purple-500/10', icon: Zap },
+  STOCK_VIDEO: { label: 'Stock Video', color: 'text-blue-400', bg: 'bg-blue-500/10', icon: Film },
+  STATIC_IMAGE: { label: 'Static Image', color: 'text-gray-400', bg: 'bg-gray-500/10', icon: ImageIcon },
 }
+
+const TRANSITION_OPTIONS = [
+  { value: 'none', label: 'None (Hard Cut)' },
+  { value: 'fade', label: 'Fade' },
+  { value: 'crossfade', label: 'Crossfade' },
+]
 
 export function PropertiesPanel({ segment, onUpdate, onFindStock, onUploadFile }: PropertiesPanelProps) {
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   if (!segment) {
     return (
-      <div className="h-full flex items-center justify-center p-6">
-        <p className="text-gray-500 text-sm text-center">
-          Select a segment from the timeline to edit its properties
-        </p>
+      <div className="h-full flex flex-col items-center justify-center p-6 gap-3">
+        <div className="h-12 w-12 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center">
+          <Layers className="h-5 w-5 text-gray-600" />
+        </div>
+        <div className="text-center">
+          <p className="text-gray-400 text-sm font-medium">Properties</p>
+          <p className="text-gray-600 text-xs mt-1">Select a segment to edit</p>
+        </div>
       </div>
     )
   }
@@ -35,153 +46,172 @@ export function PropertiesPanel({ segment, onUpdate, onFindStock, onUploadFile }
   const TypeIcon = typeInfo.icon
 
   return (
-    <div className="p-4 space-y-6">
-      {/* Segment Properties */}
-      <section>
-        <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">
-          Segment Properties
-        </h3>
-
-        <div className="space-y-3">
-          {/* Title */}
-          <div>
-            <label className="text-xs text-gray-500 mb-1 block">Title</label>
-            <input
-              type="text"
-              value={segment.title}
-              onChange={(e) => onUpdate(segment.id, { title: e.target.value })}
-              className="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-white placeholder-gray-600 focus:border-brand-500 focus:outline-none"
-            />
+    <div className="p-4 space-y-5">
+      {/* Segment Header */}
+      <div className="flex items-center gap-3 pb-4 border-b border-white/[0.06]">
+        <div className={`h-9 w-9 rounded-lg ${typeInfo.bg} flex items-center justify-center flex-shrink-0`}>
+          <TypeIcon className={`h-4 w-4 ${typeInfo.color}`} />
+        </div>
+        <div className="min-w-0">
+          <p className="text-sm font-medium text-white truncate">{segment.title}</p>
+          <div className="flex items-center gap-2 mt-0.5">
+            <span className={`text-[10px] font-medium ${typeInfo.color}`}>{typeInfo.label}</span>
+            <span className="text-gray-600 text-[10px]">&middot;</span>
+            <span className="text-[10px] text-gray-500">{duration}s</span>
           </div>
+        </div>
+      </div>
 
-          {/* Script Text */}
-          <div>
-            <label className="text-xs text-gray-500 mb-1 block">Script</label>
-            <textarea
-              value={segment.scriptText}
-              onChange={(e) => onUpdate(segment.id, { scriptText: e.target.value })}
-              rows={4}
-              className="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-white placeholder-gray-600 focus:border-brand-500 focus:outline-none resize-none"
-            />
-          </div>
+      {/* Title */}
+      <section className="space-y-2">
+        <div className="flex items-center gap-2">
+          <Type className="h-3.5 w-3.5 text-gray-500" />
+          <h3 className="text-xs font-medium text-gray-400">Title</h3>
+        </div>
+        <input
+          type="text"
+          value={segment.title}
+          onChange={(e) => onUpdate(segment.id, { title: e.target.value })}
+          className="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-white placeholder-gray-600 focus:border-brand-500 focus:outline-none transition"
+        />
+      </section>
 
-          {/* Duration & Type (read-only) */}
-          <div className="flex gap-3">
-            <div className="flex-1">
-              <label className="text-xs text-gray-500 mb-1 block">Duration</label>
-              <div className="rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-gray-400">
-                {duration}s
-              </div>
-            </div>
-            <div className="flex-1">
-              <label className="text-xs text-gray-500 mb-1 block">Visual Type</label>
-              <div className={`rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm flex items-center gap-1.5 ${typeInfo.color}`}>
-                <TypeIcon className="h-3.5 w-3.5" />
-                {typeInfo.label}
-              </div>
-            </div>
+      {/* Script Text */}
+      <section className="space-y-2">
+        <div className="flex items-center gap-2">
+          <FileText className="h-3.5 w-3.5 text-gray-500" />
+          <h3 className="text-xs font-medium text-gray-400">Script</h3>
+        </div>
+        <textarea
+          value={segment.scriptText}
+          onChange={(e) => onUpdate(segment.id, { scriptText: e.target.value })}
+          rows={4}
+          className="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-white placeholder-gray-600 focus:border-brand-500 focus:outline-none resize-none transition"
+        />
+        <p className="text-[10px] text-gray-600">{segment.scriptText.length} characters</p>
+      </section>
+
+      {/* Info Row */}
+      <section className="grid grid-cols-2 gap-2">
+        <div className="rounded-lg border border-white/[0.06] bg-white/[0.02] p-2.5">
+          <div className="flex items-center gap-1.5 mb-1">
+            <Clock className="h-3 w-3 text-gray-600" />
+            <span className="text-[10px] text-gray-500">Duration</span>
           </div>
+          <p className="text-sm font-medium text-white">{duration}s</p>
+        </div>
+        <div className="rounded-lg border border-white/[0.06] bg-white/[0.02] p-2.5">
+          <div className="flex items-center gap-1.5 mb-1">
+            <Film className="h-3 w-3 text-gray-600" />
+            <span className="text-[10px] text-gray-500">Visual</span>
+          </div>
+          <p className={`text-sm font-medium ${typeInfo.color}`}>{typeInfo.label}</p>
         </div>
       </section>
 
       {/* Swap Visual */}
-      <section>
-        <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">
-          Swap Visual
-        </h3>
+      <section className="space-y-2">
+        <div className="flex items-center gap-2">
+          <ArrowRightLeft className="h-3.5 w-3.5 text-gray-500" />
+          <h3 className="text-xs font-medium text-gray-400">Replace Visual</h3>
+        </div>
 
-        <div className="space-y-2">
+        <div className="grid grid-cols-2 gap-2">
           <button
             onClick={onFindStock}
-            className="w-full flex items-center gap-2 rounded-lg border border-white/10 bg-white/5 px-3 py-2.5 text-sm text-white hover:bg-white/10 transition"
+            className="flex flex-col items-center gap-2 rounded-lg border border-white/10 bg-white/[0.03] px-3 py-3 text-center hover:bg-white/[0.06] hover:border-blue-500/30 transition group"
           >
-            <Search className="h-4 w-4 text-blue-400" />
-            Find Stock Footage
+            <div className="h-8 w-8 rounded-lg bg-blue-500/10 flex items-center justify-center group-hover:bg-blue-500/20 transition">
+              <Search className="h-4 w-4 text-blue-400" />
+            </div>
+            <span className="text-[11px] text-gray-400 group-hover:text-white transition">Stock Footage</span>
           </button>
 
           <button
             onClick={() => fileInputRef.current?.click()}
-            className="w-full flex items-center gap-2 rounded-lg border border-white/10 bg-white/5 px-3 py-2.5 text-sm text-white hover:bg-white/10 transition"
+            className="flex flex-col items-center gap-2 rounded-lg border border-white/10 bg-white/[0.03] px-3 py-3 text-center hover:bg-white/[0.06] hover:border-green-500/30 transition group"
           >
-            <Upload className="h-4 w-4 text-green-400" />
-            Upload Custom File
+            <div className="h-8 w-8 rounded-lg bg-green-500/10 flex items-center justify-center group-hover:bg-green-500/20 transition">
+              <Upload className="h-4 w-4 text-green-400" />
+            </div>
+            <span className="text-[11px] text-gray-400 group-hover:text-white transition">Upload File</span>
           </button>
-
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept="video/mp4,video/webm,video/quicktime,image/png,image/jpeg,image/webp"
-            className="hidden"
-            onChange={(e) => {
-              const file = e.target.files?.[0]
-              if (file) onUploadFile(file)
-              e.target.value = ''
-            }}
-          />
         </div>
+
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="video/mp4,video/webm,video/quicktime,image/png,image/jpeg,image/webp"
+          className="hidden"
+          onChange={(e) => {
+            const file = e.target.files?.[0]
+            if (file) onUploadFile(file)
+            e.target.value = ''
+          }}
+        />
       </section>
 
       {/* Transition */}
-      <section>
-        <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">
-          Transition
-        </h3>
-
-        <div className="relative">
-          <select
-            value={segment.transitionType || 'none'}
-            onChange={(e) => onUpdate(segment.id, { transitionType: e.target.value })}
-            className="w-full appearance-none rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-white focus:border-brand-500 focus:outline-none"
-          >
-            <option value="none">None (Hard Cut)</option>
-            <option value="fade">Fade</option>
-            <option value="crossfade">Crossfade</option>
-          </select>
-          <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-500 pointer-events-none" />
+      <section className="space-y-2">
+        <div className="flex items-center gap-2">
+          <Layers className="h-3.5 w-3.5 text-gray-500" />
+          <h3 className="text-xs font-medium text-gray-400">Transition</h3>
         </div>
-        <p className="text-[10px] text-gray-600 mt-1">
-          Transition to the next segment
+
+        <SearchableSelect
+          value={segment.transitionType || 'none'}
+          onChange={(val) => onUpdate(segment.id, { transitionType: val })}
+          options={TRANSITION_OPTIONS}
+          placeholder="Select transition"
+          searchPlaceholder="Search..."
+        />
+        <p className="text-[10px] text-gray-600">
+          Transition effect before the next segment
         </p>
       </section>
 
-      {/* Overlay Options */}
-      <section>
-        <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">
-          Overlays
-        </h3>
+      {/* Overlays */}
+      <section className="space-y-3">
+        <div className="flex items-center gap-2">
+          <Captions className="h-3.5 w-3.5 text-gray-500" />
+          <h3 className="text-xs font-medium text-gray-400">Overlays</h3>
+        </div>
 
-        <div className="space-y-2">
-          <label className="flex items-center gap-2 text-sm text-gray-300 cursor-pointer">
+        <div className="space-y-1.5">
+          <label className="flex items-center gap-3 text-sm text-gray-300 cursor-pointer rounded-lg border border-white/[0.06] bg-white/[0.02] px-3 py-2.5 hover:bg-white/[0.04] transition">
             <input
               type="checkbox"
               checked={segment.captionsEnabled}
               onChange={(e) => onUpdate(segment.id, { captionsEnabled: e.target.checked })}
-              className="rounded border-white/20 bg-white/5 text-brand-500 focus:ring-brand-500"
+              className="rounded border-white/20 bg-white/5 text-brand-500 focus:ring-brand-500 focus:ring-offset-0"
             />
-            Show captions
+            <div>
+              <span className="text-sm text-gray-200">Captions</span>
+              <p className="text-[10px] text-gray-600 mt-0.5">Show subtitles on this segment</p>
+            </div>
           </label>
 
-          <label className="flex items-center gap-2 text-sm text-gray-300 cursor-pointer">
+          <label className="flex items-center gap-3 text-sm text-gray-300 cursor-pointer rounded-lg border border-white/[0.06] bg-white/[0.02] px-3 py-2.5 hover:bg-white/[0.04] transition">
             <input
               type="checkbox"
               checked={segment.titleOverlay}
               onChange={(e) => onUpdate(segment.id, { titleOverlay: e.target.checked })}
-              className="rounded border-white/20 bg-white/5 text-brand-500 focus:ring-brand-500"
+              className="rounded border-white/20 bg-white/5 text-brand-500 focus:ring-brand-500 focus:ring-offset-0"
             />
-            Show title overlay
+            <div>
+              <span className="text-sm text-gray-200">Title Overlay</span>
+              <p className="text-[10px] text-gray-600 mt-0.5">Display segment title on screen</p>
+            </div>
           </label>
         </div>
       </section>
 
-      {/* Asset URL info */}
+      {/* Asset URL */}
       {segment.assetUrl && (
-        <section>
-          <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">
-            Asset
-          </h3>
-          <p className="text-[10px] text-gray-600 break-all font-mono">
-            {segment.assetUrl.length > 80
-              ? segment.assetUrl.slice(0, 80) + '...'
+        <section className="pt-3 border-t border-white/[0.06]">
+          <p className="text-[10px] text-gray-600 font-mono break-all leading-relaxed">
+            {segment.assetUrl.length > 100
+              ? segment.assetUrl.slice(0, 100) + '...'
               : segment.assetUrl}
           </p>
         </section>

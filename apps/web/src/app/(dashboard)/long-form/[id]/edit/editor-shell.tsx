@@ -226,7 +226,7 @@ export function EditorShell({ initialJob, initialSegments }: EditorShellProps) {
 
       <div className="flex-1 flex min-h-0">
         {/* Center: Video Preview */}
-        <div className="flex-1 min-w-0 p-4">
+        <div className="flex-1 min-w-0 bg-gradient-to-b from-gray-950 to-gray-900/50">
           <VideoPreview
             segment={selectedSegment}
             aspectRatio={job.aspectRatio}
@@ -234,7 +234,7 @@ export function EditorShell({ initialJob, initialSegments }: EditorShellProps) {
         </div>
 
         {/* Right: Properties Panel */}
-        <div className="w-80 border-l border-white/10 overflow-y-auto">
+        <div className="w-80 border-l border-white/[0.06] bg-gray-900/40 overflow-y-auto scrollbar-thin">
           <PropertiesPanel
             segment={selectedSegment}
             onUpdate={updateSegmentLocally}
@@ -245,7 +245,7 @@ export function EditorShell({ initialJob, initialSegments }: EditorShellProps) {
       </div>
 
       {/* Bottom: Timeline */}
-      <div className="border-t border-white/10">
+      <div className="border-t border-white/[0.06]">
         <SegmentTimeline
           segments={segments}
           selectedId={selectedId}
