@@ -1,7 +1,7 @@
 'use client'
 
 import Link from 'next/link'
-import { ArrowLeft, Save, RefreshCw, Loader2, Film, Keyboard } from 'lucide-react'
+import { ArrowLeft, Save, RefreshCw, Loader2, Film, Keyboard, Play, Square, Music } from 'lucide-react'
 import type { EditorJob } from './types'
 
 interface EditorHeaderProps {
@@ -9,8 +9,11 @@ interface EditorHeaderProps {
   isDirty: boolean
   isSaving: boolean
   isRecomposing: boolean
+  isPlayingAll: boolean
   onSave: () => void
   onRecompose: () => void
+  onPlayAll: () => void
+  onOpenMusic: () => void
 }
 
 export function EditorHeader({
@@ -18,8 +21,11 @@ export function EditorHeader({
   isDirty,
   isSaving,
   isRecomposing,
+  isPlayingAll,
   onSave,
   onRecompose,
+  onPlayAll,
+  onOpenMusic,
 }: EditorHeaderProps) {
   return (
     <div className="flex items-center justify-between px-5 py-3 border-b border-white/[0.06] bg-gray-900/90 backdrop-blur-md">
@@ -64,6 +70,40 @@ export function EditorHeader({
             <span className="text-xs font-medium">Applying edits...</span>
           </div>
         )}
+
+        {/* Play All button */}
+        <button
+          onClick={onPlayAll}
+          className={`inline-flex items-center gap-2 rounded-lg border px-3 py-2 text-sm font-medium transition ${
+            isPlayingAll
+              ? 'border-green-500/30 bg-green-500/10 text-green-400 hover:bg-green-500/20'
+              : 'border-white/10 bg-white/5 text-gray-400 hover:text-white hover:bg-white/10'
+          }`}
+          title="Play all segments sequentially (Ctrl+Space)"
+        >
+          {isPlayingAll ? (
+            <Square className="h-3.5 w-3.5" />
+          ) : (
+            <Play className="h-3.5 w-3.5" />
+          )}
+          <span className="hidden lg:inline">{isPlayingAll ? 'Stop' : 'Play All'}</span>
+        </button>
+
+        {/* Music button */}
+        <button
+          onClick={onOpenMusic}
+          className={`inline-flex items-center gap-2 rounded-lg border px-3 py-2 text-sm font-medium transition ${
+            job.bgMusicUrl
+              ? 'border-purple-500/30 bg-purple-500/10 text-purple-400 hover:bg-purple-500/20'
+              : 'border-white/10 bg-white/5 text-gray-400 hover:text-white hover:bg-white/10'
+          }`}
+          title="Background music settings"
+        >
+          <Music className="h-3.5 w-3.5" />
+          <span className="hidden lg:inline">Music</span>
+        </button>
+
+        <div className="h-5 w-px bg-white/10" />
 
         <button
           onClick={onSave}

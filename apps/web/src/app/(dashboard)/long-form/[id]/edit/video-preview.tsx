@@ -1,12 +1,13 @@
 'use client'
 
-import { useRef, useState } from 'react'
-import { Play, Pause, Image as ImageIcon, Video, AlertCircle, Volume2, VolumeX, Maximize2, Zap, Film } from 'lucide-react'
+import { useRef, useState, useEffect } from 'react'
+import { Play, Pause, Image as ImageIcon, Video, AlertCircle, Volume2, VolumeX, Zap, Film } from 'lucide-react'
 import type { EditorSegment } from './types'
 
 interface VideoPreviewProps {
   segment: EditorSegment | null
   aspectRatio: string
+  autoPlay?: boolean
 }
 
 const VISUAL_TYPE_BADGES: Record<string, { label: string; color: string; bg: string; icon: typeof Film }> = {
@@ -15,12 +16,27 @@ const VISUAL_TYPE_BADGES: Record<string, { label: string; color: string; bg: str
   STATIC_IMAGE: { label: 'Static', color: 'text-gray-300', bg: 'bg-gray-500/20', icon: ImageIcon },
 }
 
-export function VideoPreview({ segment, aspectRatio }: VideoPreviewProps) {
+export function VideoPreview({ segment, aspectRatio, autoPlay }: VideoPreviewProps) {
   const videoRef = useRef<HTMLVideoElement>(null)
   const [isPlaying, setIsPlaying] = useState(false)
   const [hasError, setHasError] = useState(false)
   const [isMuted, setIsMuted] = useState(true)
   const [progress, setProgress] = useState(0)
+
+  // Auto-play when segment changes and autoPlay is enabled
+  useEffect(() => {
+    if (autoPlay && videoRef.current && segment?.assetUrl) {
+      videoRef.current.currentTime = 0
+      videoRef.current.play().then(() => setIsPlaying(true)).catch(() => {})
+    }
+  }, [autoPlay, segment?.id])
+
+  // Reset state when segment changes
+  useEffect(() => {
+    setHasError(false)
+    setProgress(0)
+    setIsPlaying(false)
+  }, [segment?.id])
 
   if (!segment) {
     return (
@@ -71,7 +87,7 @@ export function VideoPreview({ segment, aspectRatio }: VideoPreviewProps) {
     <div className="h-full flex flex-col items-center justify-center gap-4 px-4">
       {/* Preview Container */}
       <div className={`relative ${aspectClass} max-h-[65vh] w-full max-w-3xl rounded-xl overflow-hidden border border-white/[0.08] shadow-2xl shadow-black/40`}>
-        {/* Checkerboard background for transparency */}
+        {/* Background */}
         <div className="absolute inset-0 bg-black" />
 
         {isVideo && segment.assetUrl && !hasError ? (
@@ -100,6 +116,14 @@ export function VideoPreview({ segment, aspectRatio }: VideoPreviewProps) {
                 )}
               </div>
             </button>
+
+            {/* Auto-play indicator */}
+            {autoPlay && (
+              <div className="absolute top-3 right-3 flex items-center gap-1.5 bg-green-500/20 backdrop-blur-md border border-green-500/30 px-2 py-1 rounded-lg">
+                <span className="h-1.5 w-1.5 rounded-full bg-green-400 animate-pulse" />
+                <span className="text-[10px] font-medium text-green-400">Playing All</span>
+              </div>
+            )}
 
             {/* Bottom controls bar */}
             <div className="absolute bottom-0 left-0 right-0">
@@ -140,6 +164,13 @@ export function VideoPreview({ segment, aspectRatio }: VideoPreviewProps) {
               className="w-full h-full object-contain relative"
               onError={() => setHasError(true)}
             />
+            {/* Auto-play indicator for images */}
+            {autoPlay && (
+              <div className="absolute top-3 right-3 flex items-center gap-1.5 bg-green-500/20 backdrop-blur-md border border-green-500/30 px-2 py-1 rounded-lg">
+                <span className="h-1.5 w-1.5 rounded-full bg-green-400 animate-pulse" />
+                <span className="text-[10px] font-medium text-green-400">Playing All</span>
+              </div>
+            )}
             {/* Info overlay at bottom */}
             <div className="absolute bottom-0 left-0 right-0 flex items-center justify-between px-3 py-2 bg-gradient-to-t from-black/80 to-transparent">
               <span className={`inline-flex items-center gap-1 text-[10px] font-medium ${badge.color} ${badge.bg} px-2 py-0.5 rounded`}>

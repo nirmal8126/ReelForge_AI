@@ -36,6 +36,8 @@ export default async function EditPage({ params }: EditPageProps) {
     script: job.script,
     voiceId: job.voiceId,
     language: job.language,
+    bgMusicUrl: (job as any).bgMusicUrl ?? null,
+    bgMusicVolume: (job as any).bgMusicVolume ?? 30,
   }
 
   const editorSegments = job.segments.map((s) => ({
@@ -44,6 +46,7 @@ export default async function EditPage({ params }: EditPageProps) {
     transitionType: (s as any).transitionType ?? 'none',
     captionsEnabled: (s as any).captionsEnabled ?? true,
     titleOverlay: (s as any).titleOverlay ?? false,
+    textOverlay: (s.assetMetadata as any)?.textOverlay ?? null,
     createdAt: s.createdAt.toISOString(),
   }))
 

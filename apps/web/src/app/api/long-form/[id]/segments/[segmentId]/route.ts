@@ -44,6 +44,11 @@ export async function PATCH(
     if (body.transitionType !== undefined) updateData.transitionType = body.transitionType
     if (body.captionsEnabled !== undefined) updateData.captionsEnabled = body.captionsEnabled
     if (body.titleOverlay !== undefined) updateData.titleOverlay = body.titleOverlay
+    if (body.textOverlay !== undefined) {
+      // Store textOverlay in assetMetadata as JSON
+      const currentMetadata = (segment.assetMetadata as Record<string, unknown>) || {}
+      updateData.assetMetadata = { ...currentMetadata, textOverlay: body.textOverlay }
+    }
 
     const updated = await prisma.longFormSegment.update({
       where: { id: params.segmentId },

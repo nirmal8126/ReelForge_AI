@@ -12,9 +12,19 @@ export interface EditorSegment {
   transitionType: string | null
   captionsEnabled: boolean
   titleOverlay: boolean
+  textOverlay: TextOverlay | null
   status: string
   errorMessage: string | null
   createdAt: string
+}
+
+export interface TextOverlay {
+  text: string
+  position: 'top' | 'center' | 'bottom'
+  fontSize: 'sm' | 'md' | 'lg' | 'xl'
+  color: string
+  bgColor: string
+  style: 'solid' | 'outline' | 'shadow'
 }
 
 export interface EditorJob {
@@ -26,6 +36,8 @@ export interface EditorJob {
   script: string | null
   voiceId: string | null
   language: string
+  bgMusicUrl: string | null
+  bgMusicVolume: number
 }
 
 export interface StockSearchResult {
@@ -35,4 +47,12 @@ export interface StockSearchResult {
   duration: number
   width: number
   height: number
+}
+
+export interface MusicTrack {
+  id: string
+  name: string
+  genre: string
+  duration: string
+  url: string
 }

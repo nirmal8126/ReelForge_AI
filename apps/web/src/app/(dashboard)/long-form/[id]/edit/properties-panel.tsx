@@ -1,15 +1,20 @@
 'use client'
 
 import { useRef } from 'react'
-import { Search, Upload, Zap, Film, Image as ImageIcon, Type, FileText, Clock, Layers, Captions, LetterText, ArrowRightLeft } from 'lucide-react'
+import { Search, Upload, Zap, Film, Image as ImageIcon, Type, FileText, Clock, Layers, Captions, ArrowRightLeft, Scissors, Copy, Trash2, MoreHorizontal } from 'lucide-react'
 import { SearchableSelect } from '@/components/ui/searchable-select'
-import type { EditorSegment } from './types'
+import { TextOverlayEditor } from './text-overlay-editor'
+import type { EditorSegment, TextOverlay } from './types'
 
 interface PropertiesPanelProps {
   segment: EditorSegment | null
   onUpdate: (segmentId: string, updates: Partial<EditorSegment>) => void
   onFindStock: () => void
   onUploadFile: (file: File) => void
+  onSplit: (segmentId: string) => void
+  onDuplicate: (segmentId: string) => void
+  onDelete: (segmentId: string) => void
+  segmentCount: number
 }
 
 const VISUAL_TYPE_LABELS: Record<string, { label: string; color: string; bg: string; icon: typeof Film }> = {
@@ -24,7 +29,7 @@ const TRANSITION_OPTIONS = [
   { value: 'crossfade', label: 'Crossfade' },
 ]
 
-export function PropertiesPanel({ segment, onUpdate, onFindStock, onUploadFile }: PropertiesPanelProps) {
+export function PropertiesPanel({ segment, onUpdate, onFindStock, onUploadFile, onSplit, onDuplicate, onDelete, segmentCount }: PropertiesPanelProps) {
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   if (!segment) {
@@ -52,7 +57,7 @@ export function PropertiesPanel({ segment, onUpdate, onFindStock, onUploadFile }
         <div className={`h-9 w-9 rounded-lg ${typeInfo.bg} flex items-center justify-center flex-shrink-0`}>
           <TypeIcon className={`h-4 w-4 ${typeInfo.color}`} />
         </div>
-        <div className="min-w-0">
+        <div className="min-w-0 flex-1">
           <p className="text-sm font-medium text-white truncate">{segment.title}</p>
           <div className="flex items-center gap-2 mt-0.5">
             <span className={`text-[10px] font-medium ${typeInfo.color}`}>{typeInfo.label}</span>
@@ -61,6 +66,41 @@ export function PropertiesPanel({ segment, onUpdate, onFindStock, onUploadFile }
           </div>
         </div>
       </div>
+
+      {/* Segment Operations */}
+      <section className="space-y-2">
+        <div className="flex items-center gap-2">
+          <MoreHorizontal className="h-3.5 w-3.5 text-gray-500" />
+          <h3 className="text-xs font-medium text-gray-400">Actions</h3>
+        </div>
+        <div className="flex gap-1.5">
+          <button
+            onClick={() => onSplit(segment.id)}
+            className="flex-1 inline-flex items-center justify-center gap-1.5 rounded-lg border border-white/10 bg-white/[0.03] px-2 py-2 text-[11px] text-gray-400 hover:text-white hover:bg-white/[0.06] transition"
+            title="Split segment in half"
+          >
+            <Scissors className="h-3.5 w-3.5" />
+            Split
+          </button>
+          <button
+            onClick={() => onDuplicate(segment.id)}
+            className="flex-1 inline-flex items-center justify-center gap-1.5 rounded-lg border border-white/10 bg-white/[0.03] px-2 py-2 text-[11px] text-gray-400 hover:text-white hover:bg-white/[0.06] transition"
+            title="Duplicate segment"
+          >
+            <Copy className="h-3.5 w-3.5" />
+            Duplicate
+          </button>
+          <button
+            onClick={() => onDelete(segment.id)}
+            disabled={segmentCount <= 1}
+            className="flex-1 inline-flex items-center justify-center gap-1.5 rounded-lg border border-red-500/10 bg-red-500/5 px-2 py-2 text-[11px] text-red-400 hover:text-red-300 hover:bg-red-500/10 transition disabled:opacity-30 disabled:cursor-not-allowed"
+            title={segmentCount <= 1 ? 'Cannot delete the only segment' : 'Delete segment'}
+          >
+            <Trash2 className="h-3.5 w-3.5" />
+            Delete
+          </button>
+        </div>
+      </section>
 
       {/* Title */}
       <section className="space-y-2">
@@ -151,6 +191,18 @@ export function PropertiesPanel({ segment, onUpdate, onFindStock, onUploadFile }
         />
       </section>
 
+      {/* Text Overlay */}
+      <section className="space-y-2">
+        <div className="flex items-center gap-2">
+          <Type className="h-3.5 w-3.5 text-gray-500" />
+          <h3 className="text-xs font-medium text-gray-400">Text Overlay</h3>
+        </div>
+        <TextOverlayEditor
+          overlay={segment.textOverlay}
+          onChange={(overlay) => onUpdate(segment.id, { textOverlay: overlay })}
+        />
+      </section>
+
       {/* Transition */}
       <section className="space-y-2">
         <div className="flex items-center gap-2">
@@ -160,7 +212,7 @@ export function PropertiesPanel({ segment, onUpdate, onFindStock, onUploadFile }
 
         <SearchableSelect
           value={segment.transitionType || 'none'}
-          onChange={(val) => onUpdate(segment.id, { transitionType: val })}
+          onChange={(val: string) => onUpdate(segment.id, { transitionType: val })}
           options={TRANSITION_OPTIONS}
           placeholder="Select transition"
           searchPlaceholder="Search..."
