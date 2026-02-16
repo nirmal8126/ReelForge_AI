@@ -15,6 +15,7 @@ import {
   ChevronRight,
   Video,
   Clapperboard,
+  Quote,
 } from 'lucide-react'
 
 const navItems = [
@@ -22,6 +23,7 @@ const navItems = [
   { href: '/reels', label: 'My Reels', icon: Film },
   { href: '/long-form', label: 'My Videos', icon: Video },
   { href: '/cartoon-studio', label: 'Cartoon Studio', icon: Clapperboard },
+  { href: '/quotes', label: 'Quotes', icon: Quote },
   { href: '/profiles', label: 'Channels', icon: Users },
   { href: '/billing', label: 'Billing', icon: CreditCard },
   { href: '/referrals', label: 'Referrals', icon: Gift },

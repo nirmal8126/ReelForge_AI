@@ -69,6 +69,42 @@ export const SUPPORTED_LANGUAGES = [
   { code: 'gu', name: 'Gujarati', flag: '🇮🇳' },
 ] as const
 
+// Quote module constants
+export const QUOTE_CATEGORIES = [
+  { id: 'motivational', name: 'Motivational', icon: 'Flame', color: '#F59E0B' },
+  { id: 'love', name: 'Love', icon: 'Heart', color: '#EC4899' },
+  { id: 'funny', name: 'Funny', icon: 'Laugh', color: '#F97316' },
+  { id: 'wisdom', name: 'Wisdom', icon: 'Brain', color: '#8B5CF6' },
+  { id: 'success', name: 'Success', icon: 'Trophy', color: '#10B981' },
+  { id: 'life', name: 'Life', icon: 'Leaf', color: '#22C55E' },
+  { id: 'friendship', name: 'Friendship', icon: 'Users', color: '#3B82F6' },
+  { id: 'islamic', name: 'Islamic', icon: 'Star', color: '#059669' },
+  { id: 'shayari', name: 'Hindi Shayari', icon: 'Pen', color: '#E11D48' },
+  { id: 'custom', name: 'Custom Topic', icon: 'Sparkles', color: '#6366F1' },
+] as const
+
+export const QUOTE_GRADIENTS = [
+  { id: 'sunset', name: 'Sunset', colors: ['#FF6B6B', '#FFE66D'] },
+  { id: 'ocean', name: 'Ocean', colors: ['#667eea', '#764ba2'] },
+  { id: 'forest', name: 'Forest', colors: ['#11998e', '#38ef7d'] },
+  { id: 'midnight', name: 'Midnight', colors: ['#0f0c29', '#302b63'] },
+  { id: 'rose', name: 'Rose Gold', colors: ['#f093fb', '#f5576c'] },
+  { id: 'sky', name: 'Sky Blue', colors: ['#a1c4fd', '#c2e9fb'] },
+  { id: 'ember', name: 'Ember', colors: ['#ff9a9e', '#fad0c4'] },
+  { id: 'dark', name: 'Dark Slate', colors: ['#1a1a2e', '#16213e'] },
+  { id: 'gold', name: 'Gold', colors: ['#f7971e', '#ffd200'] },
+  { id: 'lavender', name: 'Lavender', colors: ['#c471f5', '#fa71cd'] },
+  { id: 'earth', name: 'Earth', colors: ['#8E2DE2', '#4A00E0'] },
+  { id: 'mono', name: 'Monochrome', colors: ['#232526', '#414345'] },
+] as const
+
+export const QUOTE_FONTS = [
+  { id: 'serif', name: 'Serif', desc: 'Classic elegant', preview: 'Georgia, serif' },
+  { id: 'sans', name: 'Sans Serif', desc: 'Clean modern', preview: 'Arial, sans-serif' },
+  { id: 'handwritten', name: 'Handwritten', desc: 'Personal touch', preview: 'cursive' },
+  { id: 'bold', name: 'Bold Impact', desc: 'Strong statement', preview: 'Impact, sans-serif' },
+] as const
+
 // Map languages to available voices (initially only English has voices)
 export const LANGUAGE_VOICE_MAP: Record<string, string[]> = {
   en: ['EXAVITQu4vr4xnSDxMaL', 'TX3LPaxmHKxFdv7VOQHJ', 'XB0fDUnXU5powFXDhCwa', 'pqHfZKP75CvOlQylNhV4', 'Xb7hH8MSUJpSbSDYk0k2', 'CwhRBWXzGAHq8TQ4Fs17', 'jBpfuIE2acCO8z3wKNLl', 'bIHbv24MWmeRgasZH58o'],

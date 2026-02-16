@@ -39,6 +39,8 @@ export function getJobStatusColor(status: string): string {
     // Cartoon pipeline stages
     STORY_GENERATING: 'text-blue-400',
     IMAGE_GENERATING: 'text-purple-400',
+    // Quote pipeline stages
+    TEXT_GENERATING: 'text-purple-400',
   }
   return colors[status] || 'text-gray-400'
 }
@@ -61,6 +63,8 @@ export function getJobStatusLabel(status: string): string {
     // Cartoon pipeline stages
     STORY_GENERATING: 'Writing Story',
     IMAGE_GENERATING: 'Generating Images',
+    // Quote pipeline stages
+    TEXT_GENERATING: 'Generating Quote',
   }
   return labels[status] || status
 }

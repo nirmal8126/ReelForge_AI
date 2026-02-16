@@ -164,3 +164,41 @@ export async function enqueueCartoonEpisode(data: {
 
   return job.id
 }
+
+// Quote jobs queue
+let quoteQueue: Queue | null = null
+
+export function getQuoteQueue() {
+  if (!quoteQueue) {
+    quoteQueue = new Queue('quote-jobs', { connection: getConnection() })
+  }
+  return quoteQueue
+}
+
+export async function enqueueQuoteJob(data: {
+  quoteJobId: string
+  userId: string
+  prompt: string
+  category: string
+  language: string
+  bgType: string
+  bgValue?: string
+  textColor: string
+  fontStyle: string
+  aspectRatio: string
+  voiceId?: string
+  plan: string
+}) {
+  const queue = getQuoteQueue()
+  const priority = PLAN_PRIORITY[data.plan] || 5
+
+  const job = await queue.add('generate-quote', data, {
+    priority,
+    attempts: 3,
+    backoff: { type: 'exponential', delay: 5000 },
+    removeOnComplete: { count: 1000 },
+    removeOnFail: { count: 500 },
+  })
+
+  return job.id
+}

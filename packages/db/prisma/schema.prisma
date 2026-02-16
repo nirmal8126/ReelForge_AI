@@ -45,6 +45,7 @@ model User {
   creditTransactions CreditTransaction[]
   mediaAssets        MediaAsset[]
   cartoonSeries      CartoonSeries[]
+  quoteJobs          QuoteJob[]
   accounts           Account[]
   sessions           Session[]
 
@@ -560,6 +561,53 @@ model StockFootageCache {
   @@map("stock_footage_cache")
 }
 
+// Quote generation jobs
+model QuoteJob {
+  id               String         @id @default(cuid())
+  userId           String         @map("user_id")
+
+  // Content
+  prompt           String         @db.Text
+  category         String         @db.VarChar(50)
+  quoteText        String?        @map("quote_text") @db.Text
+  author           String?        @db.VarChar(200)
+  language         String         @default("hi") @db.VarChar(10)
+
+  // Visual settings
+  bgType           String         @default("gradient") @map("bg_type") @db.VarChar(20)
+  bgValue          String?        @map("bg_value") @db.VarChar(500)
+  textColor        String         @default("#FFFFFF") @map("text_color") @db.VarChar(10)
+  fontStyle        String         @default("serif") @map("font_style") @db.VarChar(30)
+  aspectRatio      String         @default("1:1") @map("aspect_ratio") @db.VarChar(10)
+
+  // Audio settings
+  voiceId          String?        @map("voice_id") @db.VarChar(100)
+
+  // Status & progress
+  status           QuoteJobStatus @default(QUEUED)
+  progress         Int            @default(0)
+  currentStage     String?        @map("current_stage") @db.VarChar(50)
+
+  // Output
+  imageUrl         String?        @map("image_url") @db.VarChar(500)
+  videoUrl         String?        @map("video_url") @db.VarChar(500)
+  thumbnailUrl     String?        @map("thumbnail_url") @db.VarChar(500)
+
+  // Metadata
+  errorMessage     String?        @map("error_message") @db.Text
+  creditsCost      Int            @default(1) @map("credits_cost")
+  processingTimeMs Int?           @map("processing_time_ms")
+
+  createdAt        DateTime       @default(now()) @map("created_at")
+  completedAt      DateTime?      @map("completed_at")
+
+  user             User           @relation(fields: [userId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@index([userId])
+  @@index([status])
+  @@map("quote_jobs")
+}
+
 // Cartoon Studio models
 model CartoonSeries {
   id              String   @id @default(cuid())
@@ -785,6 +833,17 @@ enum TrendingSource {
   YOUTUBE
   TIKTOK
   REDDIT
+}
+
+enum QuoteJobStatus {
+  QUEUED
+  TEXT_GENERATING
+  IMAGE_GENERATING
+  VOICE_GENERATING
+  COMPOSING
+  UPLOADING
+  COMPLETED
+  FAILED
 }
 
 enum CartoonEpisodeStatus {
