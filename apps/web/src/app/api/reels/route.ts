@@ -10,7 +10,7 @@ const createReelSchema = z.object({
   title: z.string().min(1).max(255).optional(),
   script: z.string().optional(),
   style: z.string().max(100).optional(),
-  language: z.string().regex(/^[a-z]{2}$/).default('en'),
+  language: z.string().regex(/^[a-z]{2}$/).default('hi'),
   voiceId: z.string().max(100).optional(),
   durationSeconds: z.number().refine(
     (v) => (REEL_DURATIONS as readonly number[]).includes(v),

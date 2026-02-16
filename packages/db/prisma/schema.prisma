@@ -127,7 +127,7 @@ model ReelJob {
   prompt           String        @db.Text
   script           String?       @db.Text
   style            String?       @db.VarChar(100)
-  language         String?       @default("en") @map("language") @db.VarChar(10)
+  language         String?       @default("hi") @map("language") @db.VarChar(10)
   durationSeconds  Int           @default(30) @map("duration_seconds")
   aspectRatio      String        @default("9:16") @map("aspect_ratio") @db.VarChar(10)
   status           ReelJobStatus @default(QUEUED)
@@ -168,7 +168,7 @@ model ChannelProfile {
   fontFamily          String?  @map("font_family") @db.VarChar(100)
   captionStyle        String?  @map("caption_style") @db.VarChar(50)
   defaultVoiceId      String?  @map("default_voice_id") @db.VarChar(100)
-  defaultLanguage     String?  @default("en") @map("default_language") @db.VarChar(10)
+  defaultLanguage     String?  @default("hi") @map("default_language") @db.VarChar(10)
   introAssetId        String?  @map("intro_asset_id")
   outroAssetId        String?  @map("outro_asset_id")
   logoUrl             String?  @map("logo_url") @db.VarChar(500)
@@ -290,7 +290,7 @@ model LongFormJob {
 
   // Generation settings
   style       String? @db.VarChar(100)
-  language    String  @default("en") @map("language") @db.VarChar(10)
+  language    String  @default("hi") @map("language") @db.VarChar(10)
   voiceId     String? @map("voice_id") @db.VarChar(100)
   aspectRatio String  @default("16:9") @map("aspect_ratio") @db.VarChar(10)
 
@@ -450,7 +450,7 @@ model AutopilotSchedule {
   // Video settings (template)
   durationMinutes Int     @default(10) @map("duration_minutes")
   style           String? @db.VarChar(100)
-  language        String  @default("en") @db.VarChar(10)
+  language        String  @default("hi") @db.VarChar(10)
   voiceId         String? @map("voice_id") @db.VarChar(100)
 
   // YouTube auto-publish
@@ -569,7 +569,7 @@ model CartoonSeries {
   targetAudience  String?  @map("target_audience") @db.VarChar(100)
   artStyle        String?  @map("art_style") @db.VarChar(50)
   narratorVoiceId String?  @map("narrator_voice_id") @db.VarChar(100)
-  language        String   @default("en") @db.VarChar(10)
+  language        String   @default("hi") @db.VarChar(10)
   aspectRatio     String   @default("16:9") @map("aspect_ratio") @db.VarChar(10)
   createdAt       DateTime @default(now()) @map("created_at")
   updatedAt       DateTime @updatedAt @map("updated_at")

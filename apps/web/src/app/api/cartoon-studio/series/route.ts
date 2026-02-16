@@ -9,7 +9,7 @@ const createSeriesSchema = z.object({
   targetAudience: z.string().max(100).optional(),
   artStyle: z.string().max(50).optional(),
   narratorVoiceId: z.string().max(100).optional(),
-  language: z.string().regex(/^[a-z]{2}$/).default('en'),
+  language: z.string().regex(/^[a-z]{2}$/).default('hi'),
   aspectRatio: z.enum(['16:9', '9:16', '1:1']).default('16:9'),
   characters: z.array(z.object({
     name: z.string().min(1).max(100),

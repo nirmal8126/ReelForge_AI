@@ -17,7 +17,7 @@ const createLongFormSchema = z.object({
   prompt: z.string().min(10).max(2000),
   durationMinutes: z.number().min(5).max(30).default(10),
   style: z.string().max(100).optional(),
-  language: z.string().regex(/^[a-z]{2}$/).default('en'),
+  language: z.string().regex(/^[a-z]{2}$/).default('hi'),
   voiceId: z.string().max(100).optional(),
   aspectRatio: z.enum(['16:9', '9:16', '1:1']).default('16:9'),
   aiClipRatio: z.number().min(0).max(1).default(0.3),

@@ -107,7 +107,7 @@ export async function processLongFormJob(job: Job<LongFormJobData>): Promise<Lon
         audioBuffer = await generateVoiceover({
           script: currentJob.script,
           voiceId: job.data.voiceId || 'EXAVITQu4vr4xnSDxMaL',
-          language: job.data.language || 'en',
+          language: job.data.language || 'hi',
         });
         await fs.mkdir(AUDIO_CACHE_DIR, { recursive: true });
         await fs.writeFile(audioCachePath, audioBuffer);
@@ -196,7 +196,7 @@ export async function processLongFormJob(job: Job<LongFormJobData>): Promise<Lon
       await updateStatus(longFormJobId, 'PLANNING');
       await setProgress(5);
 
-      outline = await generateOutline({ prompt, title, durationMinutes, language: job.data.language || 'en' });
+      outline = await generateOutline({ prompt, title, durationMinutes, language: job.data.language || 'hi' });
       await prisma.longFormJob.update({ where: { id: longFormJobId }, data: { outline } });
       log.info({ segmentCount: outline.segments.length }, 'Outline generated');
     }
@@ -218,7 +218,7 @@ export async function processLongFormJob(job: Job<LongFormJobData>): Promise<Lon
       script = await generateLongFormScript({
         prompt,
         outline,
-        language: job.data.language || 'en',
+        language: job.data.language || 'hi',
         durationMinutes,
       });
 
@@ -256,7 +256,7 @@ export async function processLongFormJob(job: Job<LongFormJobData>): Promise<Lon
       audioBuffer = await generateVoiceover({
         script,
         voiceId: job.data.voiceId || 'EXAVITQu4vr4xnSDxMaL',
-        language: job.data.language || 'en',
+        language: job.data.language || 'hi',
       });
 
       // Cache audio to disk for resume

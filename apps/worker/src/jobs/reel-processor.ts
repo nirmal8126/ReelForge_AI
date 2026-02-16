@@ -64,7 +64,7 @@ export async function processReelJob(job: Job<ReelJobData>): Promise<ReelJobResu
         prompt,
         tone: job.data.tone || 'PROFESSIONAL',
         niche: job.data.niche || 'general',
-        language: job.data.language || 'en',
+        language: job.data.language || 'hi',
         durationSeconds,
         hookStyle: job.data.hookStyle || 'question',
       });
@@ -87,7 +87,7 @@ export async function processReelJob(job: Job<ReelJobData>): Promise<ReelJobResu
     const audioBuffer = await generateVoiceover({
       script,
       voiceId: job.data.voiceId || 'EXAVITQu4vr4xnSDxMaL', // default: Sarah
-      language: job.data.language || 'en',
+      language: job.data.language || 'hi',
     });
 
     log.info({ audioSizeBytes: audioBuffer.length }, 'Voiceover generated');

@@ -6,7 +6,7 @@ const outlineSchema = z.object({
   prompt: z.string().min(10).max(2000),
   title: z.string().max(255).optional(),
   durationMinutes: z.number().min(5).max(30).default(10),
-  language: z.string().regex(/^[a-z]{2}$/).default('en'),
+  language: z.string().regex(/^[a-z]{2}$/).default('hi'),
   niche: z.string().max(100).optional(),
   tone: z.string().max(100).optional(),
 })

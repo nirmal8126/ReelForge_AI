@@ -16,6 +16,7 @@ import {
   Check,
 } from 'lucide-react'
 import { SUPPORTED_LANGUAGES } from '@/lib/constants'
+import { SearchableSelect } from '@/components/ui/searchable-select'
 
 interface Character {
   id: string
@@ -83,7 +84,7 @@ export default function EditSeriesPage() {
   const [description, setDescription] = useState('')
   const [targetAudience, setTargetAudience] = useState('')
   const [artStyle, setArtStyle] = useState('')
-  const [language, setLanguage] = useState('en')
+  const [language, setLanguage] = useState('hi')
   const [narratorVoiceId, setNarratorVoiceId] = useState('')
 
   // Character editing state
@@ -106,7 +107,7 @@ export default function EditSeriesPage() {
           setDescription(data.series.description || '')
           setTargetAudience(data.series.targetAudience || '')
           setArtStyle(data.series.artStyle || '')
-          setLanguage(data.series.language || 'en')
+          setLanguage(data.series.language || 'hi')
           setNarratorVoiceId(data.series.narratorVoiceId || '')
         }
       })
@@ -326,27 +327,23 @@ export default function EditSeriesPage() {
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <label className="text-sm font-medium text-gray-300 mb-1.5 block">Target Audience</label>
-                <select
+                <SearchableSelect
                   value={targetAudience}
-                  onChange={(e) => setTargetAudience(e.target.value)}
-                  className="w-full rounded-lg border border-white/10 bg-white/5 px-4 py-2.5 text-sm text-white focus:border-brand-500 focus:outline-none"
-                >
-                  {AUDIENCES.map((a) => (
-                    <option key={a.value} value={a.value}>{a.label}</option>
-                  ))}
-                </select>
+                  onChange={setTargetAudience}
+                  options={AUDIENCES}
+                  placeholder="Select audience"
+                  searchPlaceholder="Search audiences..."
+                />
               </div>
               <div>
                 <label className="text-sm font-medium text-gray-300 mb-1.5 block">Art Style</label>
-                <select
+                <SearchableSelect
                   value={artStyle}
-                  onChange={(e) => setArtStyle(e.target.value)}
-                  className="w-full rounded-lg border border-white/10 bg-white/5 px-4 py-2.5 text-sm text-white focus:border-brand-500 focus:outline-none"
-                >
-                  {ART_STYLES.map((s) => (
-                    <option key={s.value} value={s.value}>{s.label}</option>
-                  ))}
-                </select>
+                  onChange={setArtStyle}
+                  options={ART_STYLES}
+                  placeholder="Select style"
+                  searchPlaceholder="Search styles..."
+                />
               </div>
             </div>
             <div>
@@ -371,16 +368,13 @@ export default function EditSeriesPage() {
             </div>
             <div>
               <label className="text-sm font-medium text-gray-300 mb-1.5 block">Narrator Voice</label>
-              <select
+              <SearchableSelect
                 value={narratorVoiceId}
-                onChange={(e) => setNarratorVoiceId(e.target.value)}
-                className="w-full rounded-lg border border-white/10 bg-white/5 px-4 py-2.5 text-sm text-white focus:border-brand-500 focus:outline-none"
-              >
-                <option value="">No narrator voice</option>
-                {VOICES.map((v) => (
-                  <option key={v.id} value={v.id}>{v.name}</option>
-                ))}
-              </select>
+                onChange={setNarratorVoiceId}
+                options={VOICES.map((v) => ({ value: v.id, label: v.name }))}
+                placeholder="No narrator voice"
+                searchPlaceholder="Search voices..."
+              />
             </div>
             <div className="flex justify-start pt-2">
               <button
@@ -420,7 +414,7 @@ export default function EditSeriesPage() {
               return (
                 <div
                   key={char.id}
-                  className="rounded-lg border border-white/10 bg-white/5 overflow-hidden"
+                  className="rounded-lg border border-white/10 bg-white/5"
                 >
                   {/* Collapsed row */}
                   <div
@@ -506,16 +500,13 @@ export default function EditSeriesPage() {
                         <label className="text-xs text-gray-500 mb-1 block">
                           Voice <span className="text-gray-600">(optional)</span>
                         </label>
-                        <select
+                        <SearchableSelect
                           value={edit.voiceId}
-                          onChange={(e) => updateEditingChar(char.id, 'voiceId', e.target.value)}
-                          className="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-white focus:border-brand-500 focus:outline-none"
-                        >
-                          <option value="">No voice</option>
-                          {VOICES.map((v) => (
-                            <option key={v.id} value={v.id}>{v.name}</option>
-                          ))}
-                        </select>
+                          onChange={(val) => updateEditingChar(char.id, 'voiceId', val)}
+                          options={VOICES.map((v) => ({ value: v.id, label: v.name }))}
+                          placeholder="No voice"
+                          searchPlaceholder="Search voices..."
+                        />
                       </div>
 
                       <div className="flex items-center justify-between pt-1">
@@ -612,16 +603,13 @@ export default function EditSeriesPage() {
                   <label className="text-xs text-gray-500 mb-1 block">
                     Voice <span className="text-gray-600">(optional)</span>
                   </label>
-                  <select
+                  <SearchableSelect
                     value={newChar.voiceId}
-                    onChange={(e) => setNewChar({ ...newChar, voiceId: e.target.value })}
-                    className="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-white focus:border-brand-500 focus:outline-none"
-                  >
-                    <option value="">No voice</option>
-                    {VOICES.map((v) => (
-                      <option key={v.id} value={v.id}>{v.name}</option>
-                    ))}
-                  </select>
+                    onChange={(val) => setNewChar({ ...newChar, voiceId: val })}
+                    options={VOICES.map((v) => ({ value: v.id, label: v.name }))}
+                    placeholder="No voice"
+                    searchPlaceholder="Search voices..."
+                  />
                 </div>
 
                 <div className="flex items-center justify-end gap-2 pt-1">

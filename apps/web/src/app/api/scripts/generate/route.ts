@@ -6,7 +6,7 @@ import Anthropic from '@anthropic-ai/sdk'
 const scriptSchema = z.object({
   prompt: z.string().min(10).max(2000),
   duration: z.number().min(5).max(60),
-  language: z.string().regex(/^[a-z]{2}$/).default('en'),
+  language: z.string().regex(/^[a-z]{2}$/).default('hi'),
   tone: z.string().optional(),
   niche: z.string().optional(),
 })

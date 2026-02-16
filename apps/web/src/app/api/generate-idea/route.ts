@@ -28,7 +28,7 @@ export async function POST(req: NextRequest) {
     const niche = parsed.channelProfile?.niche || parsed.niche || 'general'
     const tone = parsed.channelProfile?.tone || 'professional'
     const channelName = parsed.channelProfile?.name || ''
-    const language = parsed.language || 'en'
+    const language = parsed.language || 'hi'
     const isReel = parsed.type === 'reel'
 
     const langMap: Record<string, string> = {
