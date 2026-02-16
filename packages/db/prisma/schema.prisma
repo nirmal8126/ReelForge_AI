@@ -15,6 +15,7 @@ model User {
   passwordHash     String?   @map("password_hash")
   avatarUrl        String?   @map("avatar_url") @db.VarChar(500)
   role             UserRole  @default(USER)
+  isActive         Boolean   @default(true) @map("is_active")
   emailVerified    DateTime? @map("email_verified")
   stripeCustomerId String?   @unique @map("stripe_customer_id") @db.VarChar(100)
 
@@ -43,6 +44,7 @@ model User {
   referralsReceived  Referral[]          @relation("ReferredReferrals")
   creditTransactions CreditTransaction[]
   mediaAssets        MediaAsset[]
+  cartoonSeries      CartoonSeries[]
   accounts           Account[]
   sessions           Session[]
 
@@ -558,6 +560,95 @@ model StockFootageCache {
   @@map("stock_footage_cache")
 }
 
+// Cartoon Studio models
+model CartoonSeries {
+  id              String   @id @default(cuid())
+  userId          String   @map("user_id")
+  name            String   @db.VarChar(200)
+  description     String?  @db.Text
+  targetAudience  String?  @map("target_audience") @db.VarChar(100)
+  artStyle        String?  @map("art_style") @db.VarChar(50)
+  narratorVoiceId String?  @map("narrator_voice_id") @db.VarChar(100)
+  language        String   @default("en") @db.VarChar(10)
+  aspectRatio     String   @default("16:9") @map("aspect_ratio") @db.VarChar(10)
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  user       User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  characters CartoonCharacter[]
+  episodes   CartoonEpisode[]
+
+  @@index([userId])
+  @@map("cartoon_series")
+}
+
+model CartoonCharacter {
+  id                String   @id @default(cuid())
+  seriesId          String   @map("series_id")
+  name              String   @db.VarChar(100)
+  description       String?  @db.Text
+  personality       String?  @db.Text
+  voiceId           String?  @map("voice_id") @db.VarChar(100)
+  referenceImageUrl String?  @map("reference_image_url") @db.VarChar(500)
+  color             String?  @db.VarChar(7)
+  createdAt         DateTime @default(now()) @map("created_at")
+
+  series CartoonSeries @relation(fields: [seriesId], references: [id], onDelete: Cascade)
+
+  @@index([seriesId])
+  @@map("cartoon_characters")
+}
+
+model CartoonEpisode {
+  id               String               @id @default(cuid())
+  seriesId         String               @map("series_id")
+  title            String               @db.VarChar(300)
+  synopsis         String?              @db.Text
+  episodeNumber    Int                  @map("episode_number")
+  prompt           String               @db.Text
+  storyScript      String?              @map("story_script") @db.LongText
+  status           CartoonEpisodeStatus @default(QUEUED)
+  progress         Int                  @default(0)
+  currentStage     String?              @map("current_stage") @db.VarChar(50)
+  outputUrl        String?              @map("output_url") @db.VarChar(500)
+  thumbnailUrl     String?              @map("thumbnail_url") @db.VarChar(500)
+  errorMessage     String?              @map("error_message") @db.Text
+  creditsCost      Int                  @default(0) @map("credits_cost")
+  processingTimeMs Int?                 @map("processing_time_ms")
+  durationSeconds  Int?                 @map("duration_seconds")
+  createdAt        DateTime             @default(now()) @map("created_at")
+  updatedAt        DateTime             @updatedAt @map("updated_at")
+
+  series CartoonSeries  @relation(fields: [seriesId], references: [id], onDelete: Cascade)
+  scenes CartoonScene[]
+
+  @@unique([seriesId, episodeNumber])
+  @@index([seriesId])
+  @@index([status])
+  @@map("cartoon_episodes")
+}
+
+model CartoonScene {
+  id           String             @id @default(cuid())
+  episodeId    String             @map("episode_id")
+  sceneIndex   Int                @map("scene_index")
+  description  String             @db.Text
+  visualPrompt String?            @map("visual_prompt") @db.Text
+  imageUrl     String?            @map("image_url") @db.VarChar(500)
+  narration    String?            @db.Text
+  dialogue     Json?              @db.Json
+  startTime    Float              @default(0) @map("start_time")
+  endTime      Float              @default(0) @map("end_time")
+  status       CartoonSceneStatus @default(PENDING)
+  createdAt    DateTime           @default(now()) @map("created_at")
+
+  episode CartoonEpisode @relation(fields: [episodeId], references: [id], onDelete: Cascade)
+
+  @@unique([episodeId, sceneIndex])
+  @@index([episodeId])
+  @@map("cartoon_scenes")
+}
+
 // Enums
 enum UserRole {
   USER
@@ -694,4 +785,22 @@ enum TrendingSource {
   YOUTUBE
   TIKTOK
   REDDIT
+}
+
+enum CartoonEpisodeStatus {
+  QUEUED
+  STORY_GENERATING
+  IMAGE_GENERATING
+  VOICE_GENERATING
+  COMPOSING
+  UPLOADING
+  COMPLETED
+  FAILED
+}
+
+enum CartoonSceneStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
 }

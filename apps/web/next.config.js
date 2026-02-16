@@ -1,4 +1,12 @@
 const path = require('path')
+const dotenv = require('dotenv')
+const fs = require('fs')
+
+// Load root .env files so shared keys (ANTHROPIC_API_KEY, etc.) are available
+const rootEnv = path.resolve(__dirname, '../../.env')
+const rootEnvLocal = path.resolve(__dirname, '../../.env.local')
+if (fs.existsSync(rootEnv)) dotenv.config({ path: rootEnv, override: false })
+if (fs.existsSync(rootEnvLocal)) dotenv.config({ path: rootEnvLocal, override: false })
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {

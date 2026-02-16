@@ -554,7 +554,7 @@ REQUIREMENTS:
 }
 
 // ---------------------------------------------------------------------------
-// Multi-Provider AI Helper (Claude → Gemini → OpenAI → Mock)
+// Multi-Provider AI Helper (Gemini → Claude → OpenAI → Mock)
 // ---------------------------------------------------------------------------
 
 async function callAIProvider(
@@ -635,18 +635,18 @@ async function callAIProvider(
     },
   };
 
-  // Build provider order based on preference
-  if (preferredProvider === 'gemini' && hasGeminiKey) {
-    providers.push(geminiProvider);
-    if (hasAnthropicKey) providers.push(claudeProvider);
+  // Build provider order based on preference (default: Gemini first)
+  if (preferredProvider === 'anthropic' && hasAnthropicKey) {
+    providers.push(claudeProvider);
+    if (hasGeminiKey) providers.push(geminiProvider);
     if (hasOpenAIKey) providers.push(openaiProvider);
   } else if (preferredProvider === 'openai' && hasOpenAIKey) {
     providers.push(openaiProvider);
-    if (hasAnthropicKey) providers.push(claudeProvider);
     if (hasGeminiKey) providers.push(geminiProvider);
+    if (hasAnthropicKey) providers.push(claudeProvider);
   } else {
-    if (hasAnthropicKey) providers.push(claudeProvider);
     if (hasGeminiKey) providers.push(geminiProvider);
+    if (hasAnthropicKey) providers.push(claudeProvider);
     if (hasOpenAIKey) providers.push(openaiProvider);
   }
 

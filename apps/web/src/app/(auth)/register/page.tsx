@@ -1,9 +1,42 @@
 'use client'
 
 import { useState } from 'react'
+import { useForm } from 'react-hook-form'
+import { zodResolver } from '@hookform/resolvers/zod'
+import { z } from 'zod'
 import { signIn } from 'next-auth/react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
+import { Eye, EyeOff } from 'lucide-react'
+
+const registerSchema = z.object({
+  name: z
+    .string()
+    .min(1, 'Full name is required')
+    .min(2, 'Name must be at least 2 characters')
+    .max(100, 'Name must be under 100 characters')
+    .regex(/^[a-zA-Z\s'-]+$/, 'Name can only contain letters, spaces, hyphens, and apostrophes'),
+  email: z
+    .string()
+    .min(1, 'Email is required')
+    .email('Please enter a valid email address')
+    .max(255, 'Email is too long'),
+  password: z
+    .string()
+    .min(1, 'Password is required')
+    .min(6, 'Password must be at least 6 characters')
+    .max(100, 'Password must be under 100 characters')
+    .regex(/[a-zA-Z]/, 'Password must contain at least one letter')
+    .regex(/[0-9]/, 'Password must contain at least one number'),
+  confirmPassword: z
+    .string()
+    .min(1, 'Please confirm your password'),
+}).refine((data) => data.password === data.confirmPassword, {
+  message: 'Passwords do not match',
+  path: ['confirmPassword'],
+})
+
+type RegisterForm = z.infer<typeof registerSchema>
 
 export default function RegisterPage() {
   const router = useRouter()
@@ -11,29 +44,55 @@ export default function RegisterPage() {
   const referralCode = searchParams.get('ref') || ''
   const hasGoogleAuth = Boolean(process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID)
 
-  const [name, setName] = useState('')
-  const [email, setEmail] = useState('')
-  const [password, setPassword] = useState('')
-  const [error, setError] = useState('')
+  const [serverError, setServerError] = useState('')
   const [loading, setLoading] = useState(false)
+  const [showPassword, setShowPassword] = useState(false)
+  const [showConfirm, setShowConfirm] = useState(false)
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setError('')
+  const {
+    register,
+    handleSubmit,
+    formState: { errors },
+    watch,
+  } = useForm<RegisterForm>({
+    resolver: zodResolver(registerSchema),
+    mode: 'onTouched',
+  })
+
+  const passwordValue = watch('password', '')
+
+  const passwordStrength = (() => {
+    if (!passwordValue) return { score: 0, label: '', color: '' }
+    let score = 0
+    if (passwordValue.length >= 6) score++
+    if (passwordValue.length >= 10) score++
+    if (/[a-z]/.test(passwordValue) && /[A-Z]/.test(passwordValue)) score++
+    if (/[0-9]/.test(passwordValue)) score++
+    if (/[^a-zA-Z0-9]/.test(passwordValue)) score++
+
+    if (score <= 1) return { score: 1, label: 'Weak', color: 'bg-red-500' }
+    if (score <= 2) return { score: 2, label: 'Fair', color: 'bg-orange-500' }
+    if (score <= 3) return { score: 3, label: 'Good', color: 'bg-yellow-500' }
+    if (score <= 4) return { score: 4, label: 'Strong', color: 'bg-green-500' }
+    return { score: 5, label: 'Very Strong', color: 'bg-emerald-500' }
+  })()
+
+  const onSubmit = async (data: RegisterForm) => {
+    setServerError('')
     setLoading(true)
 
     try {
-      const normalizedEmail = email.trim().toLowerCase()
+      const normalizedEmail = data.email.trim().toLowerCase()
       const res = await fetch('/api/auth/register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name, email: normalizedEmail, password, referralCode }),
+        body: JSON.stringify({ name: data.name.trim(), email: normalizedEmail, password: data.password, referralCode }),
       })
 
-      const data = await res.json()
+      const resData = await res.json()
 
       if (!res.ok) {
-        setError(data.error || 'Registration failed')
+        setServerError(resData.error || 'Registration failed')
         setLoading(false)
         return
       }
@@ -41,18 +100,18 @@ export default function RegisterPage() {
       // Auto sign in after registration
       const result = await signIn('credentials', {
         email: normalizedEmail,
-        password,
+        password: data.password,
         redirect: false,
       })
 
       if (result?.error) {
-        setError('Account created but sign-in failed. Please log in.')
+        setServerError('Account created but sign-in failed. Please log in.')
         setLoading(false)
       } else {
         router.push('/dashboard')
       }
     } catch {
-      setError('Something went wrong')
+      setServerError('Something went wrong')
       setLoading(false)
     }
   }
@@ -88,46 +147,125 @@ export default function RegisterPage() {
             </>
           )}
 
-          <form onSubmit={handleSubmit} className="space-y-4">
-            {error && (
+          <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+            {serverError && (
               <div className="rounded-lg bg-red-500/10 border border-red-500/20 p-3 text-sm text-red-400">
-                {error}
+                {serverError}
               </div>
             )}
+
+            {/* Full Name */}
             <div>
               <label className="block text-sm font-medium text-gray-300 mb-1.5">Full Name</label>
               <input
                 type="text"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                className="w-full rounded-lg bg-white/10 border border-white/10 px-4 py-2.5 text-white placeholder-gray-500 focus:border-brand-500 focus:ring-1 focus:ring-brand-500 outline-none transition"
+                {...register('name')}
+                className={`w-full rounded-lg bg-white/10 border px-4 py-2.5 text-white placeholder-gray-500 focus:ring-1 outline-none transition ${
+                  errors.name
+                    ? 'border-red-500/50 focus:border-red-500 focus:ring-red-500'
+                    : 'border-white/10 focus:border-brand-500 focus:ring-brand-500'
+                }`}
                 placeholder="John Doe"
-                required
               />
+              {errors.name && (
+                <p className="mt-1 text-xs text-red-400">{errors.name.message}</p>
+              )}
             </div>
+
+            {/* Email */}
             <div>
               <label className="block text-sm font-medium text-gray-300 mb-1.5">Email</label>
               <input
                 type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className="w-full rounded-lg bg-white/10 border border-white/10 px-4 py-2.5 text-white placeholder-gray-500 focus:border-brand-500 focus:ring-1 focus:ring-brand-500 outline-none transition"
+                {...register('email')}
+                className={`w-full rounded-lg bg-white/10 border px-4 py-2.5 text-white placeholder-gray-500 focus:ring-1 outline-none transition ${
+                  errors.email
+                    ? 'border-red-500/50 focus:border-red-500 focus:ring-red-500'
+                    : 'border-white/10 focus:border-brand-500 focus:ring-brand-500'
+                }`}
                 placeholder="you@example.com"
-                required
               />
+              {errors.email && (
+                <p className="mt-1 text-xs text-red-400">{errors.email.message}</p>
+              )}
             </div>
+
+            {/* Password */}
             <div>
               <label className="block text-sm font-medium text-gray-300 mb-1.5">Password</label>
-              <input
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="w-full rounded-lg bg-white/10 border border-white/10 px-4 py-2.5 text-white placeholder-gray-500 focus:border-brand-500 focus:ring-1 focus:ring-brand-500 outline-none transition"
-                placeholder="Min 8 characters"
-                minLength={8}
-                required
-              />
+              <div className="relative">
+                <input
+                  type={showPassword ? 'text' : 'password'}
+                  {...register('password')}
+                  className={`w-full rounded-lg bg-white/10 border px-4 py-2.5 pr-10 text-white placeholder-gray-500 focus:ring-1 outline-none transition ${
+                    errors.password
+                      ? 'border-red-500/50 focus:border-red-500 focus:ring-red-500'
+                      : 'border-white/10 focus:border-brand-500 focus:ring-brand-500'
+                  }`}
+                  placeholder="Min 6 characters"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-300"
+                >
+                  {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </button>
+              </div>
+              {errors.password && (
+                <p className="mt-1 text-xs text-red-400">{errors.password.message}</p>
+              )}
+              {passwordValue && !errors.password && (
+                <div className="mt-2">
+                  <div className="flex items-center gap-2">
+                    <div className="flex-1 h-1.5 bg-white/10 rounded-full overflow-hidden flex gap-0.5">
+                      {[1, 2, 3, 4, 5].map((i) => (
+                        <div
+                          key={i}
+                          className={`flex-1 rounded-full transition-colors ${
+                            i <= passwordStrength.score ? passwordStrength.color : 'bg-white/10'
+                          }`}
+                        />
+                      ))}
+                    </div>
+                    <span className={`text-xs font-medium ${
+                      passwordStrength.score <= 1 ? 'text-red-400' :
+                      passwordStrength.score <= 2 ? 'text-orange-400' :
+                      passwordStrength.score <= 3 ? 'text-yellow-400' :
+                      'text-green-400'
+                    }`}>{passwordStrength.label}</span>
+                  </div>
+                </div>
+              )}
             </div>
+
+            {/* Confirm Password */}
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-1.5">Confirm Password</label>
+              <div className="relative">
+                <input
+                  type={showConfirm ? 'text' : 'password'}
+                  {...register('confirmPassword')}
+                  className={`w-full rounded-lg bg-white/10 border px-4 py-2.5 pr-10 text-white placeholder-gray-500 focus:ring-1 outline-none transition ${
+                    errors.confirmPassword
+                      ? 'border-red-500/50 focus:border-red-500 focus:ring-red-500'
+                      : 'border-white/10 focus:border-brand-500 focus:ring-brand-500'
+                  }`}
+                  placeholder="Re-enter your password"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowConfirm(!showConfirm)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-300"
+                >
+                  {showConfirm ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </button>
+              </div>
+              {errors.confirmPassword && (
+                <p className="mt-1 text-xs text-red-400">{errors.confirmPassword.message}</p>
+              )}
+            </div>
+
             {referralCode && (
               <div className="rounded-lg bg-brand-500/10 border border-brand-500/20 p-3 text-sm text-brand-400">
                 Referral code applied: {referralCode}

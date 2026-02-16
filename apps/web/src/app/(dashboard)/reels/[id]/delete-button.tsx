@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Loader2, Trash2 } from 'lucide-react'
+import { confirmAction } from '@/lib/confirm'
 
 interface DeleteReelButtonProps {
   reelId: string
@@ -15,7 +16,12 @@ export function DeleteReelButton({ reelId, isProcessing }: DeleteReelButtonProps
   const [error, setError] = useState('')
 
   async function onDelete() {
-    const confirmed = window.confirm('Delete this reel permanently?')
+    const confirmed = await confirmAction({
+      title: 'Delete Reel?',
+      text: 'This reel will be permanently deleted. This action cannot be undone.',
+      confirmText: 'Delete',
+      type: 'danger',
+    })
     if (!confirmed) return
 
     setError('')

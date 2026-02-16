@@ -5,9 +5,14 @@ import { generateReferralCode } from '@/lib/utils'
 import { z } from 'zod'
 
 const registerSchema = z.object({
-  name: z.string().min(2).max(100),
-  email: z.string().email(),
-  password: z.string().min(8).max(100),
+  name: z.string().min(2, 'Name must be at least 2 characters').max(100),
+  email: z.string().email('Please enter a valid email address').max(255),
+  password: z
+    .string()
+    .min(6, 'Password must be at least 6 characters')
+    .max(100)
+    .regex(/[a-zA-Z]/, 'Password must contain at least one letter')
+    .regex(/[0-9]/, 'Password must contain at least one number'),
   referralCode: z.string().optional(),
 })
 

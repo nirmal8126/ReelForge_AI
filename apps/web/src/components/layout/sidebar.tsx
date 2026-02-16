@@ -14,12 +14,14 @@ import {
   LogOut,
   ChevronRight,
   Video,
+  Clapperboard,
 } from 'lucide-react'
 
 const navItems = [
   { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { href: '/reels', label: 'My Reels', icon: Film },
   { href: '/long-form', label: 'My Videos', icon: Video },
+  { href: '/cartoon-studio', label: 'Cartoon Studio', icon: Clapperboard },
   { href: '/profiles', label: 'Channels', icon: Users },
   { href: '/billing', label: 'Billing', icon: CreditCard },
   { href: '/referrals', label: 'Referrals', icon: Gift },

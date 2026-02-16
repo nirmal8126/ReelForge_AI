@@ -45,7 +45,7 @@ function resolveProviderOrder(): Array<'gemini' | 'anthropic'> {
   if (hasGemini && !hasAnthropic) {
     return ['gemini', 'anthropic']
   }
-  return ['anthropic', 'gemini']
+  return ['gemini', 'anthropic']
 }
 
 async function generateWithAnthropic(

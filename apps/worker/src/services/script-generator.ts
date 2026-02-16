@@ -256,7 +256,7 @@ function generateMockScript(opts: ScriptGenerationOptions): string {
 
 /**
  * Generate a short-form video script.
- * Uses Claude claude-sonnet-4-5-20250929 as the primary provider with GPT-4 fallback.
+ * Uses Gemini as the primary provider with Claude and GPT-4 fallback.
  * Falls back to demo/mock mode if no API keys are configured.
  */
 export async function generateScript(opts: ScriptGenerationOptions): Promise<string> {
@@ -297,9 +297,9 @@ export async function generateScript(opts: ScriptGenerationOptions): Promise<str
           { name: 'gemini', run: () => generateWithGemini(opts) },
         ]
       : [
+          { name: 'gemini', run: () => generateWithGemini(opts) },
           { name: 'anthropic', run: () => generateWithClaude(opts) },
           { name: 'openai', run: () => generateWithOpenAI(opts) },
-          { name: 'gemini', run: () => generateWithGemini(opts) },
         ];
 
   log.info(

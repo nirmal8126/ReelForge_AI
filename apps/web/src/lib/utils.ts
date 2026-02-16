@@ -36,6 +36,9 @@ export function getJobStatusColor(status: string): string {
     UPLOADING: 'text-yellow-400',
     PUBLISHING: 'text-purple-400',
     RECOMPOSING: 'text-brand-400',
+    // Cartoon pipeline stages
+    STORY_GENERATING: 'text-blue-400',
+    IMAGE_GENERATING: 'text-purple-400',
   }
   return colors[status] || 'text-gray-400'
 }
@@ -55,6 +58,9 @@ export function getJobStatusLabel(status: string): string {
     UPLOADING: 'Uploading',
     PUBLISHING: 'Publishing to YouTube',
     RECOMPOSING: 'Applying Edits',
+    // Cartoon pipeline stages
+    STORY_GENERATING: 'Writing Story',
+    IMAGE_GENERATING: 'Generating Images',
   }
   return labels[status] || status
 }

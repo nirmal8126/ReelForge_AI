@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { X, Trash2 } from 'lucide-react'
 import { NICHE_PRESETS } from '@/lib/constants'
 import toast from 'react-hot-toast'
+import { confirmAction } from '@/lib/confirm'
 
 interface EditProfileDialogProps {
   profileId: string
@@ -103,9 +104,13 @@ export function EditProfileDialog({ profileId, open, onClose }: EditProfileDialo
   }
 
   const handleDelete = async () => {
-    if (!confirm('Are you sure you want to delete this profile? This action cannot be undone.')) {
-      return
-    }
+    const confirmed = await confirmAction({
+      title: 'Delete Profile?',
+      text: 'This profile will be permanently deleted. This action cannot be undone.',
+      confirmText: 'Delete',
+      type: 'danger',
+    })
+    if (!confirmed) return
 
     setDeleting(true)
     try {

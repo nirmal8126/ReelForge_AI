@@ -129,3 +129,38 @@ export async function enqueueLongFormJob(data: {
 
   return job.id
 }
+
+// Cartoon episode queue
+let cartoonQueue: Queue | null = null
+
+export function getCartoonQueue() {
+  if (!cartoonQueue) {
+    cartoonQueue = new Queue('cartoon-episode-jobs', { connection: getConnection() })
+  }
+  return cartoonQueue
+}
+
+export async function enqueueCartoonEpisode(data: {
+  episodeId: string
+  seriesId: string
+  userId: string
+  prompt: string
+  title: string
+  language: string
+  aspectRatio: string
+  narratorVoiceId?: string
+  plan: string
+}) {
+  const queue = getCartoonQueue()
+  const priority = PLAN_PRIORITY[data.plan] || 5
+
+  const job = await queue.add('generate-cartoon-episode', data, {
+    priority,
+    attempts: 2,
+    backoff: { type: 'exponential', delay: 10000 },
+    removeOnComplete: { count: 500 },
+    removeOnFail: { count: 250 },
+  })
+
+  return job.id
+}

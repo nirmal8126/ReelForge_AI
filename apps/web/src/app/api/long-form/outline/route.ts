@@ -45,41 +45,40 @@ export async function POST(req: NextRequest) {
 
     let outline
 
-    if (hasAnthropicKey) {
-      outline = await generateWithClaude({
-        prompt: data.prompt,
-        title,
-        durationMinutes: data.durationMinutes,
-        segmentCount,
-        segmentDuration,
-        language: languageName,
-        niche: data.niche,
-        tone: data.tone,
-      })
-    } else if (hasGeminiKey) {
-      outline = await generateWithGemini({
-        prompt: data.prompt,
-        title,
-        durationMinutes: data.durationMinutes,
-        segmentCount,
-        segmentDuration,
-        language: languageName,
-        niche: data.niche,
-        tone: data.tone,
-      })
-    } else if (hasOpenAIKey) {
-      outline = await generateWithOpenAI({
-        prompt: data.prompt,
-        title,
-        durationMinutes: data.durationMinutes,
-        segmentCount,
-        segmentDuration,
-        language: languageName,
-        niche: data.niche,
-        tone: data.tone,
-      })
-    } else {
-      // Mock mode
+    const genOpts = {
+      prompt: data.prompt,
+      title,
+      durationMinutes: data.durationMinutes,
+      segmentCount,
+      segmentDuration,
+      language: languageName,
+      niche: data.niche,
+      tone: data.tone,
+    }
+
+    // Try providers in order: Gemini → Claude → OpenAI → Mock
+    if (hasGeminiKey) {
+      try {
+        outline = await generateWithGemini(genOpts)
+      } catch (err) {
+        console.error('Gemini outline failed:', err)
+      }
+    }
+    if (!outline && hasAnthropicKey) {
+      try {
+        outline = await generateWithClaude(genOpts)
+      } catch (err) {
+        console.error('Claude outline failed:', err)
+      }
+    }
+    if (!outline && hasOpenAIKey) {
+      try {
+        outline = await generateWithOpenAI(genOpts)
+      } catch (err) {
+        console.error('OpenAI outline failed:', err)
+      }
+    }
+    if (!outline) {
       outline = generateMockOutline({ title, segmentCount, segmentDuration })
     }
 

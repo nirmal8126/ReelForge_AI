@@ -39,6 +39,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         })
 
         if (!user || !user.passwordHash) return null
+        if (!user.isActive) throw new Error('ACCOUNT_DEACTIVATED')
 
         const isValid = await bcrypt.compare(
           password,
@@ -57,6 +58,15 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     }),
   ],
   callbacks: {
+    async signIn({ user }) {
+      if (!user?.id) return true
+      const dbUser = await prisma.user.findUnique({
+        where: { id: user.id },
+        select: { isActive: true },
+      })
+      if (dbUser && !dbUser.isActive) return '/login?error=deactivated'
+      return true
+    },
     async jwt({ token, user, trigger }) {
       if (user) {
         token.id = user.id
