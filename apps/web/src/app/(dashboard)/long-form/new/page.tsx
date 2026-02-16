@@ -3,8 +3,9 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import {
-  Sparkles, Mic, Clock, Monitor, Send,
-  ArrowLeft, ArrowRight, Loader2, Video, Youtube, Zap,
+  Sparkles, Mic, Send, ArrowLeft, ArrowRight, Loader2, Youtube, Zap,
+  LayoutList, GripVertical, Trash2, Plus, Pencil, ChevronDown, ChevronUp,
+  Clock, Eye,
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { SUPPORTED_LANGUAGES } from '@/lib/constants'
@@ -54,13 +55,25 @@ interface Profile {
   tone: string
 }
 
+interface OutlineSegment {
+  title: string
+  description: string
+  talkingPoints: string[]
+  durationSeconds: number
+  visualSuggestion: string
+}
+
 export default function CreateLongFormPage() {
   const router = useRouter()
 
   const [step, setStep] = useState(1)
   const [loading, setLoading] = useState(false)
+  const [generatingOutline, setGeneratingOutline] = useState(false)
   const [profiles, setProfiles] = useState<Profile[]>([])
   const [estimatedCost, setEstimatedCost] = useState({ credits: 5, cents: 280 })
+  const [outline, setOutline] = useState<{ segments: OutlineSegment[] } | null>(null)
+  const [editingSegmentIndex, setEditingSegmentIndex] = useState<number | null>(null)
+  const [expandedSegment, setExpandedSegment] = useState<number | null>(null)
 
   const [form, setForm] = useState({
     title: '',
@@ -84,7 +97,6 @@ export default function CreateLongFormPage() {
       .catch(() => {})
   }, [])
 
-  // Calculate estimated cost whenever form changes
   useEffect(() => {
     const creditsCost =
       form.durationMinutes <= 5 ? 3 :
@@ -95,20 +107,102 @@ export default function CreateLongFormPage() {
     const segmentCount = Math.ceil((form.durationMinutes * 60) / 30)
     const aiSegments = Math.ceil(segmentCount * form.aiClipRatio)
     const estimatedCostCents = Math.ceil(
-      (aiSegments * 40) + // RunwayML
-      (form.durationMinutes * 3) + // ElevenLabs
-      10 // Claude
+      (aiSegments * 40) + (form.durationMinutes * 3) + 10
     )
 
     setEstimatedCost({ credits: creditsCost, cents: estimatedCostCents })
   }, [form.durationMinutes, form.aiClipRatio])
 
-  const handleSubmit = async () => {
+  // ---------------------------------------------------------------------------
+  // Generate Outline (Plan Mode)
+  // ---------------------------------------------------------------------------
+  const handleGenerateOutline = async () => {
     if (!form.prompt || form.prompt.length < 10) {
       toast.error('Please enter at least 10 characters for your prompt')
       return
     }
 
+    setGeneratingOutline(true)
+    try {
+      const selectedProfile = profiles.find(p => p.id === form.channelProfileId)
+      const res = await fetch('/api/long-form/outline', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          prompt: form.prompt,
+          title: form.title || undefined,
+          durationMinutes: form.durationMinutes,
+          language: form.language,
+          niche: selectedProfile?.niche,
+          tone: selectedProfile?.tone,
+        }),
+      })
+
+      const data = await res.json()
+      if (!res.ok) {
+        toast.error(data.error || 'Failed to generate outline')
+        return
+      }
+
+      setOutline(data.outline)
+      setStep(2)
+      toast.success(`Outline generated with ${data.outline.segments.length} segments!`)
+    } catch {
+      toast.error('Failed to generate outline')
+    } finally {
+      setGeneratingOutline(false)
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  // Outline Editing
+  // ---------------------------------------------------------------------------
+  const moveSegment = (index: number, direction: 'up' | 'down') => {
+    if (!outline) return
+    const newSegments = [...outline.segments]
+    const targetIndex = direction === 'up' ? index - 1 : index + 1
+    if (targetIndex < 0 || targetIndex >= newSegments.length) return
+    ;[newSegments[index], newSegments[targetIndex]] = [newSegments[targetIndex], newSegments[index]]
+    setOutline({ segments: newSegments })
+  }
+
+  const deleteSegment = (index: number) => {
+    if (!outline || outline.segments.length <= 2) {
+      toast.error('Minimum 2 segments required')
+      return
+    }
+    const newSegments = outline.segments.filter((_, i) => i !== index)
+    setOutline({ segments: newSegments })
+    setEditingSegmentIndex(null)
+  }
+
+  const updateSegment = (index: number, updates: Partial<OutlineSegment>) => {
+    if (!outline) return
+    const newSegments = [...outline.segments]
+    newSegments[index] = { ...newSegments[index], ...updates }
+    setOutline({ segments: newSegments })
+  }
+
+  const addSegment = () => {
+    if (!outline) return
+    const avgDuration = Math.round(
+      outline.segments.reduce((sum, s) => sum + s.durationSeconds, 0) / outline.segments.length
+    )
+    const newSegment: OutlineSegment = {
+      title: 'New Segment',
+      description: 'Add your description here',
+      talkingPoints: ['Point 1', 'Point 2'],
+      durationSeconds: avgDuration,
+      visualSuggestion: 'Stock footage or AI clip',
+    }
+    setOutline({ segments: [...outline.segments, newSegment] })
+    setEditingSegmentIndex(outline.segments.length)
+  }
+
+  // ---------------------------------------------------------------------------
+  // Submit
+  // ---------------------------------------------------------------------------
+  const handleSubmit = async () => {
     setLoading(true)
     try {
       const res = await fetch('/api/long-form', {
@@ -127,6 +221,7 @@ export default function CreateLongFormPage() {
           useStaticVisuals: form.useStaticVisuals,
           publishToYouTube: form.publishToYouTube,
           channelProfileId: form.channelProfileId || undefined,
+          outline: outline || undefined,
         }),
       })
 
@@ -136,7 +231,7 @@ export default function CreateLongFormPage() {
         return
       }
 
-      toast.success('Long-form video job submitted! Generation will begin shortly.')
+      toast.success('Long-form video job submitted!')
       router.push(`/long-form/${data.job.id}`)
     } catch {
       toast.error('Something went wrong')
@@ -146,21 +241,22 @@ export default function CreateLongFormPage() {
   }
 
   const steps = [
-    { num: 1, label: 'Topic & Duration', icon: Sparkles },
-    { num: 2, label: 'Generation Settings', icon: Zap },
-    { num: 3, label: 'Voice & Style', icon: Mic },
-    { num: 4, label: 'Review & Submit', icon: Send },
+    { num: 1, label: 'Topic & Prompt', icon: Sparkles },
+    { num: 2, label: 'Plan & Outline', icon: LayoutList },
+    { num: 3, label: 'Settings & Style', icon: Zap },
+    { num: 4, label: 'Voice & Options', icon: Mic },
+    { num: 5, label: 'Review & Generate', icon: Send },
   ]
 
-  const canProceedStep1 = form.prompt.length >= 10
-  const canProceedStep2 = true
-  const canProceedStep3 = true
+  const totalOutlineDuration = outline
+    ? outline.segments.reduce((sum, s) => sum + s.durationSeconds, 0)
+    : 0
 
   return (
     <div className="max-w-4xl mx-auto">
       <div className="mb-8">
         <h1 className="text-2xl font-bold text-white">Create Long-Form Video</h1>
-        <p className="text-gray-400 mt-1">AI-powered long-form video generation (5-30 minutes)</p>
+        <p className="text-gray-400 mt-1">AI-powered video generation with plan preview</p>
       </div>
 
       {/* Step Progress */}
@@ -185,7 +281,9 @@ export default function CreateLongFormPage() {
         ))}
       </div>
 
-      {/* Step 1: Topic & Duration */}
+      {/* ================================================================== */}
+      {/* Step 1: Topic & Prompt                                             */}
+      {/* ================================================================== */}
       {step === 1 && (
         <div className="space-y-6">
           <div>
@@ -249,24 +347,245 @@ export default function CreateLongFormPage() {
 
           <div className="flex justify-end">
             <button
-              onClick={() => canProceedStep1 && setStep(2)}
-              disabled={!canProceedStep1}
+              onClick={handleGenerateOutline}
+              disabled={form.prompt.length < 10 || generatingOutline}
               className="inline-flex items-center gap-2 rounded-lg bg-brand-600 px-6 py-2.5 text-sm font-medium text-white hover:bg-brand-500 transition disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              Next Step
+              {generatingOutline ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Generating Outline...
+                </>
+              ) : (
+                <>
+                  <LayoutList className="h-4 w-4" />
+                  Generate Plan
+                </>
+              )}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* ================================================================== */}
+      {/* Step 2: Plan & Outline (THE NEW PLAN MODE)                         */}
+      {/* ================================================================== */}
+      {step === 2 && outline && (
+        <div className="space-y-6">
+          {/* Header */}
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="text-lg font-semibold text-white">Video Outline</h2>
+              <p className="text-sm text-gray-400 mt-1">
+                {outline.segments.length} segments &middot;{' '}
+                {Math.round(totalOutlineDuration / 60)} min total &middot;{' '}
+                Edit, reorder, or remove segments before generating
+              </p>
+            </div>
+            <button
+              onClick={handleGenerateOutline}
+              disabled={generatingOutline}
+              className="inline-flex items-center gap-2 rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-xs text-gray-400 hover:bg-white/10 hover:text-white transition disabled:opacity-50"
+            >
+              {generatingOutline ? <Loader2 className="h-3 w-3 animate-spin" /> : <Sparkles className="h-3 w-3" />}
+              Regenerate
+            </button>
+          </div>
+
+          {/* Segments List */}
+          <div className="space-y-3">
+            {outline.segments.map((segment, idx) => {
+              const isEditing = editingSegmentIndex === idx
+              const isExpanded = expandedSegment === idx
+
+              return (
+                <div
+                  key={idx}
+                  className={`rounded-xl border transition ${
+                    isEditing
+                      ? 'border-brand-500/50 bg-brand-500/5'
+                      : 'border-white/10 bg-white/5 hover:border-white/20'
+                  }`}
+                >
+                  {/* Segment Header */}
+                  <div className="flex items-center gap-3 p-4">
+                    <div className="flex flex-col gap-1">
+                      <button
+                        onClick={() => moveSegment(idx, 'up')}
+                        disabled={idx === 0}
+                        className="text-gray-500 hover:text-white disabled:opacity-20 transition"
+                      >
+                        <ChevronUp className="h-4 w-4" />
+                      </button>
+                      <button
+                        onClick={() => moveSegment(idx, 'down')}
+                        disabled={idx === outline.segments.length - 1}
+                        className="text-gray-500 hover:text-white disabled:opacity-20 transition"
+                      >
+                        <ChevronDown className="h-4 w-4" />
+                      </button>
+                    </div>
+
+                    <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-brand-500/20 text-brand-400 text-sm font-bold flex-shrink-0">
+                      {idx + 1}
+                    </div>
+
+                    <div className="flex-1 min-w-0">
+                      {isEditing ? (
+                        <input
+                          type="text"
+                          value={segment.title}
+                          onChange={e => updateSegment(idx, { title: e.target.value })}
+                          className="w-full bg-transparent border-b border-brand-500 text-white font-medium focus:outline-none pb-1"
+                          autoFocus
+                        />
+                      ) : (
+                        <h3 className="text-sm font-medium text-white truncate">{segment.title}</h3>
+                      )}
+                      <p className="text-xs text-gray-500 mt-0.5 truncate">{segment.description}</p>
+                    </div>
+
+                    <div className="flex items-center gap-1 text-xs text-gray-500 flex-shrink-0">
+                      <Clock className="h-3 w-3" />
+                      {isEditing ? (
+                        <input
+                          type="number"
+                          value={segment.durationSeconds}
+                          onChange={e => updateSegment(idx, { durationSeconds: parseInt(e.target.value) || 30 })}
+                          className="w-14 bg-transparent border-b border-brand-500 text-white text-center focus:outline-none"
+                          min={10}
+                          max={600}
+                        />
+                      ) : (
+                        <span>{segment.durationSeconds}s</span>
+                      )}
+                    </div>
+
+                    <div className="flex items-center gap-1 flex-shrink-0">
+                      <button
+                        onClick={() => setExpandedSegment(isExpanded ? null : idx)}
+                        className="p-1.5 rounded-lg text-gray-500 hover:bg-white/10 hover:text-white transition"
+                      >
+                        <Eye className="h-4 w-4" />
+                      </button>
+                      <button
+                        onClick={() => setEditingSegmentIndex(isEditing ? null : idx)}
+                        className={`p-1.5 rounded-lg transition ${
+                          isEditing
+                            ? 'text-brand-400 bg-brand-500/20'
+                            : 'text-gray-500 hover:bg-white/10 hover:text-white'
+                        }`}
+                      >
+                        <Pencil className="h-4 w-4" />
+                      </button>
+                      <button
+                        onClick={() => deleteSegment(idx)}
+                        className="p-1.5 rounded-lg text-gray-500 hover:bg-red-500/10 hover:text-red-400 transition"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Expanded Details */}
+                  {(isExpanded || isEditing) && (
+                    <div className="border-t border-white/5 p-4 space-y-3">
+                      <div>
+                        <label className="block text-xs text-gray-500 mb-1">Description</label>
+                        {isEditing ? (
+                          <textarea
+                            value={segment.description}
+                            onChange={e => updateSegment(idx, { description: e.target.value })}
+                            rows={2}
+                            className="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-white focus:border-brand-500 focus:outline-none"
+                          />
+                        ) : (
+                          <p className="text-sm text-gray-300">{segment.description}</p>
+                        )}
+                      </div>
+
+                      <div>
+                        <label className="block text-xs text-gray-500 mb-1">Talking Points</label>
+                        <ul className="space-y-1">
+                          {segment.talkingPoints.map((point, pIdx) => (
+                            <li key={pIdx} className="flex items-start gap-2">
+                              <span className="text-brand-400 mt-0.5">•</span>
+                              {isEditing ? (
+                                <input
+                                  type="text"
+                                  value={point}
+                                  onChange={e => {
+                                    const newPoints = [...segment.talkingPoints]
+                                    newPoints[pIdx] = e.target.value
+                                    updateSegment(idx, { talkingPoints: newPoints })
+                                  }}
+                                  className="flex-1 bg-transparent border-b border-white/10 text-sm text-white focus:border-brand-500 focus:outline-none pb-0.5"
+                                />
+                              ) : (
+                                <span className="text-sm text-gray-300">{point}</span>
+                              )}
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+
+                      <div>
+                        <label className="block text-xs text-gray-500 mb-1">Visual Suggestion</label>
+                        {isEditing ? (
+                          <input
+                            type="text"
+                            value={segment.visualSuggestion}
+                            onChange={e => updateSegment(idx, { visualSuggestion: e.target.value })}
+                            className="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-white focus:border-brand-500 focus:outline-none"
+                          />
+                        ) : (
+                          <p className="text-sm text-gray-400 italic">{segment.visualSuggestion}</p>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )
+            })}
+          </div>
+
+          {/* Add Segment Button */}
+          <button
+            onClick={addSegment}
+            className="w-full rounded-xl border border-dashed border-white/20 p-4 text-center text-sm text-gray-400 hover:border-brand-500/50 hover:text-brand-400 hover:bg-brand-500/5 transition"
+          >
+            <Plus className="h-4 w-4 inline mr-2" />
+            Add Segment
+          </button>
+
+          <div className="flex items-center justify-between">
+            <button
+              onClick={() => setStep(1)}
+              className="inline-flex items-center gap-2 text-gray-400 hover:text-white transition"
+            >
+              <ArrowLeft className="h-4 w-4" />
+              Back
+            </button>
+            <button
+              onClick={() => setStep(3)}
+              className="inline-flex items-center gap-2 rounded-lg bg-brand-600 px-6 py-2.5 text-sm font-medium text-white hover:bg-brand-500 transition"
+            >
+              Approve Plan
               <ArrowRight className="h-4 w-4" />
             </button>
           </div>
         </div>
       )}
 
-      {/* Step 2: Generation Settings */}
-      {step === 2 && (
+      {/* ================================================================== */}
+      {/* Step 3: Settings & Style                                           */}
+      {/* ================================================================== */}
+      {step === 3 && (
         <div className="space-y-6">
           <div>
             <label className="block text-sm font-medium text-gray-300 mb-3">
               AI Clip Ratio
-              <span className="text-xs text-gray-500 ml-2">Higher ratio = better quality, higher cost</span>
+              <span className="text-xs text-gray-500 ml-2">Higher = better quality, higher cost</span>
             </label>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               {AI_CLIP_RATIOS.map(ratio => (
@@ -311,63 +630,6 @@ export default function CreateLongFormPage() {
             </div>
           </div>
 
-          <div className="flex items-center gap-4">
-            <label className="flex items-center gap-2 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={form.useStockFootage}
-                onChange={e => setForm({ ...form, useStockFootage: e.target.checked })}
-                className="w-4 h-4 rounded border-white/10 bg-white/5 text-brand-600 focus:ring-brand-500/20"
-              />
-              <span className="text-sm text-gray-300">Use stock footage (free)</span>
-            </label>
-
-            <label className="flex items-center gap-2 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={form.useStaticVisuals}
-                onChange={e => setForm({ ...form, useStaticVisuals: e.target.checked })}
-                className="w-4 h-4 rounded border-white/10 bg-white/5 text-brand-600 focus:ring-brand-500/20"
-              />
-              <span className="text-sm text-gray-300">Use static visuals</span>
-            </label>
-          </div>
-
-          <div className="flex items-center justify-between">
-            <button
-              onClick={() => setStep(1)}
-              className="inline-flex items-center gap-2 text-gray-400 hover:text-white transition"
-            >
-              <ArrowLeft className="h-4 w-4" />
-              Back
-            </button>
-            <button
-              onClick={() => setStep(3)}
-              className="inline-flex items-center gap-2 rounded-lg bg-brand-600 px-6 py-2.5 text-sm font-medium text-white hover:bg-brand-500 transition"
-            >
-              Next Step
-              <ArrowRight className="h-4 w-4" />
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* Step 3: Voice & Style */}
-      {step === 3 && (
-        <div className="space-y-6">
-          <div>
-            <label className="block text-sm font-medium text-gray-300 mb-3">Voice</label>
-            <select
-              value={form.voiceId}
-              onChange={e => setForm({ ...form, voiceId: e.target.value })}
-              className="w-full rounded-lg border border-white/10 bg-white/5 px-4 py-2.5 text-white focus:border-brand-500 focus:ring focus:ring-brand-500/20 transition"
-            >
-              {VOICES.map(voice => (
-                <option key={voice.id} value={voice.id}>{voice.name}</option>
-              ))}
-            </select>
-          </div>
-
           <div>
             <label className="block text-sm font-medium text-gray-300 mb-3">Visual Style</label>
             <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
@@ -388,6 +650,56 @@ export default function CreateLongFormPage() {
                 </button>
               ))}
             </div>
+          </div>
+
+          <div className="flex items-center gap-4">
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={form.useStockFootage}
+                onChange={e => setForm({ ...form, useStockFootage: e.target.checked })}
+                className="w-4 h-4 rounded border-white/10 bg-white/5 text-brand-600 focus:ring-brand-500/20"
+              />
+              <span className="text-sm text-gray-300">Use stock footage (free)</span>
+            </label>
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={form.useStaticVisuals}
+                onChange={e => setForm({ ...form, useStaticVisuals: e.target.checked })}
+                className="w-4 h-4 rounded border-white/10 bg-white/5 text-brand-600 focus:ring-brand-500/20"
+              />
+              <span className="text-sm text-gray-300">Use static visuals</span>
+            </label>
+          </div>
+
+          <div className="flex items-center justify-between">
+            <button onClick={() => setStep(2)} className="inline-flex items-center gap-2 text-gray-400 hover:text-white transition">
+              <ArrowLeft className="h-4 w-4" /> Back
+            </button>
+            <button onClick={() => setStep(4)} className="inline-flex items-center gap-2 rounded-lg bg-brand-600 px-6 py-2.5 text-sm font-medium text-white hover:bg-brand-500 transition">
+              Next Step <ArrowRight className="h-4 w-4" />
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* ================================================================== */}
+      {/* Step 4: Voice & Options                                            */}
+      {/* ================================================================== */}
+      {step === 4 && (
+        <div className="space-y-6">
+          <div>
+            <label className="block text-sm font-medium text-gray-300 mb-3">Voice</label>
+            <select
+              value={form.voiceId}
+              onChange={e => setForm({ ...form, voiceId: e.target.value })}
+              className="w-full rounded-lg border border-white/10 bg-white/5 px-4 py-2.5 text-white focus:border-brand-500 focus:ring focus:ring-brand-500/20 transition"
+            >
+              {VOICES.map(voice => (
+                <option key={voice.id} value={voice.id}>{voice.name}</option>
+              ))}
+            </select>
           </div>
 
           <div>
@@ -415,63 +727,59 @@ export default function CreateLongFormPage() {
           </label>
 
           <div className="flex items-center justify-between">
-            <button
-              onClick={() => setStep(2)}
-              className="inline-flex items-center gap-2 text-gray-400 hover:text-white transition"
-            >
-              <ArrowLeft className="h-4 w-4" />
-              Back
+            <button onClick={() => setStep(3)} className="inline-flex items-center gap-2 text-gray-400 hover:text-white transition">
+              <ArrowLeft className="h-4 w-4" /> Back
             </button>
-            <button
-              onClick={() => setStep(4)}
-              className="inline-flex items-center gap-2 rounded-lg bg-brand-600 px-6 py-2.5 text-sm font-medium text-white hover:bg-brand-500 transition"
-            >
-              Review
-              <ArrowRight className="h-4 w-4" />
+            <button onClick={() => setStep(5)} className="inline-flex items-center gap-2 rounded-lg bg-brand-600 px-6 py-2.5 text-sm font-medium text-white hover:bg-brand-500 transition">
+              Review <ArrowRight className="h-4 w-4" />
             </button>
           </div>
         </div>
       )}
 
-      {/* Step 4: Review & Submit */}
-      {step === 4 && (
+      {/* ================================================================== */}
+      {/* Step 5: Review & Generate                                          */}
+      {/* ================================================================== */}
+      {step === 5 && (
         <div className="space-y-6">
           <div className="rounded-xl border border-white/10 bg-white/5 p-6">
             <h3 className="text-lg font-semibold text-white mb-4">Video Summary</h3>
             <dl className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-              <div>
-                <dt className="text-gray-500">Title</dt>
-                <dd className="text-white mt-1">{form.title || form.prompt.substring(0, 50) + '...'}</dd>
-              </div>
-              <div>
-                <dt className="text-gray-500">Duration</dt>
-                <dd className="text-white mt-1">{form.durationMinutes} minutes</dd>
-              </div>
-              <div>
-                <dt className="text-gray-500">AI Clip Ratio</dt>
-                <dd className="text-white mt-1">{Math.round(form.aiClipRatio * 100)}%</dd>
-              </div>
-              <div>
-                <dt className="text-gray-500">Aspect Ratio</dt>
-                <dd className="text-white mt-1">{form.aspectRatio}</dd>
-              </div>
-              <div>
-                <dt className="text-gray-500">Style</dt>
-                <dd className="text-white mt-1 capitalize">{form.style}</dd>
-              </div>
-              <div>
-                <dt className="text-gray-500">Language</dt>
-                <dd className="text-white mt-1">{SUPPORTED_LANGUAGES.find(l => l.code === form.language)?.name}</dd>
-              </div>
+              <div><dt className="text-gray-500">Title</dt><dd className="text-white mt-1">{form.title || form.prompt.substring(0, 50) + '...'}</dd></div>
+              <div><dt className="text-gray-500">Duration</dt><dd className="text-white mt-1">{form.durationMinutes} minutes</dd></div>
+              <div><dt className="text-gray-500">Segments</dt><dd className="text-white mt-1">{outline?.segments.length || '—'} segments</dd></div>
+              <div><dt className="text-gray-500">AI Clip Ratio</dt><dd className="text-white mt-1">{Math.round(form.aiClipRatio * 100)}%</dd></div>
+              <div><dt className="text-gray-500">Aspect Ratio</dt><dd className="text-white mt-1">{form.aspectRatio}</dd></div>
+              <div><dt className="text-gray-500">Style</dt><dd className="text-white mt-1 capitalize">{form.style}</dd></div>
+              <div><dt className="text-gray-500">Language</dt><dd className="text-white mt-1">{SUPPORTED_LANGUAGES.find(l => l.code === form.language)?.name}</dd></div>
+              <div><dt className="text-gray-500">Voice</dt><dd className="text-white mt-1">{VOICES.find(v => v.id === form.voiceId)?.name}</dd></div>
             </dl>
           </div>
+
+          {/* Outline Preview */}
+          {outline && (
+            <div className="rounded-xl border border-white/10 bg-white/5 p-6">
+              <h3 className="text-lg font-semibold text-white mb-4">Approved Outline</h3>
+              <div className="space-y-2">
+                {outline.segments.map((seg, idx) => (
+                  <div key={idx} className="flex items-center gap-3 text-sm">
+                    <span className="w-6 h-6 rounded bg-brand-500/20 text-brand-400 flex items-center justify-center text-xs font-bold flex-shrink-0">
+                      {idx + 1}
+                    </span>
+                    <span className="text-white flex-1 truncate">{seg.title}</span>
+                    <span className="text-gray-500 text-xs flex-shrink-0">{seg.durationSeconds}s</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
 
           <div className="rounded-xl border border-brand-500/20 bg-brand-500/5 p-6">
             <h3 className="text-lg font-semibold text-white mb-4">Cost Estimate</h3>
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <div className="text-2xl font-bold text-brand-400">{estimatedCost.credits} Credits</div>
-                <div className="text-xs text-gray-400 mt-1">Will be deducted on completion</div>
+                <div className="text-xs text-gray-400 mt-1">Deducted on completion</div>
               </div>
               <div>
                 <div className="text-2xl font-bold text-gray-400">${(estimatedCost.cents / 100).toFixed(2)}</div>
@@ -481,12 +789,8 @@ export default function CreateLongFormPage() {
           </div>
 
           <div className="flex items-center justify-between">
-            <button
-              onClick={() => setStep(3)}
-              className="inline-flex items-center gap-2 text-gray-400 hover:text-white transition"
-            >
-              <ArrowLeft className="h-4 w-4" />
-              Back
+            <button onClick={() => setStep(4)} className="inline-flex items-center gap-2 text-gray-400 hover:text-white transition">
+              <ArrowLeft className="h-4 w-4" /> Back
             </button>
             <button
               onClick={handleSubmit}
@@ -494,15 +798,9 @@ export default function CreateLongFormPage() {
               className="inline-flex items-center gap-2 rounded-lg bg-brand-600 px-8 py-3 text-sm font-medium text-white hover:bg-brand-500 transition disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {loading ? (
-                <>
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                  Creating...
-                </>
+                <><Loader2 className="h-4 w-4 animate-spin" /> Creating...</>
               ) : (
-                <>
-                  <Send className="h-4 w-4" />
-                  Create Long-Form Video
-                </>
+                <><Send className="h-4 w-4" /> Generate Video</>
               )}
             </button>
           </div>

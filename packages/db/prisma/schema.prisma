@@ -353,6 +353,11 @@ model LongFormSegment {
   assetUrl      String?           @map("asset_url") @db.VarChar(500)
   assetMetadata Json?             @map("asset_metadata")
 
+  // Editor metadata
+  transitionType  String?  @default("none") @map("transition_type") @db.VarChar(20)
+  captionsEnabled Boolean  @default(true) @map("captions_enabled")
+  titleOverlay    Boolean  @default(false) @map("title_overlay")
+
   // Processing
   status       SegmentStatus @default(PENDING)
   errorMessage String?       @map("error_message") @db.Text
@@ -635,14 +640,16 @@ enum CreditTransactionType {
 
 enum LongFormJobStatus {
   QUEUED
-  PLANNING // Generating outline/chapters
+  PLANNING
   SCRIPT_GENERATING
-  SEGMENT_PROCESSING // Parallel segment generation
-  COMPOSING // Final FFmpeg composition
+  VOICE_GENERATING
+  VIDEO_GENERATING
+  COMPOSING
   UPLOADING
-  YOUTUBE_PUBLISHING
+  PUBLISHING
   COMPLETED
   FAILED
+  RECOMPOSING
 }
 
 enum SegmentStatus {
@@ -653,6 +660,7 @@ enum SegmentStatus {
 }
 
 enum SegmentVisualType {
+  PENDING
   AI_CLIP
   STOCK_VIDEO
   STATIC_IMAGE

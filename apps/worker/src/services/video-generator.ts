@@ -15,6 +15,7 @@ export interface VideoGenerationOptions {
   prompt: string;
   style: string;
   durationSeconds: number;
+  aspectRatio?: string; // '16:9' | '9:16' | '1:1'
 }
 
 interface RunwayTaskResponse {
@@ -67,22 +68,37 @@ function sleep(ms: number): Promise<void> {
  * Returns raw video data as a Buffer.
  */
 export async function generateVideo(opts: VideoGenerationOptions): Promise<Buffer> {
-  const { prompt, style, durationSeconds } = opts;
+  const { prompt, style, durationSeconds, aspectRatio } = opts;
+
+  // DEV_MODE: skip RunwayML entirely — throw to trigger fallback chain
+  if (process.env.DEV_MODE === 'true') {
+    log.info({ prompt: prompt.substring(0, 50) }, 'DEV_MODE: Skipping RunwayML (using stock/static fallback)');
+    throw new Error('DEV_MODE: RunwayML skipped — falling back to stock footage or static image');
+  }
+
   const client = getClient();
 
   // -----------------------------------------------------------------------
   // Step 1: Initiate generation
   // -----------------------------------------------------------------------
-  log.info({ style, durationSeconds }, 'Initiating RunwayML video generation');
+  log.info({ style, durationSeconds, aspectRatio }, 'Initiating RunwayML video generation');
 
   // Gen 4.5 only supports 5s or 10s durations
   const validDuration = durationSeconds <= 5 ? 5 : 10;
+
+  // Map aspect ratio to RunwayML ratio format
+  const ratioMap: Record<string, string> = {
+    '16:9': '1280:720',
+    '9:16': '720:1280',
+    '1:1': '1080:1080',
+  };
+  const ratio = ratioMap[aspectRatio || '16:9'] || '1280:720';
 
   const requestBody = {
     model: 'gen4.5',
     promptText: `${style} style: ${prompt}`,
     duration: validDuration,
-    ratio: '720:1280', // vertical short-form (9:16)
+    ratio,
   };
 
   log.info({ requestBody }, 'Sending RunwayML API request');

@@ -4,6 +4,14 @@ import { prisma } from '@reelforge/db'
 import { z } from 'zod'
 import { enqueueLongFormJob } from '@/lib/queue'
 
+const outlineSegmentSchema = z.object({
+  title: z.string().min(1).max(255),
+  description: z.string().max(2000).optional(),
+  talkingPoints: z.array(z.string()).optional(),
+  durationSeconds: z.number().min(10).max(600),
+  visualSuggestion: z.string().max(1000).optional(),
+})
+
 const createLongFormSchema = z.object({
   title: z.string().min(1).max(255).optional(),
   prompt: z.string().min(10).max(2000),
@@ -17,6 +25,8 @@ const createLongFormSchema = z.object({
   useStaticVisuals: z.boolean().default(true),
   publishToYouTube: z.boolean().default(false),
   channelProfileId: z.string().optional(),
+  // Pre-approved outline from plan mode
+  outline: z.object({ segments: z.array(outlineSegmentSchema) }).optional(),
 })
 
 export async function POST(req: NextRequest) {
@@ -69,7 +79,7 @@ export async function POST(req: NextRequest) {
 
     const title = data.title || data.prompt.substring(0, 80)
 
-    // Create long-form job
+    // Create long-form job (with optional pre-approved outline)
     const longFormJob = await prisma.longFormJob.create({
       data: {
         userId: session.user.id,
@@ -87,6 +97,7 @@ export async function POST(req: NextRequest) {
         publishToYouTube: data.publishToYouTube,
         creditsCost,
         estimatedCostCents,
+        outline: data.outline ? JSON.parse(JSON.stringify(data.outline)) : undefined,
         status: 'QUEUED',
       },
     })
@@ -141,7 +152,7 @@ export async function GET(req: NextRequest) {
 
     const skip = (page - 1) * limit
 
-    const where = {
+    const where: any = {
       userId: session.user.id,
       ...(status && { status }),
     }

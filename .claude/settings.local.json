@@ -21,7 +21,9 @@
       "Bash(pkill:*)",
       "WebFetch(domain:docs.dev.runwayml.com)",
       "Bash(DATABASE_URL=\"mysql://root:root@localhost:3306/reelforge_ai\" npx prisma generate:*)",
-      "Bash(node -e:*)"
+      "Bash(node -e:*)",
+      "Bash(xargs kill:*)",
+      "Bash(npx tsc:*)"
     ]
   }
 }

@@ -26,12 +26,16 @@ export function getJobStatusColor(status: string): string {
     COMPLETED: 'text-green-400',
     FAILED: 'text-red-400',
     PROCESSING: 'text-yellow-400',
+    QUEUED: 'text-gray-400',
+    // Long-form pipeline stages
+    PLANNING: 'text-blue-400',
     SCRIPT_GENERATING: 'text-yellow-400',
     VOICE_GENERATING: 'text-yellow-400',
     VIDEO_GENERATING: 'text-yellow-400',
     COMPOSING: 'text-yellow-400',
     UPLOADING: 'text-yellow-400',
-    QUEUED: 'text-gray-400',
+    PUBLISHING: 'text-purple-400',
+    RECOMPOSING: 'text-brand-400',
   }
   return colors[status] || 'text-gray-400'
 }
@@ -40,13 +44,17 @@ export function getJobStatusLabel(status: string): string {
   const labels: Record<string, string> = {
     QUEUED: 'Queued',
     PROCESSING: 'Processing',
+    COMPLETED: 'Completed',
+    FAILED: 'Failed',
+    // Long-form pipeline stages
+    PLANNING: 'Planning Outline',
     SCRIPT_GENERATING: 'Generating Script',
     VOICE_GENERATING: 'Generating Voiceover',
     VIDEO_GENERATING: 'Generating Video',
-    COMPOSING: 'Composing Reel',
+    COMPOSING: 'Composing Video',
     UPLOADING: 'Uploading',
-    COMPLETED: 'Completed',
-    FAILED: 'Failed',
+    PUBLISHING: 'Publishing to YouTube',
+    RECOMPOSING: 'Applying Edits',
   }
   return labels[status] || status
 }

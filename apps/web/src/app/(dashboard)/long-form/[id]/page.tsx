@@ -19,8 +19,10 @@ import {
   Calendar,
   Film,
   Layout,
+  Pencil,
 } from 'lucide-react'
 import { getJobStatusLabel, getJobStatusColor } from '@/lib/utils'
+import { RetryButton } from './retry-button'
 
 interface LongFormDetailPageProps {
   params: { id: string }
@@ -49,6 +51,7 @@ export default async function LongFormDetailPage({ params }: LongFormDetailPageP
 
   const isCompleted = job.status === 'COMPLETED'
   const isFailed = job.status === 'FAILED'
+  const isRecomposing = job.status === 'RECOMPOSING'
   const isProcessing = !isCompleted && !isFailed
 
   // Define the pipeline stages for the status timeline
@@ -155,6 +158,15 @@ export default async function LongFormDetailPage({ params }: LongFormDetailPageP
         </div>
 
         <div className="flex items-center gap-3 ml-4">
+          {isCompleted && (
+            <Link
+              href={`/long-form/${job.id}/edit`}
+              className="inline-flex items-center gap-2 rounded-lg bg-brand-600 px-4 py-2 text-sm font-medium text-white hover:bg-brand-500 transition"
+            >
+              <Pencil className="h-4 w-4" />
+              Edit Video
+            </Link>
+          )}
           {isCompleted && job.outputUrl && (
             <a
               href={job.outputUrl}
@@ -225,15 +237,21 @@ export default async function LongFormDetailPage({ params }: LongFormDetailPageP
           {/* Failed State */}
           {isFailed && (
             <div className="rounded-xl border border-red-500/20 bg-red-500/5 p-6">
-              <div className="flex items-center gap-3 mb-4">
-                <XCircle className="h-5 w-5 text-red-400" />
-                <h3 className="text-lg font-semibold text-white">Job Failed</h3>
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-3">
+                  <XCircle className="h-5 w-5 text-red-400" />
+                  <h3 className="text-lg font-semibold text-white">Job Failed</h3>
+                </div>
+                <RetryButton jobId={job.id} />
               </div>
               {job.errorMessage && (
                 <p className="text-sm text-gray-400 bg-black/30 rounded-lg p-3 font-mono">
                   {job.errorMessage}
                 </p>
               )}
+              <p className="text-xs text-gray-500 mt-3">
+                Retry will resume from the last completed stage — no credits wasted on work already done.
+              </p>
             </div>
           )}
 
@@ -312,7 +330,7 @@ export default async function LongFormDetailPage({ params }: LongFormDetailPageP
                         {segment.title}
                       </div>
                       <div className="text-xs text-gray-500 mt-0.5">
-                        {segment.visualType !== 'PENDING' && getSegmentVisualTypeLabel(segment.visualType)}
+                        {(segment.visualType as string) !== 'PENDING' && getSegmentVisualTypeLabel(segment.visualType)}
                       </div>
                     </div>
                     <div className="flex items-center gap-2">

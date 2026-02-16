@@ -66,6 +66,39 @@ export function getLongFormQueue() {
   return longFormQueue
 }
 
+export async function enqueueLongFormRecompose(data: {
+  longFormJobId: string
+  userId: string
+  aspectRatio: string
+  voiceId?: string
+  language?: string
+  plan: string
+}) {
+  const queue = getLongFormQueue()
+  const priority = PLAN_PRIORITY[data.plan] || 5
+
+  const job = await queue.add('generate-long-form', {
+    ...data,
+    recomposeOnly: true,
+    // Provide required fields with defaults (won't be used in recompose mode)
+    prompt: '',
+    title: '',
+    durationMinutes: 0,
+    aiClipRatio: 0,
+    useStockFootage: false,
+    useStaticVisuals: false,
+    publishToYouTube: false,
+  }, {
+    priority,
+    attempts: 2,
+    backoff: { type: 'exponential', delay: 10000 },
+    removeOnComplete: { count: 500 },
+    removeOnFail: { count: 250 },
+  })
+
+  return job.id
+}
+
 export async function enqueueLongFormJob(data: {
   longFormJobId: string
   userId: string

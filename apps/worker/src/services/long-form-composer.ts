@@ -19,12 +19,11 @@ export interface ComposeLongFormOptions {
  * Compose long-form video from segments using FFmpeg.
  *
  * Process:
- * 1. Download all segment videos to temp files
- * 2. Create concat file list for FFmpeg
- * 3. Concatenate segments with transitions
+ * 1. Download/generate all segment videos to temp files
+ * 2. Ensure all segments are proper video files with matching resolution
+ * 3. Concatenate segments
  * 4. Overlay full audio track
- * 5. Add captions (optional)
- * 6. Return final video buffer
+ * 5. Return final video buffer
  */
 export async function composeLongForm(opts: ComposeLongFormOptions): Promise<Buffer> {
   const { segments, audioBuffer, script, aspectRatio } = opts;
@@ -35,77 +34,75 @@ export async function composeLongForm(opts: ComposeLongFormOptions): Promise<Buf
   const audioPath = path.join(tempDir, 'audio.mp3');
   const concatFilePath = path.join(tempDir, 'concat.txt');
   const outputPath = path.join(tempDir, 'output.mp4');
+  const { width, height } = getResolution(aspectRatio);
 
   try {
-    // ------------------------------------------------------------------
     // Step 1: Save audio to temp file
-    // ------------------------------------------------------------------
     await fs.writeFile(audioPath, audioBuffer);
     log.info({ audioPath }, 'Audio saved to temp file');
 
-    // ------------------------------------------------------------------
-    // Step 2: Download all segment videos
-    // ------------------------------------------------------------------
+    // Step 2: Prepare all segment videos
     const segmentPaths: string[] = [];
 
     for (let i = 0; i < segments.length; i++) {
       const segment = segments[i];
       const segmentPath = path.join(tempDir, `segment-${i}.mp4`);
+      const segmentDuration = Math.max(5, Math.ceil(segment.endTime - segment.startTime));
 
       if (segment.visualType === 'STATIC_IMAGE') {
-        // Generate video from static image (5 seconds)
-        await generateVideoFromImage(segment.assetUrl, segmentPath, 5);
-      } else {
-        // Download video file
+        // Generate video from static image for the segment's duration
+        log.info({ segmentIndex: i, duration: segmentDuration }, 'Generating video from static image');
+        await generateVideoFromImage(segment.assetUrl, segmentPath, segmentDuration, width, height);
+      } else if (segment.assetUrl.startsWith('file://')) {
+        // Local file from demo storage
+        const localPath = segment.assetUrl.replace('file://', '');
+        // Re-encode to ensure compatible format + correct resolution
+        await reencodeVideo(localPath, segmentPath, segmentDuration, width, height);
+      } else if (segment.assetUrl.startsWith('http')) {
+        // Download remote video and re-encode to ensure compatible format
         log.info({ segmentIndex: i, url: segment.assetUrl }, 'Downloading segment video');
+        const downloadPath = path.join(tempDir, `download-${i}.mp4`);
         const response = await axios.get(segment.assetUrl, {
           responseType: 'arraybuffer',
-          timeout: 60000,
+          timeout: 120_000, // 2 min for large files
         });
-        await fs.writeFile(segmentPath, Buffer.from(response.data));
+        await fs.writeFile(downloadPath, Buffer.from(response.data));
+        await reencodeVideo(downloadPath, segmentPath, segmentDuration, width, height);
+      } else {
+        // Unknown source, create a blank video
+        log.warn({ segmentIndex: i, assetUrl: segment.assetUrl }, 'Unknown asset source, creating blank');
+        await generateBlankVideo(segmentPath, segmentDuration, width, height);
       }
 
       segmentPaths.push(segmentPath);
       log.info({ segmentIndex: i }, 'Segment video ready');
     }
 
-    // ------------------------------------------------------------------
     // Step 3: Create FFmpeg concat file
-    // ------------------------------------------------------------------
     const concatContent = segmentPaths.map((p) => `file '${p}'`).join('\n');
     await fs.writeFile(concatFilePath, concatContent);
-    log.info({ concatFilePath }, 'Concat file created');
+    log.info('Concat file created');
 
-    // ------------------------------------------------------------------
     // Step 4: Concatenate segments + overlay audio
-    // ------------------------------------------------------------------
     log.info('Concatenating segments with audio');
-
-    const { width, height } = getResolution(aspectRatio);
 
     await new Promise<void>((resolve, reject) => {
       ffmpeg()
-        // Input: concatenated video segments
         .input(concatFilePath)
         .inputOptions(['-f concat', '-safe 0'])
-        // Input: audio track
         .input(audioPath)
-        // Video codec: H.264 with good quality
         .videoCodec('libx264')
         .videoBitrate('4000k')
         .size(`${width}x${height}`)
         .fps(30)
-        // Audio codec: AAC
         .audioCodec('aac')
         .audioBitrate('128k')
-        // Use shortest stream (audio or video)
         .outputOptions([
           '-shortest',
           '-pix_fmt yuv420p',
           '-preset fast',
           '-movflags +faststart',
         ])
-        // Output
         .output(outputPath)
         .on('start', (cmd) => {
           log.info({ cmd }, 'FFmpeg command started');
@@ -126,9 +123,7 @@ export async function composeLongForm(opts: ComposeLongFormOptions): Promise<Buf
         .run();
     });
 
-    // ------------------------------------------------------------------
     // Step 5: Read final video
-    // ------------------------------------------------------------------
     const outputBuffer = await fs.readFile(outputPath);
     log.info({ outputSizeBytes: outputBuffer.length }, 'Long-form video composed');
 
@@ -162,45 +157,136 @@ function getResolution(aspectRatio: string): { width: number; height: number } {
 }
 
 /**
- * Generate a video from a static image using FFmpeg.
- * Creates a simple video with the image displayed for the specified duration.
+ * Re-encode a video to ensure consistent format, resolution, and codec.
+ * Also loops the video if it's shorter than the target duration.
+ */
+async function reencodeVideo(
+  inputPath: string,
+  outputPath: string,
+  durationSeconds: number,
+  width: number,
+  height: number
+): Promise<void> {
+  return new Promise<void>((resolve, reject) => {
+    ffmpeg()
+      .input(inputPath)
+      .inputOptions(['-stream_loop -1']) // Loop if shorter than duration
+      .duration(durationSeconds)
+      .videoCodec('libx264')
+      .size(`${width}x${height}`)
+      .fps(30)
+      .outputOptions([
+        '-pix_fmt yuv420p',
+        '-preset fast',
+        '-an', // Remove original audio (we overlay our own)
+      ])
+      .output(outputPath)
+      .on('end', () => resolve())
+      .on('error', (err) => reject(err))
+      .run();
+  });
+}
+
+/**
+ * Generate a video from a remote image URL or fallback to solid color.
  */
 async function generateVideoFromImage(
   imageUrl: string,
   outputPath: string,
-  durationSeconds: number
+  durationSeconds: number,
+  width: number,
+  height: number
 ): Promise<void> {
   const tempDir = path.dirname(outputPath);
-  const imagePath = path.join(tempDir, `image-${Date.now()}.jpg`);
+  const imagePath = path.join(tempDir, `image-${Date.now()}-${Math.random().toString(36).slice(2)}.png`);
 
+  // Try downloading the image first
+  let imageDownloaded = false;
   try {
-    // Download image
     const response = await axios.get(imageUrl, {
       responseType: 'arraybuffer',
-      timeout: 10000,
+      timeout: 15_000,
+      maxRedirects: 5,
     });
-    await fs.writeFile(imagePath, Buffer.from(response.data));
+    const data = Buffer.from(response.data);
+    // Only consider it valid if we got actual image data (> 100 bytes)
+    if (data.length > 100) {
+      await fs.writeFile(imagePath, data);
+      imageDownloaded = true;
+    }
+  } catch (err) {
+    log.warn({ imageUrl, err }, 'Failed to download image, using color fallback');
+  }
 
-    // Generate video from image
+  if (imageDownloaded) {
+    try {
+      await new Promise<void>((resolve, reject) => {
+        ffmpeg()
+          .input(imagePath)
+          .inputOptions(['-loop 1'])
+          .duration(durationSeconds)
+          .videoCodec('libx264')
+          .size(`${width}x${height}`)
+          .fps(30)
+          .outputOptions(['-pix_fmt yuv420p', '-preset fast', '-an'])
+          .output(outputPath)
+          .on('end', () => resolve())
+          .on('error', (err) => reject(err))
+          .run();
+      });
+      return;
+    } catch (ffmpegErr) {
+      log.warn({ ffmpegErr }, 'FFmpeg image-to-video failed, using color fallback');
+    } finally {
+      try { await fs.unlink(imagePath); } catch { /* ignore */ }
+    }
+  }
+
+  // Fallback: generate a solid color video
+  await generateBlankVideo(outputPath, durationSeconds, width, height);
+}
+
+/**
+ * Generate a blank colored video for missing segments.
+ * Creates a solid-color PPM image, then loops it into a video.
+ * PPM is a trivial format that needs no libraries and works with any FFmpeg build.
+ */
+async function generateBlankVideo(
+  outputPath: string,
+  durationSeconds: number,
+  width: number,
+  height: number
+): Promise<void> {
+  const tempDir = path.dirname(outputPath);
+  const ppmPath = path.join(tempDir, `blank-${Date.now()}.ppm`);
+
+  // Create a solid-color PPM image (RGB: 99, 102, 241 = #6366F1 indigo)
+  const header = `P6\n${width} ${height}\n255\n`;
+  const pixelCount = width * height;
+  const pixelData = Buffer.alloc(pixelCount * 3);
+  for (let i = 0; i < pixelCount; i++) {
+    pixelData[i * 3] = 99;      // R
+    pixelData[i * 3 + 1] = 102;  // G
+    pixelData[i * 3 + 2] = 241;  // B
+  }
+  await fs.writeFile(ppmPath, Buffer.concat([Buffer.from(header), pixelData]));
+
+  try {
     await new Promise<void>((resolve, reject) => {
       ffmpeg()
-        .input(imagePath)
-        .inputOptions(['-loop 1', `-t ${durationSeconds}`])
+        .input(ppmPath)
+        .inputOptions(['-loop 1'])
+        .duration(durationSeconds)
         .videoCodec('libx264')
-        .size('1920x1080')
+        .size(`${width}x${height}`)
         .fps(30)
-        .outputOptions(['-pix_fmt yuv420p', '-preset fast'])
+        .outputOptions(['-pix_fmt yuv420p', '-preset fast', '-an'])
         .output(outputPath)
         .on('end', () => resolve())
         .on('error', (err) => reject(err))
         .run();
     });
   } finally {
-    // Cleanup temp image
-    try {
-      await fs.unlink(imagePath);
-    } catch (error) {
-      // Ignore cleanup errors
-    }
+    try { await fs.unlink(ppmPath); } catch { /* ignore */ }
   }
 }

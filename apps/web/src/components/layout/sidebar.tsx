@@ -7,7 +7,6 @@ import { cn } from '@/lib/utils'
 import {
   LayoutDashboard,
   Film,
-  PlusCircle,
   Users,
   CreditCard,
   Gift,
@@ -19,11 +18,9 @@ import {
 
 const navItems = [
   { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
-  { href: '/reels/new', label: 'Create Reel', icon: PlusCircle },
   { href: '/reels', label: 'My Reels', icon: Film },
-  { href: '/long-form/new', label: 'Create Long-Form', icon: Video },
-  { href: '/long-form', label: 'Long-Form Videos', icon: Video },
-  { href: '/profiles', label: 'Channel Profiles', icon: Users },
+  { href: '/long-form', label: 'My Videos', icon: Video },
+  { href: '/profiles', label: 'Channels', icon: Users },
   { href: '/billing', label: 'Billing', icon: CreditCard },
   { href: '/referrals', label: 'Referrals', icon: Gift },
   { href: '/settings', label: 'Settings', icon: Settings },
