@@ -46,6 +46,7 @@ model User {
   mediaAssets        MediaAsset[]
   cartoonSeries      CartoonSeries[]
   quoteJobs          QuoteJob[]
+  challengeJobs      ChallengeJob[]
   accounts           Account[]
   sessions           Session[]
 
@@ -857,6 +858,62 @@ enum CartoonEpisodeStatus {
 enum CartoonSceneStatus {
   PENDING
   PROCESSING
+  COMPLETED
+  FAILED
+}
+
+// Challenge / Game Reels
+model ChallengeJob {
+  id               String              @id @default(cuid())
+  userId           String              @map("user_id")
+
+  // Content settings
+  challengeType    String              @map("challenge_type") @db.VarChar(30)    // emoji_guess, riddle, math, gk_quiz, would_you_rather
+  category         String              @db.VarChar(50)                           // kids, students, gk, bollywood, fun
+  difficulty       String              @default("medium") @db.VarChar(20)        // easy, medium, hard, impossible
+  numQuestions     Int                 @default(3) @map("num_questions")         // 1, 3, 5
+  timerSeconds     Int                 @default(5) @map("timer_seconds")         // 5, 10, 15
+  language         String              @default("hi") @db.VarChar(10)
+  prompt           String?             @db.Text                                  // optional custom topic/context
+
+  // Visual & audio
+  templateStyle    String              @default("neon") @map("template_style") @db.VarChar(30)
+  voiceEnabled     Boolean             @default(false) @map("voice_enabled")
+  voiceId          String?             @map("voice_id") @db.VarChar(100)
+
+  // Generated content
+  questionsJson    String?             @map("questions_json") @db.LongText       // AI-generated questions/answers as JSON
+  ctaText          String?             @map("cta_text") @db.VarChar(300)
+
+  // Status & progress
+  status           ChallengeJobStatus  @default(QUEUED)
+  progress         Int                 @default(0)
+  currentStage     String?             @map("current_stage") @db.VarChar(50)
+
+  // Output
+  outputUrl        String?             @map("output_url") @db.VarChar(500)
+  thumbnailUrl     String?             @map("thumbnail_url") @db.VarChar(500)
+
+  // Metadata
+  errorMessage     String?             @map("error_message") @db.Text
+  creditsCost      Int                 @default(1) @map("credits_cost")
+  processingTimeMs Int?                @map("processing_time_ms")
+
+  createdAt        DateTime            @default(now()) @map("created_at")
+  completedAt      DateTime?           @map("completed_at")
+
+  user             User                @relation(fields: [userId], references: [id], onDelete: NoAction)
+
+  @@index([userId])
+  @@index([status])
+  @@map("challenge_jobs")
+}
+
+enum ChallengeJobStatus {
+  QUEUED
+  CONTENT_GENERATING
+  COMPOSING
+  UPLOADING
   COMPLETED
   FAILED
 }

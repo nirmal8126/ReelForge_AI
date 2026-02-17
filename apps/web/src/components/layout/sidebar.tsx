@@ -16,6 +16,7 @@ import {
   Video,
   Clapperboard,
   Quote,
+  Gamepad2,
 } from 'lucide-react'
 
 const navItems = [
@@ -24,6 +25,7 @@ const navItems = [
   { href: '/long-form', label: 'My Videos', icon: Video },
   { href: '/cartoon-studio', label: 'Cartoon Studio', icon: Clapperboard },
   { href: '/quotes', label: 'Quotes', icon: Quote },
+  { href: '/challenges', label: 'Challenges', icon: Gamepad2 },
   { href: '/profiles', label: 'Channels', icon: Users },
   { href: '/billing', label: 'Billing', icon: CreditCard },
   { href: '/referrals', label: 'Referrals', icon: Gift },

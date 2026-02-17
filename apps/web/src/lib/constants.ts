@@ -105,6 +105,42 @@ export const QUOTE_FONTS = [
   { id: 'bold', name: 'Bold Impact', desc: 'Strong statement', preview: 'Impact, sans-serif' },
 ] as const
 
+// Challenge / Game Reels constants
+export const CHALLENGE_TYPES = [
+  { id: 'emoji_guess', name: 'Emoji Guess', icon: 'Smile', color: '#F59E0B', desc: 'Guess the movie/song from emojis' },
+  { id: 'riddle', name: 'Riddle Challenge', icon: 'HelpCircle', color: '#8B5CF6', desc: 'Solve the brain teaser' },
+  { id: 'math', name: 'Math in 5 Seconds', icon: 'Calculator', color: '#3B82F6', desc: 'Quick math problems' },
+  { id: 'gk_quiz', name: 'GK / Trivia Quiz', icon: 'BookOpen', color: '#10B981', desc: 'General knowledge MCQs' },
+  { id: 'would_you_rather', name: 'Would You Rather', icon: 'ArrowLeftRight', color: '#EC4899', desc: 'Two tough choices' },
+] as const
+
+export const CHALLENGE_CATEGORIES = [
+  { id: 'kids', name: 'Kids', icon: 'Baby', color: '#F97316' },
+  { id: 'students', name: 'Students', icon: 'GraduationCap', color: '#3B82F6' },
+  { id: 'gk', name: 'General Knowledge', icon: 'Globe', color: '#10B981' },
+  { id: 'bollywood', name: 'Bollywood', icon: 'Film', color: '#EC4899' },
+  { id: 'fun', name: 'Fun & Memes', icon: 'PartyPopper', color: '#F59E0B' },
+  { id: 'tech', name: 'Tech & Science', icon: 'Cpu', color: '#6366F1' },
+  { id: 'sports', name: 'Sports', icon: 'Trophy', color: '#22C55E' },
+  { id: 'exam_prep', name: 'Exam Prep', icon: 'FileText', color: '#EF4444' },
+] as const
+
+export const CHALLENGE_DIFFICULTIES = [
+  { id: 'easy', name: 'Easy', color: '#22C55E', desc: 'Simple and fun' },
+  { id: 'medium', name: 'Medium', color: '#F59E0B', desc: 'A bit tricky' },
+  { id: 'hard', name: 'Hard', color: '#EF4444', desc: 'Real brain teaser' },
+  { id: 'impossible', name: 'Impossible', color: '#7C3AED', desc: 'Only geniuses solve this' },
+] as const
+
+export const CHALLENGE_TEMPLATES = [
+  { id: 'neon', name: 'Neon Glow', color: '#06B6D4', desc: 'Dark bg, neon text, glow effects' },
+  { id: 'minimal', name: 'Minimal Clean', color: '#94A3B8', desc: 'Clean white/dark, modern look' },
+  { id: 'gameshow', name: 'Game Show', color: '#F59E0B', desc: 'Bright, TV game show vibes' },
+] as const
+
+export const CHALLENGE_QUESTION_COUNTS = [1, 3, 5] as const
+export const CHALLENGE_TIMER_OPTIONS = [5, 10, 15] as const
+
 // Map languages to available voices (initially only English has voices)
 export const LANGUAGE_VOICE_MAP: Record<string, string[]> = {
   en: ['EXAVITQu4vr4xnSDxMaL', 'TX3LPaxmHKxFdv7VOQHJ', 'XB0fDUnXU5powFXDhCwa', 'pqHfZKP75CvOlQylNhV4', 'Xb7hH8MSUJpSbSDYk0k2', 'CwhRBWXzGAHq8TQ4Fs17', 'jBpfuIE2acCO8z3wKNLl', 'bIHbv24MWmeRgasZH58o'],

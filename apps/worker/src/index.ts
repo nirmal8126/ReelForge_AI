@@ -8,6 +8,7 @@ import { processReelJob } from './jobs/reel-processor';
 import { processLongFormJob } from './jobs/long-form-processor';
 import { processCartoonEpisode } from './jobs/cartoon-episode-processor';
 import { processQuoteJob } from './jobs/quote-processor';
+import { processChallengeJob } from './jobs/challenge-processor';
 
 function loadEnvFiles() {
   const cwd = process.cwd();
@@ -176,6 +177,35 @@ quoteWorker.on('error', (err) => {
 });
 
 // ---------------------------------------------------------------------------
+// Challenge / Game Reels worker
+// ---------------------------------------------------------------------------
+const challengeWorker = new Worker(
+  'challenge-jobs',
+  async (job) => {
+    logger.info({ jobId: job.id, data: job.data }, 'Processing challenge job');
+    return processChallengeJob(job);
+  },
+  {
+    connection,
+    concurrency: 5,
+    removeOnComplete: { count: 1000 },
+    removeOnFail: { count: 500 },
+  },
+);
+
+challengeWorker.on('completed', (job) => {
+  logger.info({ jobId: job.id }, 'Challenge job completed successfully');
+});
+
+challengeWorker.on('failed', (job, err) => {
+  logger.error({ jobId: job?.id, err: err.message }, 'Challenge job failed');
+});
+
+challengeWorker.on('error', (err) => {
+  logger.error({ err }, 'Challenge worker error');
+});
+
+// ---------------------------------------------------------------------------
 // Email notification worker
 // ---------------------------------------------------------------------------
 const emailWorker = new Worker(
@@ -220,6 +250,7 @@ const shutdown = async (signal: string) => {
     longFormWorker.close(),
     cartoonWorker.close(),
     quoteWorker.close(),
+    challengeWorker.close(),
     emailWorker.close(),
   ]);
 
@@ -236,8 +267,8 @@ process.on('SIGINT', () => shutdown('SIGINT'));
 // ---------------------------------------------------------------------------
 logger.info(
   {
-    queues: ['reel-jobs', 'long-form-jobs', 'cartoon-episode-jobs', 'quote-jobs', 'email-notifications'],
-    concurrency: { reelJobs: 5, longFormJobs: 2, cartoonEpisodes: 2, quoteJobs: 5, emailNotifications: 10 },
+    queues: ['reel-jobs', 'long-form-jobs', 'cartoon-episode-jobs', 'quote-jobs', 'challenge-jobs', 'email-notifications'],
+    concurrency: { reelJobs: 5, longFormJobs: 2, cartoonEpisodes: 2, quoteJobs: 5, challengeJobs: 5, emailNotifications: 10 },
     redis: process.env.REDIS_URL ? '(configured)' : 'redis://localhost:6379',
   },
   'ReelForge worker service started',

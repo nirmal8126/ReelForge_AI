@@ -196,3 +196,42 @@ export async function enqueueQuoteJob(data: {
 
   return job.id
 }
+
+// Challenge / Game Reels queue
+let challengeQueue: Queue | null = null
+
+export function getChallengeQueue() {
+  if (!challengeQueue) {
+    challengeQueue = new Queue('challenge-jobs', { connection: getConnection() })
+  }
+  return challengeQueue
+}
+
+export async function enqueueChallengeJob(data: {
+  challengeJobId: string
+  userId: string
+  challengeType: string
+  category: string
+  difficulty: string
+  numQuestions: number
+  timerSeconds: number
+  language: string
+  prompt?: string
+  templateStyle: string
+  voiceEnabled: boolean
+  voiceId?: string
+  plan: string
+}) {
+  const queue = getChallengeQueue()
+  const priority = PLAN_PRIORITY[data.plan] || 5
+
+  const job = await queue.add('generate-challenge', data, {
+    priority,
+    attempts: 3,
+    backoff: { type: 'exponential', delay: 5000 },
+    removeOnComplete: { count: 1000 },
+    removeOnFail: { count: 500 },
+  })
+
+  return job.id
+}
