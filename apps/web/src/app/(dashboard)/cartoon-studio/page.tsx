@@ -4,6 +4,7 @@ import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { PlusCircle, Clapperboard, Users, Film } from 'lucide-react'
 import { AdminUserBadge } from '@/components/admin-user-badge'
+import { AdminDeleteButton } from '@/components/admin-delete-button'
 
 export default async function CartoonStudioPage() {
   const session = await auth()
@@ -30,13 +31,15 @@ export default async function CartoonStudioPage() {
             Create animated cartoon series with recurring characters
           </p>
         </div>
-        <Link
-          href="/cartoon-studio/new"
-          className="inline-flex items-center gap-2 rounded-lg bg-brand-600 px-5 py-2.5 text-sm font-medium text-white hover:bg-brand-500 transition shadow-lg shadow-brand-600/20"
-        >
-          <PlusCircle className="h-4 w-4" />
-          New Series
-        </Link>
+        {!isAdmin && (
+          <Link
+            href="/cartoon-studio/new"
+            className="inline-flex items-center gap-2 rounded-lg bg-brand-600 px-5 py-2.5 text-sm font-medium text-white hover:bg-brand-500 transition shadow-lg shadow-brand-600/20"
+          >
+            <PlusCircle className="h-4 w-4" />
+            New Series
+          </Link>
+        )}
       </div>
 
       {series.length === 0 ? (
@@ -48,13 +51,15 @@ export default async function CartoonStudioPage() {
           <p className="text-gray-400 text-sm max-w-md mb-6">
             Create your first cartoon series with unique characters and start generating episodes.
           </p>
-          <Link
-            href="/cartoon-studio/new"
-            className="inline-flex items-center gap-2 rounded-lg bg-brand-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-brand-500 transition"
-          >
-            <PlusCircle className="h-4 w-4" />
-            Create Your First Series
-          </Link>
+          {!isAdmin && (
+            <Link
+              href="/cartoon-studio/new"
+              className="inline-flex items-center gap-2 rounded-lg bg-brand-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-brand-500 transition"
+            >
+              <PlusCircle className="h-4 w-4" />
+              Create Your First Series
+            </Link>
+          )}
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -119,6 +124,11 @@ export default async function CartoonStudioPage() {
                   name={((s as Record<string, unknown>).user as Record<string, string>).name}
                   email={((s as Record<string, unknown>).user as Record<string, string>).email}
                 />
+              )}
+              {isAdmin && (
+                <div className="mt-2">
+                  <AdminDeleteButton jobType="cartoonSeries" jobId={s.id} />
+                </div>
               )}
             </Link>
           ))}

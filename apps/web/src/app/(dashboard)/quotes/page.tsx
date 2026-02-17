@@ -12,6 +12,7 @@ import {
 } from 'lucide-react'
 import { getJobStatusColor, getJobStatusLabel } from '@/lib/utils'
 import { AdminUserBadge } from '@/components/admin-user-badge'
+import { AdminDeleteButton } from '@/components/admin-delete-button'
 
 interface QuotesPageProps {
   searchParams: { status?: string; page?: string }
@@ -140,13 +141,15 @@ export default async function QuotesPage({ searchParams }: QuotesPageProps) {
             {total} quote{total !== 1 ? 's' : ''} in your library
           </p>
         </div>
-        <Link
-          href="/quotes/new"
-          className="inline-flex items-center gap-2 rounded-lg bg-brand-600 px-5 py-2.5 text-sm font-medium text-white hover:bg-brand-500 transition shadow-lg shadow-brand-600/20"
-        >
-          <PlusCircle className="h-4 w-4" />
-          Create Quote
-        </Link>
+        {!isAdmin && (
+          <Link
+            href="/quotes/new"
+            className="inline-flex items-center gap-2 rounded-lg bg-brand-600 px-5 py-2.5 text-sm font-medium text-white hover:bg-brand-500 transition shadow-lg shadow-brand-600/20"
+          >
+            <PlusCircle className="h-4 w-4" />
+            Create Quote
+          </Link>
+        )}
       </div>
 
       {/* Status Filters */}
@@ -187,7 +190,7 @@ export default async function QuotesPage({ searchParams }: QuotesPageProps) {
               ? 'Create your first AI-powered quote. Generate beautiful quotes with just a topic.'
               : `You don't have any quotes with the "${statusFilter}" status.`}
           </p>
-          {statusFilter === 'all' && (
+          {statusFilter === 'all' && !isAdmin && (
             <Link
               href="/quotes/new"
               className="inline-flex items-center gap-2 rounded-lg bg-brand-600 px-6 py-3 text-sm font-medium text-white hover:bg-brand-500 transition"
@@ -260,6 +263,11 @@ export default async function QuotesPage({ searchParams }: QuotesPageProps) {
                       name={((quote as Record<string, unknown>).user as Record<string, string>).name}
                       email={((quote as Record<string, unknown>).user as Record<string, string>).email}
                     />
+                  )}
+                  {isAdmin && (
+                    <div className="mt-2">
+                      <AdminDeleteButton jobType="quote" jobId={quote.id} />
+                    </div>
                   )}
                 </div>
               </Link>

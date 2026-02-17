@@ -45,7 +45,8 @@ export default async function LongFormDetailPage({ params }: LongFormDetailPageP
     },
   })
 
-  if (!job || job.userId !== session.user.id) {
+  const isAdmin = session.user.role === 'ADMIN'
+  if (!job || (!isAdmin && job.userId !== session.user.id)) {
     redirect('/long-form')
   }
 

@@ -41,7 +41,8 @@ export default async function ReelDetailPage({ params }: ReelDetailPageProps) {
     },
   })
 
-  if (!reel || reel.userId !== session.user.id) {
+  const isAdmin = session.user.role === 'ADMIN'
+  if (!reel || (!isAdmin && reel.userId !== session.user.id)) {
     redirect('/reels')
   }
 

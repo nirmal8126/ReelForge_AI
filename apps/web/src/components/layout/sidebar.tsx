@@ -132,6 +132,7 @@ export function Sidebar() {
               </p>
               <div className="space-y-0.5">
                 {[
+                  { href: '/admin/users', label: 'Users', icon: Users },
                   { href: '/admin/modules', label: 'Module Settings', icon: Shield },
                   { href: '/admin/plans', label: 'Plans Settings', icon: CreditCard },
                   { href: '/admin/referrals', label: 'Referrals Settings', icon: Gift },

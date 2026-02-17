@@ -37,8 +37,9 @@ export default async function SeriesDetailPage({
 
   const { seriesId } = await params
 
+  const isAdmin = session.user.role === 'ADMIN'
   const series = await prisma.cartoonSeries.findFirst({
-    where: { id: seriesId, userId: session.user.id },
+    where: isAdmin ? { id: seriesId } : { id: seriesId, userId: session.user.id },
     include: {
       characters: { orderBy: { createdAt: 'asc' } },
       episodes: {

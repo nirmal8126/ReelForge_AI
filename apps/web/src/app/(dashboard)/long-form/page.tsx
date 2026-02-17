@@ -14,6 +14,7 @@ import {
 } from 'lucide-react'
 import { getJobStatusColor, getJobStatusLabel } from '@/lib/utils'
 import { AdminUserBadge } from '@/components/admin-user-badge'
+import { AdminDeleteButton } from '@/components/admin-delete-button'
 
 interface LongFormPageProps {
   searchParams: { status?: string; page?: string }
@@ -133,13 +134,15 @@ export default async function LongFormPage({ searchParams }: LongFormPageProps) 
             {total} video{total !== 1 ? 's' : ''} in your library (5-30 minutes)
           </p>
         </div>
-        <Link
-          href="/long-form/new"
-          className="inline-flex items-center gap-2 rounded-lg bg-brand-600 px-5 py-2.5 text-sm font-medium text-white hover:bg-brand-500 transition shadow-lg shadow-brand-600/20"
-        >
-          <PlusCircle className="h-4 w-4" />
-          Create Long-Form Video
-        </Link>
+        {!isAdmin && (
+          <Link
+            href="/long-form/new"
+            className="inline-flex items-center gap-2 rounded-lg bg-brand-600 px-5 py-2.5 text-sm font-medium text-white hover:bg-brand-500 transition shadow-lg shadow-brand-600/20"
+          >
+            <PlusCircle className="h-4 w-4" />
+            Create Long-Form Video
+          </Link>
+        )}
       </div>
 
       {/* Status Filters */}
@@ -182,7 +185,7 @@ export default async function LongFormPage({ searchParams }: LongFormPageProps) 
               ? 'Create your first AI-powered long-form video (5-30 minutes) with hybrid generation for cost-effective quality.'
               : `You don't have any videos with the "${statusFilter}" status.`}
           </p>
-          {statusFilter === 'all' && (
+          {statusFilter === 'all' && !isAdmin && (
             <Link
               href="/long-form/new"
               className="inline-flex items-center gap-2 rounded-lg bg-brand-600 px-6 py-3 text-sm font-medium text-white hover:bg-brand-500 transition"
@@ -281,6 +284,11 @@ export default async function LongFormPage({ searchParams }: LongFormPageProps) 
                       name={((job as Record<string, unknown>).user as Record<string, string>).name}
                       email={((job as Record<string, unknown>).user as Record<string, string>).email}
                     />
+                  )}
+                  {isAdmin && (
+                    <div className="mt-2">
+                      <AdminDeleteButton jobType="longForm" jobId={job.id} />
+                    </div>
                   )}
 
                   <div className="mt-3 flex items-center gap-2 text-xs">

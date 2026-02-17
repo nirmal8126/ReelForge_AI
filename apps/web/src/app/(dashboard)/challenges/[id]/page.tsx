@@ -41,7 +41,8 @@ export default async function ChallengeDetailPage({ params }: ChallengeDetailPag
     where: { id: params.id },
   })
 
-  if (!challenge || challenge.userId !== session.user.id) {
+  const isAdmin = session.user.role === 'ADMIN'
+  if (!challenge || (!isAdmin && challenge.userId !== session.user.id)) {
     redirect('/challenges')
   }
 

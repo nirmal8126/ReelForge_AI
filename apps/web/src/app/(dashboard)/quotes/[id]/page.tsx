@@ -31,7 +31,8 @@ export default async function QuoteDetailPage({ params }: QuoteDetailPageProps) 
     where: { id: params.id },
   })
 
-  if (!quote || quote.userId !== session.user.id) {
+  const isAdmin = session.user.role === 'ADMIN'
+  if (!quote || (!isAdmin && quote.userId !== session.user.id)) {
     redirect('/quotes')
   }
 

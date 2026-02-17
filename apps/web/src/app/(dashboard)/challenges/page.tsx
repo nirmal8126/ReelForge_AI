@@ -16,6 +16,7 @@ import {
 } from 'lucide-react'
 import { getJobStatusColor, getJobStatusLabel } from '@/lib/utils'
 import { AdminUserBadge } from '@/components/admin-user-badge'
+import { AdminDeleteButton } from '@/components/admin-delete-button'
 
 interface ChallengesPageProps {
   searchParams: { status?: string; page?: string }
@@ -151,13 +152,15 @@ export default async function ChallengesPage({ searchParams }: ChallengesPagePro
             {total} challenge{total !== 1 ? 's' : ''} in your library
           </p>
         </div>
-        <Link
-          href="/challenges/new"
-          className="inline-flex items-center gap-2 rounded-lg bg-brand-600 px-5 py-2.5 text-sm font-medium text-white hover:bg-brand-500 transition shadow-lg shadow-brand-600/20"
-        >
-          <PlusCircle className="h-4 w-4" />
-          Create Challenge
-        </Link>
+        {!isAdmin && (
+          <Link
+            href="/challenges/new"
+            className="inline-flex items-center gap-2 rounded-lg bg-brand-600 px-5 py-2.5 text-sm font-medium text-white hover:bg-brand-500 transition shadow-lg shadow-brand-600/20"
+          >
+            <PlusCircle className="h-4 w-4" />
+            Create Challenge
+          </Link>
+        )}
       </div>
 
       {/* Status Filters */}
@@ -198,7 +201,7 @@ export default async function ChallengesPage({ searchParams }: ChallengesPagePro
               ? 'Create your first AI-powered challenge video. Engage your audience with interactive quizzes and games!'
               : `You don't have any challenges with the "${statusFilter}" status.`}
           </p>
-          {statusFilter === 'all' && (
+          {statusFilter === 'all' && !isAdmin && (
             <Link
               href="/challenges/new"
               className="inline-flex items-center gap-2 rounded-lg bg-brand-600 px-6 py-3 text-sm font-medium text-white hover:bg-brand-500 transition"
@@ -294,6 +297,11 @@ export default async function ChallengesPage({ searchParams }: ChallengesPagePro
                       name={((challenge as Record<string, unknown>).user as Record<string, string>).name}
                       email={((challenge as Record<string, unknown>).user as Record<string, string>).email}
                     />
+                  )}
+                  {isAdmin && (
+                    <div className="mt-2">
+                      <AdminDeleteButton jobType="challenge" jobId={challenge.id} />
+                    </div>
                   )}
                 </div>
               </Link>
