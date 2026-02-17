@@ -9,8 +9,6 @@ import {
   XCircle,
   Loader2,
   Calendar,
-  Image as ImageIcon,
-  Video,
 } from 'lucide-react'
 import { getJobStatusColor, getJobStatusLabel } from '@/lib/utils'
 
@@ -32,8 +30,7 @@ export default async function QuotesPage({ searchParams }: QuotesPageProps) {
     const statusMap: Record<string, string[]> = {
       completed: ['COMPLETED'],
       processing: [
-        'QUEUED', 'TEXT_GENERATING', 'IMAGE_GENERATING',
-        'VOICE_GENERATING', 'COMPOSING', 'UPLOADING',
+        'QUEUED', 'TEXT_GENERATING',
       ],
       failed: ['FAILED'],
     }
@@ -184,7 +181,7 @@ export default async function QuotesPage({ searchParams }: QuotesPageProps) {
           </h3>
           <p className="text-gray-400 mb-8 max-w-md mx-auto">
             {statusFilter === 'all'
-              ? 'Create your first AI-powered quote. Generate beautiful quote images and videos with just a topic.'
+              ? 'Create your first AI-powered quote. Generate beautiful quotes with just a topic.'
               : `You don't have any quotes with the "${statusFilter}" status.`}
           </p>
           {statusFilter === 'all' && (
@@ -207,15 +204,8 @@ export default async function QuotesPage({ searchParams }: QuotesPageProps) {
                 className="group rounded-xl border border-white/10 bg-white/5 overflow-hidden hover:border-brand-500/50 hover:bg-white/[0.07] transition-all"
               >
                 {/* Thumbnail / Preview */}
-                <div className="relative aspect-square bg-gray-900 flex items-center justify-center overflow-hidden">
-                  {quote.imageUrl ? (
-                    <img
-                      src={quote.imageUrl.startsWith('file://') ? `/api/quotes/${quote.id}/image` : quote.imageUrl}
-                      alt="Quote"
-                      className="w-full h-full object-cover"
-                    />
-                  ) : quote.quoteText ? (
-                    // Show quote text as preview when no image yet
+                <div className="relative aspect-[4/3] bg-gray-900 flex items-center justify-center overflow-hidden">
+                  {quote.quoteText ? (
                     <div className="p-6 flex items-center justify-center h-full bg-gradient-to-br from-gray-800 to-gray-900">
                       <p className="text-sm text-gray-300 text-center line-clamp-4 italic">
                         &ldquo;{quote.quoteText}&rdquo;
@@ -233,21 +223,6 @@ export default async function QuotesPage({ searchParams }: QuotesPageProps) {
                       {quote.category}
                     </span>
                   </div>
-                  {/* Media indicators */}
-                  {quote.status === 'COMPLETED' && (
-                    <div className="absolute bottom-2 right-2 flex items-center gap-1">
-                      {quote.imageUrl && (
-                        <div className="rounded bg-black/70 p-1">
-                          <ImageIcon className="h-3 w-3 text-white" />
-                        </div>
-                      )}
-                      {quote.videoUrl && (
-                        <div className="rounded bg-black/70 p-1">
-                          <Video className="h-3 w-3 text-white" />
-                        </div>
-                      )}
-                    </div>
-                  )}
                 </div>
 
                 {/* Card body */}
@@ -275,7 +250,6 @@ export default async function QuotesPage({ searchParams }: QuotesPageProps) {
                       <Calendar className="h-3 w-3" />
                       {formatDate(quote.createdAt)}
                     </span>
-                    <span>{quote.aspectRatio}</span>
                   </div>
                 </div>
               </Link>

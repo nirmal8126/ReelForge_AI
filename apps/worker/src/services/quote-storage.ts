@@ -11,7 +11,6 @@ const log = logger.child({ service: 'quote-storage' });
 
 export interface QuoteUploadResult {
   imageUrl: string;
-  videoUrl: string;
   thumbnailUrl: string | null;
 }
 
@@ -47,7 +46,6 @@ function getS3Client(): S3Client {
 
 function uploadToLocalStorage(
   imageBuffer: Buffer,
-  videoBuffer: Buffer,
   userId: string,
   quoteJobId: string,
 ): QuoteUploadResult {
@@ -55,19 +53,15 @@ function uploadToLocalStorage(
   mkdirSync(outputDir, { recursive: true });
 
   const imagePath = join(outputDir, `${quoteJobId}.png`);
-  const videoPath = join(outputDir, `${quoteJobId}.mp4`);
-
   writeFileSync(imagePath, imageBuffer);
-  writeFileSync(videoPath, videoBuffer);
 
   log.warn(
-    { imagePath, videoPath },
-    'DEMO MODE: Saved quotes to local filesystem (configure R2_ACCOUNT_ID for cloud storage)',
+    { imagePath },
+    'DEMO MODE: Saved quote image to local filesystem (configure R2_ACCOUNT_ID for cloud storage)',
   );
 
   return {
     imageUrl: `file://${imagePath}`,
-    videoUrl: `file://${videoPath}`,
     thumbnailUrl: null,
   };
 }
@@ -77,32 +71,26 @@ function uploadToLocalStorage(
 // ---------------------------------------------------------------------------
 
 /**
- * Upload quote image and video to Cloudflare R2 storage.
+ * Upload quote image to Cloudflare R2 storage.
  * Falls back to local storage if R2 credentials are not configured (demo mode).
- *
- * Key format: quotes/{userId}/{quoteJobId}.(png|mp4)
- * Returns the public CDN URLs for image, video, and thumbnail.
  */
 export async function uploadQuoteToStorage(
   imageBuffer: Buffer,
-  videoBuffer: Buffer,
   userId: string,
   quoteJobId: string,
 ): Promise<QuoteUploadResult> {
-  // Check if R2 is configured
   const hasR2Config =
     process.env.R2_ACCOUNT_ID && process.env.R2_ACCESS_KEY_ID && process.env.R2_SECRET_ACCESS_KEY;
 
   if (!hasR2Config) {
     log.warn('R2 credentials not configured - using local storage demo mode');
-    return uploadToLocalStorage(imageBuffer, videoBuffer, userId, quoteJobId);
+    return uploadToLocalStorage(imageBuffer, userId, quoteJobId);
   }
 
   const bucket = process.env.R2_BUCKET_NAME || 'reelforge-media';
   const cdnUrl = process.env.CDN_URL || `https://${process.env.R2_ACCOUNT_ID}.r2.dev`;
   const client = getS3Client();
 
-  // Upload image
   const imageKey = `quotes/${userId}/${quoteJobId}.png`;
   log.info({ bucket, key: imageKey, sizeBytes: imageBuffer.length }, 'Uploading quote image to R2');
 
@@ -121,30 +109,10 @@ export async function uploadQuoteToStorage(
     }),
   );
 
-  // Upload video
-  const videoKey = `quotes/${userId}/${quoteJobId}.mp4`;
-  log.info({ bucket, key: videoKey, sizeBytes: videoBuffer.length }, 'Uploading quote video to R2');
-
-  await client.send(
-    new PutObjectCommand({
-      Bucket: bucket,
-      Key: videoKey,
-      Body: videoBuffer,
-      ContentType: 'video/mp4',
-      CacheControl: 'public, max-age=31536000, immutable',
-      Metadata: {
-        userId,
-        quoteJobId,
-        uploadedAt: new Date().toISOString(),
-      },
-    }),
-  );
-
   const imageUrl = `${cdnUrl}/${imageKey}`;
-  const videoUrl = `${cdnUrl}/${videoKey}`;
   const thumbnailUrl = `${cdnUrl}/thumbnails/quotes/${userId}/${quoteJobId}.jpg`;
 
-  log.info({ imageUrl, videoUrl, thumbnailUrl }, 'Quote files uploaded to R2 successfully');
+  log.info({ imageUrl }, 'Quote image uploaded to R2 successfully');
 
-  return { imageUrl, videoUrl, thumbnailUrl };
+  return { imageUrl, thumbnailUrl };
 }

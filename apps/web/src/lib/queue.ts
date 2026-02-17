@@ -181,12 +181,6 @@ export async function enqueueQuoteJob(data: {
   prompt: string
   category: string
   language: string
-  bgType: string
-  bgValue?: string
-  textColor: string
-  fontStyle: string
-  aspectRatio: string
-  voiceId?: string
   plan: string
 }) {
   const queue = getQuoteQueue()

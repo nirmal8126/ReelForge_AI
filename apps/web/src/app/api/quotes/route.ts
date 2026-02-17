@@ -8,12 +8,6 @@ const createQuoteSchema = z.object({
   prompt: z.string().min(3, 'Prompt must be at least 3 characters').max(500),
   category: z.string().min(1).max(50),
   language: z.string().regex(/^[a-z]{2}$/).default('hi'),
-  bgType: z.enum(['gradient', 'stock', 'ai']).default('gradient'),
-  bgValue: z.string().max(500).optional(),
-  textColor: z.string().max(10).default('#FFFFFF'),
-  fontStyle: z.enum(['serif', 'sans', 'handwritten', 'bold']).default('serif'),
-  aspectRatio: z.enum(['1:1', '9:16', '16:9']).default('1:1'),
-  voiceId: z.string().max(100).optional(),
 })
 
 export async function GET(req: NextRequest) {
@@ -34,7 +28,7 @@ export async function GET(req: NextRequest) {
     if (status && status !== 'all') {
       const statusMap: Record<string, string[]> = {
         completed: ['COMPLETED'],
-        processing: ['QUEUED', 'TEXT_GENERATING', 'IMAGE_GENERATING', 'VOICE_GENERATING', 'COMPOSING', 'UPLOADING'],
+        processing: ['QUEUED', 'TEXT_GENERATING'],
         failed: ['FAILED'],
       }
 
@@ -42,10 +36,9 @@ export async function GET(req: NextRequest) {
       if (mappedStatuses) {
         where.status = { in: mappedStatuses }
       } else {
-        // Allow direct status values
         const validStatuses = [
-          'QUEUED', 'TEXT_GENERATING', 'IMAGE_GENERATING', 'VOICE_GENERATING',
-          'COMPOSING', 'UPLOADING', 'COMPLETED', 'FAILED',
+          'QUEUED', 'TEXT_GENERATING',
+          'COMPLETED', 'FAILED',
         ]
         if (validStatuses.includes(status.toUpperCase())) {
           where.status = status.toUpperCase()
@@ -101,7 +94,6 @@ export async function POST(req: NextRequest) {
     const hasQuota = hasUnlimitedJobs || subscription.jobsUsed < subscription.jobsLimit
 
     if (!hasQuota) {
-      // Check if user has credits as fallback
       const user = await prisma.user.findUnique({
         where: { id: session.user.id },
         select: { creditsBalance: true },
@@ -114,7 +106,6 @@ export async function POST(req: NextRequest) {
         )
       }
 
-      // Deduct a credit
       await prisma.$transaction([
         prisma.user.update({
           where: { id: session.user.id },
@@ -139,12 +130,6 @@ export async function POST(req: NextRequest) {
         prompt: data.prompt,
         category: data.category,
         language: data.language,
-        bgType: data.bgType,
-        bgValue: data.bgValue || null,
-        textColor: data.textColor,
-        fontStyle: data.fontStyle,
-        aspectRatio: data.aspectRatio,
-        voiceId: data.voiceId || null,
         status: 'QUEUED',
         creditsCost: 1,
       },
@@ -157,12 +142,6 @@ export async function POST(req: NextRequest) {
       prompt: data.prompt,
       category: data.category,
       language: data.language,
-      bgType: data.bgType,
-      bgValue: data.bgValue,
-      textColor: data.textColor,
-      fontStyle: data.fontStyle,
-      aspectRatio: data.aspectRatio,
-      voiceId: data.voiceId,
       plan: subscription.plan,
     })
 

@@ -567,21 +567,20 @@ model QuoteJob {
   userId           String         @map("user_id")
 
   // Content
+  quoteType        String         @default("image") @map("quote_type") @db.VarChar(10) // text | image
   prompt           String         @db.Text
   category         String         @db.VarChar(50)
   quoteText        String?        @map("quote_text") @db.Text
   author           String?        @db.VarChar(200)
   language         String         @default("hi") @db.VarChar(10)
+  quoteVariations  String?        @map("quote_variations") @db.LongText // JSON array of {quote, author}
 
-  // Visual settings
+  // Visual settings (only for image type)
   bgType           String         @default("gradient") @map("bg_type") @db.VarChar(20)
   bgValue          String?        @map("bg_value") @db.VarChar(500)
   textColor        String         @default("#FFFFFF") @map("text_color") @db.VarChar(10)
   fontStyle        String         @default("serif") @map("font_style") @db.VarChar(30)
   aspectRatio      String         @default("1:1") @map("aspect_ratio") @db.VarChar(10)
-
-  // Audio settings
-  voiceId          String?        @map("voice_id") @db.VarChar(100)
 
   // Status & progress
   status           QuoteJobStatus @default(QUEUED)
@@ -839,8 +838,6 @@ enum QuoteJobStatus {
   QUEUED
   TEXT_GENERATING
   IMAGE_GENERATING
-  VOICE_GENERATING
-  COMPOSING
   UPLOADING
   COMPLETED
   FAILED

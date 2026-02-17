@@ -4,27 +4,20 @@ import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import {
   ArrowLeft,
-  Download,
   Quote,
-  Clock,
   Calendar,
   CheckCircle2,
   XCircle,
   Loader2,
   AlertTriangle,
   Zap,
-  Image as ImageIcon,
-  Video,
-  Mic,
-  Palette,
-  Type,
-  Monitor,
   RefreshCw,
 } from 'lucide-react'
 import { getJobStatusLabel, getJobStatusColor } from '@/lib/utils'
 import { DeleteQuoteButton } from './delete-button'
 import { AutoRefresh } from './auto-refresh'
 import { RetryButton } from './retry-button'
+import { CopyButton } from './copy-button'
 
 interface QuoteDetailPageProps {
   params: { id: string }
@@ -46,41 +39,13 @@ export default async function QuoteDetailPage({ params }: QuoteDetailPageProps) 
   const isFailed = quote.status === 'FAILED'
   const isProcessing = !isCompleted && !isFailed
 
-  // Use API endpoints for local file:// URLs
-  const imageUrl = quote.imageUrl?.startsWith('file://')
-    ? `/api/quotes/${quote.id}/image`
-    : quote.imageUrl
-
-  const videoUrl = quote.videoUrl?.startsWith('file://')
-    ? `/api/quotes/${quote.id}/video`
-    : quote.videoUrl
-
-  // Pipeline stages for quote generation
-  const stages = [
-    { key: 'QUEUED', label: 'Queued', icon: Clock },
-    { key: 'TEXT_GENERATING', label: 'Generating Quote', icon: Quote },
-    { key: 'IMAGE_GENERATING', label: 'Creating Background', icon: ImageIcon },
-    { key: 'VOICE_GENERATING', label: 'Recording Voice', icon: Mic },
-    { key: 'COMPOSING', label: 'Composing', icon: Zap },
-    { key: 'UPLOADING', label: 'Uploading', icon: Monitor },
-    { key: 'COMPLETED', label: 'Completed', icon: CheckCircle2 },
-  ]
-
-  const stageOrder = stages.map((s) => s.key)
-  const currentIndex = stageOrder.indexOf(quote.status)
-
-  function getStageStatus(stageKey: string) {
-    if (isFailed) {
-      const failedIndex = stageOrder.indexOf(stageKey)
-      if (failedIndex < currentIndex) return 'completed'
-      if (failedIndex === currentIndex) return 'failed'
-      return 'pending'
-    }
-    if (isCompleted) return 'completed'
-    const stageIndex = stageOrder.indexOf(stageKey)
-    if (stageIndex < currentIndex) return 'completed'
-    if (stageIndex === currentIndex) return 'active'
-    return 'pending'
+  // Parse variations
+  let variations: Array<{ quote: string; author: string }> = []
+  if (quote.quoteVariations) {
+    try {
+      const parsed = JSON.parse(quote.quoteVariations)
+      if (Array.isArray(parsed)) variations = parsed
+    } catch { /* ignore */ }
   }
 
   function formatDateTime(date: Date) {
@@ -165,66 +130,10 @@ export default async function QuoteDetailPage({ params }: QuoteDetailPageProps) 
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        {/* Main content - 2 cols */}
+        {/* Main content */}
         <div className="lg:col-span-2 space-y-6">
-          {/* Image + Video Preview */}
-          {isCompleted ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {/* Image Preview */}
-              {imageUrl && (
-                <div className="rounded-xl border border-white/10 bg-white/5 overflow-hidden">
-                  <div className="relative aspect-square bg-black">
-                    <img
-                      src={imageUrl}
-                      alt="Quote"
-                      className="w-full h-full object-contain"
-                    />
-                  </div>
-                  <div className="p-3 flex items-center justify-between">
-                    <span className="text-xs text-gray-400 flex items-center gap-1.5">
-                      <ImageIcon className="h-3.5 w-3.5" /> Image (PNG)
-                    </span>
-                    <a
-                      href={imageUrl}
-                      download
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="inline-flex items-center gap-1.5 text-xs font-medium text-green-400 hover:text-green-300 transition"
-                    >
-                      <Download className="h-3.5 w-3.5" /> Download
-                    </a>
-                  </div>
-                </div>
-              )}
-
-              {/* Video Preview */}
-              {videoUrl && (
-                <div className="rounded-xl border border-white/10 bg-white/5 overflow-hidden">
-                  <div className="relative aspect-square bg-black">
-                    <video
-                      src={videoUrl}
-                      controls
-                      className="w-full h-full object-contain"
-                    />
-                  </div>
-                  <div className="p-3 flex items-center justify-between">
-                    <span className="text-xs text-gray-400 flex items-center gap-1.5">
-                      <Video className="h-3.5 w-3.5" /> Video (MP4)
-                    </span>
-                    <a
-                      href={videoUrl}
-                      download
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="inline-flex items-center gap-1.5 text-xs font-medium text-green-400 hover:text-green-300 transition"
-                    >
-                      <Download className="h-3.5 w-3.5" /> Download
-                    </a>
-                  </div>
-                </div>
-              )}
-            </div>
-          ) : (
+          {/* Processing / Failed state */}
+          {!isCompleted && (
             <div className="rounded-xl border border-white/10 bg-white/5 overflow-hidden">
               <div className="aspect-video bg-gray-900 flex flex-col items-center justify-center">
                 {isFailed ? (
@@ -265,116 +174,47 @@ export default async function QuoteDetailPage({ params }: QuoteDetailPageProps) 
             </div>
           )}
 
-          {/* Quote Text */}
-          {quote.quoteText && (
+          {/* Quote Variations with Copy */}
+          {variations.length > 0 && (
             <div className="rounded-xl border border-white/10 bg-white/5 p-6">
               <h2 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
-                <Quote className="h-5 w-5 text-brand-400" />
-                Generated Quote
+                <RefreshCw className="h-5 w-5 text-brand-400" />
+                Quote Variations
+                <span className="text-xs text-gray-500 font-normal ml-1">
+                  ({variations.length} generated)
+                </span>
               </h2>
-              <blockquote className="bg-black/30 rounded-lg p-5">
-                <p className="text-lg text-gray-200 italic leading-relaxed">
-                  &ldquo;{quote.quoteText}&rdquo;
-                </p>
-                {quote.author && (
-                  <footer className="mt-3 text-sm text-gray-400">
-                    &mdash; {quote.author}
-                  </footer>
-                )}
-              </blockquote>
-            </div>
-          )}
-
-          {/* Prompt */}
-          <div className="rounded-xl border border-white/10 bg-white/5 p-6">
-            <h2 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
-              <Zap className="h-5 w-5 text-yellow-400" />
-              Prompt
-            </h2>
-            <p className="text-sm text-gray-300 leading-relaxed">{quote.prompt}</p>
-          </div>
-        </div>
-
-        {/* Sidebar */}
-        <div className="space-y-6">
-          {/* Status Pipeline */}
-          <div className="rounded-xl border border-white/10 bg-white/5 p-6">
-            <h2 className="text-lg font-semibold text-white mb-6">Generation Pipeline</h2>
-            <div className="space-y-0">
-              {stages.map((stage, idx) => {
-                const status = getStageStatus(stage.key)
-                const Icon = stage.icon
-                const isLast = idx === stages.length - 1
-
-                return (
-                  <div key={stage.key} className="relative flex gap-3">
-                    {/* Connector line */}
-                    {!isLast && (
-                      <div
-                        className={`absolute left-[15px] top-[30px] w-0.5 h-[calc(100%-6px)] ${
-                          status === 'completed'
-                            ? 'bg-green-500'
-                            : status === 'active'
-                            ? 'bg-brand-500'
-                            : status === 'failed'
-                            ? 'bg-red-500'
-                            : 'bg-white/10'
-                        }`}
-                      />
-                    )}
-
-                    {/* Icon */}
-                    <div
-                      className={`relative z-10 flex h-8 w-8 items-center justify-center rounded-full flex-shrink-0 ${
-                        status === 'completed'
-                          ? 'bg-green-500/20 text-green-400'
-                          : status === 'active'
-                          ? 'bg-brand-500/20 text-brand-400'
-                          : status === 'failed'
-                          ? 'bg-red-500/20 text-red-400'
-                          : 'bg-white/5 text-gray-600'
-                      }`}
-                    >
-                      {status === 'completed' ? (
-                        <CheckCircle2 className="h-4 w-4" />
-                      ) : status === 'failed' ? (
-                        <XCircle className="h-4 w-4" />
-                      ) : status === 'active' ? (
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                      ) : (
-                        <Icon className="h-4 w-4" />
-                      )}
-                    </div>
-
-                    {/* Label */}
-                    <div className="pb-6">
-                      <p
-                        className={`text-sm font-medium ${
-                          status === 'completed'
-                            ? 'text-green-400'
-                            : status === 'active'
-                            ? 'text-brand-400'
-                            : status === 'failed'
-                            ? 'text-red-400'
-                            : 'text-gray-600'
-                        }`}
-                      >
-                        {stage.label}
-                      </p>
-                      {status === 'active' && (
-                        <p className="text-xs text-gray-500 mt-0.5">In progress...</p>
-                      )}
-                      {status === 'failed' && (
-                        <p className="text-xs text-red-400/70 mt-0.5">Error occurred</p>
-                      )}
+              <div className="space-y-3">
+                {variations.map((variation, idx) => (
+                  <div
+                    key={idx}
+                    className="rounded-lg p-4 border border-white/[0.06] bg-black/20 hover:border-white/10 transition"
+                  >
+                    <div className="flex items-start gap-3">
+                      <span className="flex-shrink-0 w-6 h-6 rounded-full bg-white/10 flex items-center justify-center text-xs font-semibold text-gray-400">
+                        {idx + 1}
+                      </span>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm text-gray-200 italic leading-relaxed">
+                          &ldquo;{variation.quote}&rdquo;
+                        </p>
+                        {variation.author && (
+                          <p className="text-xs text-gray-500 mt-1.5">
+                            &mdash; {variation.author}
+                          </p>
+                        )}
+                      </div>
+                      <CopyButton text={`"${variation.quote}" — ${variation.author || 'Unknown'}`} />
                     </div>
                   </div>
-                )
-              })}
+                ))}
+              </div>
             </div>
-          </div>
+          )}
+        </div>
 
-          {/* Details */}
+        {/* Sidebar — Details only */}
+        <div className="space-y-6">
           <div className="rounded-xl border border-white/10 bg-white/5 p-6">
             <h2 className="text-lg font-semibold text-white mb-4">Details</h2>
             <dl className="space-y-4">
@@ -384,30 +224,6 @@ export default async function QuoteDetailPage({ params }: QuoteDetailPageProps) 
                   Category
                 </dt>
                 <dd className="text-sm text-white capitalize">{quote.category}</dd>
-              </div>
-
-              <div className="flex items-center gap-3">
-                <dt className="flex items-center gap-2 text-sm text-gray-400 w-28">
-                  <Type className="h-4 w-4" />
-                  Font
-                </dt>
-                <dd className="text-sm text-white capitalize">{quote.fontStyle}</dd>
-              </div>
-
-              <div className="flex items-center gap-3">
-                <dt className="flex items-center gap-2 text-sm text-gray-400 w-28">
-                  <Palette className="h-4 w-4" />
-                  Background
-                </dt>
-                <dd className="text-sm text-white capitalize">{quote.bgType}</dd>
-              </div>
-
-              <div className="flex items-center gap-3">
-                <dt className="flex items-center gap-2 text-sm text-gray-400 w-28">
-                  <Monitor className="h-4 w-4" />
-                  Aspect Ratio
-                </dt>
-                <dd className="text-sm text-white">{quote.aspectRatio}</dd>
               </div>
 
               <div className="flex items-center gap-3">

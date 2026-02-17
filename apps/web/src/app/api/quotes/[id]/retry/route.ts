@@ -48,12 +48,6 @@ export async function POST(
       prompt: job.prompt,
       category: job.category,
       language: job.language,
-      bgType: job.bgType,
-      bgValue: job.bgValue || undefined,
-      textColor: job.textColor,
-      fontStyle: job.fontStyle,
-      aspectRatio: job.aspectRatio,
-      voiceId: job.voiceId || undefined,
       plan: session.user.plan || 'FREE',
     })
 

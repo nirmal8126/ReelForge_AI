@@ -18,7 +18,6 @@ export interface QuoteComposeOptions {
   textColor: string;
   fontStyle: string; // serif | sans | handwritten | bold
   aspectRatio: string; // 1:1 | 9:16 | 16:9
-  audioBuffer?: Buffer; // voiceover audio for video
 }
 
 // ---------------------------------------------------------------------------
@@ -65,7 +64,34 @@ function escapeText(t: string): string {
   return t
     .replace(/\\/g, '\\\\')
     .replace(/'/g, "'\\''")
-    .replace(/:/g, '\\:');
+    .replace(/:/g, '\\:')
+    .replace(/%/g, '%%');
+}
+
+/**
+ * Word-wrap text to fit within a given pixel width.
+ * Estimates character width as ~0.55 × fontSize for proportional fonts.
+ */
+function wrapText(text: string, fontSize: number, maxWidth: number): string {
+  const avgCharWidth = fontSize * 0.55;
+  const maxCharsPerLine = Math.floor(maxWidth / avgCharWidth);
+
+  const words = text.split(/\s+/);
+  const lines: string[] = [];
+  let currentLine = '';
+
+  for (const word of words) {
+    const testLine = currentLine ? `${currentLine} ${word}` : word;
+    if (testLine.length > maxCharsPerLine && currentLine) {
+      lines.push(currentLine);
+      currentLine = word;
+    } else {
+      currentLine = testLine;
+    }
+  }
+  if (currentLine) lines.push(currentLine);
+
+  return lines.join('\n');
 }
 
 // ---------------------------------------------------------------------------
@@ -86,12 +112,53 @@ export async function composeQuoteImage(opts: QuoteComposeOptions): Promise<Buff
   const font = getFontFamily(fontStyle);
   const color = textColor.replace('#', '');
 
-  // Font size based on dimensions
+  // Font sizes based on dimensions
   const quoteFontSize = Math.round(width * 0.045); // ~48px for 1080
   const authorFontSize = Math.round(width * 0.03); // ~32px for 1080
+  const lineSpacing = Math.round(quoteFontSize * 0.4);
 
-  const escapedQuote = escapeText(quoteText);
+  // Word-wrap the quote text — use 70% of width as max text area
+  const maxTextWidth = Math.round(width * 0.7);
+  const wrappedQuote = wrapText(quoteText, quoteFontSize, maxTextWidth);
+  const lineCount = wrappedQuote.split('\n').length;
+
+  // Estimate total text block height for proper vertical centering
+  const quoteBlockHeight = lineCount * (quoteFontSize + lineSpacing);
+  const gap = Math.round(quoteFontSize * 0.6); // gap between quote and author
+  const totalBlockHeight = quoteBlockHeight + gap + authorFontSize;
+
+  // Y positions: center the entire block (quote + author) vertically
+  const quoteY = `(h-${totalBlockHeight})/2`;
+  const authorY = `(h-${totalBlockHeight})/2+${quoteBlockHeight}+${gap}`;
+
+  const escapedQuote = escapeText(wrappedQuote);
   const escapedAuthor = escapeText(`— ${author}`);
+
+  // Build drawtext filters with shadow for readability
+  const quoteDrawtext = [
+    `drawtext=text='${escapedQuote}'`,
+    `font='${font}'`,
+    `fontsize=${quoteFontSize}`,
+    `fontcolor=0x${color}`,
+    `x=(w-text_w)/2`,
+    `y=${quoteY}`,
+    `line_spacing=${lineSpacing}`,
+    `shadowcolor=black@0.5`,
+    `shadowx=2`,
+    `shadowy=2`,
+  ].join(':');
+
+  const authorDrawtext = [
+    `drawtext=text='${escapedAuthor}'`,
+    `font='${font}'`,
+    `fontsize=${authorFontSize}`,
+    `fontcolor=0x${color}@0.8`,
+    `x=(w-text_w)/2`,
+    `y=${authorY}`,
+    `shadowcolor=black@0.4`,
+    `shadowx=1`,
+    `shadowy=1`,
+  ].join(':');
 
   try {
     const [c1] = parseGradientColors(bgValue);
@@ -101,11 +168,7 @@ export async function composeQuoteImage(opts: QuoteComposeOptions): Promise<Buff
       const cmd = [
         'ffmpeg -y',
         `-i "${bgValue}"`,
-        `-vf "`,
-        `scale=${width}:${height}:force_original_aspect_ratio=increase,crop=${width}:${height}`,
-        `,drawtext=text='${escapedQuote}':font='${font}':fontsize=${quoteFontSize}:fontcolor=0x${color}:x=(w-text_w)/2:y=(h-text_h)/2-${authorFontSize}:line_spacing=12`,
-        `,drawtext=text='${escapedAuthor}':font='${font}':fontsize=${authorFontSize}:fontcolor=0x${color}@0.7:x=(w-text_w)/2:y=(h)/2+${quoteFontSize}+20`,
-        `"`,
+        `-vf "scale=${width}:${height}:force_original_aspect_ratio=increase,crop=${width}:${height},${quoteDrawtext},${authorDrawtext}"`,
         `-frames:v 1`,
         `"${outputFile}"`,
       ].join(' ');
@@ -117,10 +180,7 @@ export async function composeQuoteImage(opts: QuoteComposeOptions): Promise<Buff
       const cmd = [
         'ffmpeg -y',
         `-f lavfi -i "color=c=0x${c1}:s=${width}x${height}:d=1,format=rgb24"`,
-        `-vf "`,
-        `drawtext=text='${escapedQuote}':font='${font}':fontsize=${quoteFontSize}:fontcolor=0x${color}:x=(w-text_w)/2:y=(h-text_h)/2-${authorFontSize}:line_spacing=12`,
-        `,drawtext=text='${escapedAuthor}':font='${font}':fontsize=${authorFontSize}:fontcolor=0x${color}@0.7:x=(w-text_w)/2:y=(h)/2+${quoteFontSize}+20`,
-        `"`,
+        `-vf "${quoteDrawtext},${authorDrawtext}"`,
         `-frames:v 1`,
         `"${outputFile}"`,
       ].join(' ');
@@ -148,86 +208,3 @@ export async function composeQuoteImage(opts: QuoteComposeOptions): Promise<Buff
   }
 }
 
-// ---------------------------------------------------------------------------
-// Video Composition
-// ---------------------------------------------------------------------------
-
-/**
- * Compose a quote video with Ken Burns animation + voiceover audio.
- */
-export async function composeQuoteVideo(opts: QuoteComposeOptions): Promise<Buffer> {
-  const { audioBuffer } = opts;
-  const { width, height } = getDimensions(opts.aspectRatio);
-  const tmpDir = path.join(os.tmpdir(), `quote-vid-${Date.now()}`);
-  fs.mkdirSync(tmpDir, { recursive: true });
-
-  const imageFile = path.join(tmpDir, 'quote.png');
-  const audioFile = path.join(tmpDir, 'audio.mp3');
-  const outputFile = path.join(tmpDir, 'quote.mp4');
-
-  try {
-    // First compose the image
-    const imageBuffer = await composeQuoteImage(opts);
-    fs.writeFileSync(imageFile, imageBuffer);
-
-    // Get audio duration for video length
-    let duration = 5; // default 5 seconds
-    if (audioBuffer && audioBuffer.length > 0) {
-      fs.writeFileSync(audioFile, audioBuffer);
-      // Get audio duration via ffprobe
-      try {
-        const probeResult = execSync(
-          `ffprobe -v error -show_entries format=duration -of csv=p=0 "${audioFile}"`,
-          { timeout: 10_000, stdio: 'pipe' },
-        )
-          .toString()
-          .trim();
-        const parsed = parseFloat(probeResult);
-        if (!isNaN(parsed) && parsed > 0) {
-          duration = Math.ceil(parsed) + 1; // add 1 sec padding
-        }
-      } catch {
-        log.warn('Could not probe audio duration, using default');
-      }
-    }
-
-    // Ken Burns zoompan effect: slow zoom in from 100% to 110% over duration
-    const totalFrames = duration * 25; // 25fps
-    const hasAudio = audioBuffer && audioBuffer.length > 0 && fs.existsSync(audioFile);
-
-    const cmd = [
-      'ffmpeg -y',
-      `-loop 1 -i "${imageFile}"`,
-      hasAudio ? `-i "${audioFile}"` : '',
-      `-filter_complex "[0:v]zoompan=z='min(zoom+0.001,1.1)':x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':d=${totalFrames}:s=${width}x${height}:fps=25[v]"`,
-      `-map "[v]"`,
-      hasAudio ? `-map 1:a -c:a aac -b:a 128k` : '',
-      `-c:v libx264 -pix_fmt yuv420p -preset fast -crf 23`,
-      `-t ${duration}`,
-      `-shortest`,
-      `"${outputFile}"`,
-    ]
-      .filter(Boolean)
-      .join(' ');
-
-    log.info({ duration, hasAudio, cmd: cmd.substring(0, 200) }, 'Composing quote video');
-    execSync(cmd, { timeout: 120_000, stdio: 'pipe' });
-
-    const buffer = fs.readFileSync(outputFile);
-    log.info({ sizeBytes: buffer.length, duration }, 'Quote video composed');
-    return buffer;
-  } catch (err) {
-    log.error({ err }, 'FFmpeg video composition failed');
-    // Fallback: just create a simple video from color
-    const fallbackCmd = `ffmpeg -y -f lavfi -i "color=c=0x1a1a2e:s=${width}x${height}:d=5:r=25" -c:v libx264 -pix_fmt yuv420p -t 5 "${outputFile}"`;
-    execSync(fallbackCmd, { timeout: 30_000, stdio: 'pipe' });
-    const buffer = fs.readFileSync(outputFile);
-    return buffer;
-  } finally {
-    try {
-      fs.rmSync(tmpDir, { recursive: true, force: true });
-    } catch {
-      /* ignore */
-    }
-  }
-}

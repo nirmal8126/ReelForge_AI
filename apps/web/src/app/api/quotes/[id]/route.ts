@@ -56,8 +56,7 @@ export async function DELETE(
 
     // Prevent deleting jobs that are actively processing
     const activeStatuses = [
-      'TEXT_GENERATING', 'IMAGE_GENERATING', 'VOICE_GENERATING',
-      'COMPOSING', 'UPLOADING',
+      'TEXT_GENERATING',
     ]
     if (activeStatuses.includes(quoteJob.status)) {
       return NextResponse.json(
