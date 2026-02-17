@@ -1,6 +1,7 @@
 import { redirect } from 'next/navigation'
 import { auth } from '@/lib/auth'
 import { Sidebar } from '@/components/layout/sidebar'
+import { FullPageBannerModal } from '@/components/banners/full-page-banner-modal'
 
 export default async function DashboardLayout({
   children,
@@ -19,6 +20,7 @@ export default async function DashboardLayout({
       <main className="pl-64">
         <div className="p-8">{children}</div>
       </main>
+      <FullPageBannerModal />
     </div>
   )
 }
