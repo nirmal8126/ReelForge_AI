@@ -22,6 +22,7 @@ async function requireAdmin() {
 const SETTING_DEFAULTS: Record<string, string> = {
   app_name: 'ReelForge AI',
   app_tagline: 'AI-powered short video generation',
+  app_logo: '',
   maintenance_mode: 'false',
   signup_enabled: 'true',
   default_credits_on_signup: '10',
