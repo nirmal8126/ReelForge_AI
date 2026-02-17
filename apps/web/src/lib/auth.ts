@@ -81,6 +81,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           token.plan = dbUser.subscription?.plan || 'FREE'
           token.referralCode = dbUser.referralCode
           token.creditsBalance = dbUser.creditsBalance
+          token.country = dbUser.country || null
         }
       }
       return token
@@ -92,6 +93,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         session.user.plan = token.plan as string
         session.user.referralCode = token.referralCode as string
         session.user.creditsBalance = token.creditsBalance as number
+        session.user.country = (token.country as string) || null
       }
       return session
     },

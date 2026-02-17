@@ -6,6 +6,7 @@ import { z } from 'zod'
 
 const upgradeSchema = z.object({
   plan: z.enum(['STARTER', 'PRO', 'BUSINESS']),
+  regionId: z.string().optional(),
 })
 
 export async function POST(req: NextRequest) {
@@ -16,7 +17,7 @@ export async function POST(req: NextRequest) {
     }
 
     const body = await req.json()
-    const { plan } = upgradeSchema.parse(body)
+    const { plan, regionId } = upgradeSchema.parse(body)
 
     // Get user with existing subscription
     const user = await prisma.user.findUnique({
@@ -36,12 +37,24 @@ export async function POST(req: NextRequest) {
       )
     }
 
+    // Look up region-specific Stripe Price ID
+    let overridePriceId: string | undefined
+    if (regionId) {
+      const regionPrice = await prisma.regionPlanPrice.findUnique({
+        where: { regionId_plan: { regionId, plan } },
+      })
+      if (regionPrice?.stripePriceId) {
+        overridePriceId = regionPrice.stripePriceId
+      }
+    }
+
     // Create Stripe checkout session
     const checkoutSession = await createCheckoutSession(
       user.id,
       user.email,
       plan,
-      user.stripeCustomerId || undefined
+      user.stripeCustomerId || undefined,
+      overridePriceId,
     )
 
     return NextResponse.json({ url: checkoutSession.url })

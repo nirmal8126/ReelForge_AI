@@ -11,6 +11,7 @@ declare module 'next-auth' {
       plan: string
       referralCode: string
       creditsBalance: number
+      country: string | null
     }
   }
 }
@@ -22,5 +23,6 @@ declare module 'next-auth/jwt' {
     plan: string
     referralCode: string
     creditsBalance: number
+    country: string | null
   }
 }

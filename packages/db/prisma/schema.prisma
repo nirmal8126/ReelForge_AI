@@ -18,6 +18,7 @@ model User {
   isActive         Boolean   @default(true) @map("is_active")
   emailVerified    DateTime? @map("email_verified")
   stripeCustomerId String?   @unique @map("stripe_customer_id") @db.VarChar(100)
+  country          String?   @db.VarChar(2) // ISO 3166-1 alpha-2 (e.g., "IN", "US")
 
   // Referral fields
   referralCode     String       @unique @map("referral_code") @db.VarChar(12)
@@ -942,4 +943,58 @@ model ModuleConfig {
   updatedAt     DateTime @updatedAt @map("updated_at")
 
   @@map("module_configs")
+}
+
+// ---------------------------------------------------------------------------
+// Regional Pricing — country/currency-specific plan & credit pricing
+// ---------------------------------------------------------------------------
+model PricingRegion {
+  id             String   @id @default(cuid())
+  name           String   @unique @db.VarChar(50)       // "GLOBAL", "INDIA", "SEA"
+  currency       String   @db.VarChar(3)                 // "usd", "inr"
+  currencySymbol String   @map("currency_symbol") @db.VarChar(5) // "$", "₹"
+  countries      Json                                     // JSON array: ["IN","PK","BD"]
+  isDefault      Boolean  @default(false) @map("is_default")
+
+  planPrices   RegionPlanPrice[]
+  creditPrices RegionCreditPrice[]
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("pricing_regions")
+}
+
+model RegionPlanPrice {
+  id            String           @id @default(cuid())
+  regionId      String           @map("region_id")
+  plan          SubscriptionPlan
+  priceAmount   Int              @map("price_amount")     // smallest currency unit (cents/paise)
+  stripePriceId String?          @map("stripe_price_id") @db.VarChar(100)
+
+  region PricingRegion @relation(fields: [regionId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@unique([regionId, plan])
+  @@index([regionId])
+  @@map("region_plan_prices")
+}
+
+model RegionCreditPrice {
+  id          String @id @default(cuid())
+  regionId    String @map("region_id")
+  credits     Int                                      // 10, 50, 100
+  priceAmount Int    @map("price_amount")
+  label       String @db.VarChar(50)                   // "10 Credits"
+
+  region PricingRegion @relation(fields: [regionId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@unique([regionId, credits])
+  @@index([regionId])
+  @@map("region_credit_prices")
 }

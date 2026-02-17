@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import bcrypt from 'bcryptjs'
 import { prisma } from '@reelforge/db'
 import { generateReferralCode } from '@/lib/utils'
+import { detectCountry } from '@/lib/geo'
 import { z } from 'zod'
 
 const registerSchema = z.object({
@@ -31,6 +32,9 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Email already registered' }, { status: 409 })
     }
 
+    // Detect country from IP
+    const country = await detectCountry(req)
+
     // Hash password
     const passwordHash = await bcrypt.hash(password, 12)
 
@@ -53,6 +57,7 @@ export async function POST(req: NextRequest) {
         passwordHash,
         referralCode: generateReferralCode(),
         referredByUserId,
+        country,
       },
     })
 

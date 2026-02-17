@@ -1,11 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { auth } from '@/lib/auth'
+import { prisma } from '@reelforge/db'
 import { stripe } from '@/lib/stripe'
 import { z } from 'zod'
 import { CREDIT_PACKAGES } from '@/lib/constants'
 
 const purchaseSchema = z.object({
   packageIndex: z.number().min(0).max(2),
+  regionId: z.string().optional(),
 })
 
 export async function POST(req: NextRequest) {
@@ -14,11 +16,26 @@ export async function POST(req: NextRequest) {
 
   try {
     const body = await req.json()
-    const { packageIndex } = purchaseSchema.parse(body)
+    const { packageIndex, regionId } = purchaseSchema.parse(body)
     const pkg = CREDIT_PACKAGES[packageIndex]
 
     if (!pkg) {
       return NextResponse.json({ error: 'Invalid package' }, { status: 400 })
+    }
+
+    // Resolve region-specific price and currency
+    let currency = 'usd'
+    let unitAmount: number = pkg.price
+
+    if (regionId) {
+      const regionCredit = await prisma.regionCreditPrice.findUnique({
+        where: { regionId_credits: { regionId, credits: pkg.credits } },
+        include: { region: { select: { currency: true } } },
+      })
+      if (regionCredit) {
+        currency = regionCredit.region.currency
+        unitAmount = regionCredit.priceAmount
+      }
     }
 
     const checkoutSession = await stripe.checkout.sessions.create({
@@ -28,12 +45,12 @@ export async function POST(req: NextRequest) {
       line_items: [
         {
           price_data: {
-            currency: 'usd',
+            currency,
             product_data: {
               name: `${pkg.credits} ReelForge Credits`,
               description: `${pkg.credits} reel generation credits`,
             },
-            unit_amount: pkg.price,
+            unit_amount: unitAmount,
           },
           quantity: 1,
         },

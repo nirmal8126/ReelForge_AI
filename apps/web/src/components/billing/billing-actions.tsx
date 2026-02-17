@@ -12,6 +12,7 @@ interface BillingActionsProps {
   buttonOnly?: boolean
   creditPackIndex?: number
   creditPurchase?: boolean
+  regionId?: string
 }
 
 export function BillingActions({
@@ -21,6 +22,7 @@ export function BillingActions({
   buttonOnly,
   creditPackIndex,
   creditPurchase,
+  regionId,
 }: BillingActionsProps) {
   const router = useRouter()
   const [loading, setLoading] = useState(false)
@@ -31,7 +33,7 @@ export function BillingActions({
       const res = await fetch('/api/subscription/upgrade', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ plan }),
+        body: JSON.stringify({ plan, regionId }),
       })
 
       const data = await res.json()
@@ -73,7 +75,7 @@ export function BillingActions({
       const res = await fetch('/api/credits/purchase', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ packageIndex: index }),
+        body: JSON.stringify({ packageIndex: index, regionId }),
       })
       const data = await res.json()
       if (data.url) {

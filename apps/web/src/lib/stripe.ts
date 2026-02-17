@@ -11,16 +11,22 @@ export const PLAN_PRICES: Record<string, { priceId: string; jobsLimit: number }>
   BUSINESS: { priceId: process.env.NEXT_PUBLIC_STRIPE_BUSINESS_PRICE_ID!, jobsLimit: 200 },
 }
 
-export async function createCheckoutSession(userId: string, email: string, plan: string, customerId?: string) {
-  const planConfig = PLAN_PRICES[plan]
-  if (!planConfig) throw new Error('Invalid plan')
+export async function createCheckoutSession(
+  userId: string,
+  email: string,
+  plan: string,
+  customerId?: string,
+  overridePriceId?: string,
+) {
+  const priceId = overridePriceId || PLAN_PRICES[plan]?.priceId
+  if (!priceId) throw new Error('Invalid plan or missing Stripe Price ID')
 
   const session = await stripe.checkout.sessions.create({
     customer: customerId || undefined,
     customer_email: customerId ? undefined : email,
     mode: 'subscription',
     payment_method_types: ['card'],
-    line_items: [{ price: planConfig.priceId, quantity: 1 }],
+    line_items: [{ price: priceId, quantity: 1 }],
     success_url: `${process.env.NEXT_PUBLIC_APP_URL}/dashboard?upgraded=true`,
     cancel_url: `${process.env.NEXT_PUBLIC_APP_URL}/billing`,
     metadata: { userId, plan },

@@ -3,6 +3,8 @@ import { prisma } from '@reelforge/db'
 import { redirect } from 'next/navigation'
 import { Zap, BarChart3, Crown, Check, Sparkles, ShieldCheck, Clock } from 'lucide-react'
 import { BillingActions } from '@/components/billing/billing-actions'
+import { getRegionForCountry, formatRegionPrice } from '@/lib/pricing'
+import { detectCountry } from '@/lib/geo'
 
 export default async function BillingPage() {
   const session = await auth()
@@ -12,7 +14,7 @@ export default async function BillingPage() {
     prisma.subscription.findUnique({ where: { userId: session.user.id } }),
     prisma.user.findUnique({
       where: { id: session.user.id },
-      select: { creditsBalance: true, stripeCustomerId: true },
+      select: { creditsBalance: true, stripeCustomerId: true, country: true },
     }),
     prisma.creditTransaction.findMany({
       where: { userId: session.user.id },
@@ -21,24 +23,56 @@ export default async function BillingPage() {
     }),
   ])
 
+  // Lazy-backfill country for OAuth users who signed up before regional pricing
+  let userCountry = user?.country || null
+  if (!userCountry) {
+    userCountry = await detectCountry()
+    await prisma.user.update({
+      where: { id: session.user.id },
+      data: { country: userCountry },
+    }).catch(() => {}) // non-critical
+  }
+
+  // Resolve pricing region for this user
+  const region = await getRegionForCountry(userCountry)
+
   const currentPlan = subscription?.plan || 'FREE'
   const jobsUsed = subscription?.jobsUsed || 0
   const jobsLimit = subscription?.jobsLimit || 3
   const usagePercent = jobsLimit > 0 ? Math.round((jobsUsed / jobsLimit) * 100) : 0
   const remaining = Math.max(0, jobsLimit - jobsUsed)
 
+  // Build plan prices from region data
+  const sym = region.currencySymbol
+  const getPlanPrice = (plan: string) => {
+    const pp = region.planPrices.find((p) => p.plan === plan)
+    return pp ? formatRegionPrice(pp.priceAmount, sym) : `${sym}0`
+  }
+
   const plans = [
-    { key: 'FREE', name: 'Free', price: '$0', monthly: '/mo', reels: '3 reels/mo', features: ['AI script generation', 'Basic voices', '720p quality', 'Watermarked'] },
-    { key: 'STARTER', name: 'Starter', price: '$19', monthly: '/mo', reels: '25 reels/mo', features: ['Everything in Free', '50+ AI voices', 'No watermark', '1080p quality', '1 channel profile'] },
-    { key: 'PRO', name: 'Pro', price: '$49', monthly: '/mo', reels: '75 reels/mo', features: ['Everything in Starter', 'Priority queue', '5 channel profiles', 'Custom intros/outros', 'Analytics'], popular: true },
-    { key: 'BUSINESS', name: 'Business', price: '$99', monthly: '/mo', reels: '200 reels/mo', features: ['Everything in Pro', 'Unlimited profiles', 'Team collaboration', 'API access', 'White-label option'] },
+    { key: 'FREE', name: 'Free', price: getPlanPrice('FREE'), monthly: '/mo', reels: '3 reels/mo', features: ['AI script generation', 'Basic voices', '720p quality', 'Watermarked'] },
+    { key: 'STARTER', name: 'Starter', price: getPlanPrice('STARTER'), monthly: '/mo', reels: '25 reels/mo', features: ['Everything in Free', '50+ AI voices', 'No watermark', '1080p quality', '1 channel profile'] },
+    { key: 'PRO', name: 'Pro', price: getPlanPrice('PRO'), monthly: '/mo', reels: '75 reels/mo', features: ['Everything in Starter', 'Priority queue', '5 channel profiles', 'Custom intros/outros', 'Analytics'], popular: true },
+    { key: 'BUSINESS', name: 'Business', price: getPlanPrice('BUSINESS'), monthly: '/mo', reels: '200 reels/mo', features: ['Everything in Pro', 'Unlimited profiles', 'Team collaboration', 'API access', 'White-label option'] },
   ]
 
-  const creditPacks = [
-    { credits: 10, price: '$9.99', perCredit: '$1.00', savings: null, index: 0 },
-    { credits: 50, price: '$39.99', perCredit: '$0.80', savings: '20% off', index: 1, popular: true },
-    { credits: 100, price: '$69.99', perCredit: '$0.70', savings: '30% off', index: 2 },
-  ]
+  // Build credit packs from region data
+  const regionCredits = region.creditPrices.sort((a, b) => a.credits - b.credits)
+  const creditPacks = regionCredits.map((cp, i) => {
+    const perCredit = cp.priceAmount / cp.credits / 100
+    const firstPerCredit = regionCredits[0] ? regionCredits[0].priceAmount / regionCredits[0].credits / 100 : perCredit
+    const savings = i > 0 && firstPerCredit > 0
+      ? `${Math.round((1 - perCredit / firstPerCredit) * 100)}% off`
+      : null
+    return {
+      credits: cp.credits,
+      price: formatRegionPrice(cp.priceAmount, sym),
+      perCredit: `${sym}${perCredit.toFixed(2)}`,
+      savings,
+      index: i,
+      popular: i === 1,
+    }
+  })
 
   const formatDate = (date: Date) => {
     return new Date(date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
@@ -54,6 +88,7 @@ export default async function BillingPage() {
         <BillingActions
           currentPlan={currentPlan}
           hasStripeCustomer={!!user?.stripeCustomerId}
+          regionId={region.id}
         />
       </div>
 
@@ -204,6 +239,7 @@ export default async function BillingPage() {
                           currentPlan={currentPlan}
                           targetPlan={plan.key}
                           hasStripeCustomer={!!user?.stripeCustomerId}
+                          regionId={region.id}
                           buttonOnly
                         />
                       ) : null
@@ -261,7 +297,7 @@ export default async function BillingPage() {
                       )}
                     </div>
                   </div>
-                  <BillingActions creditPackIndex={pack.index} buttonOnly creditPurchase />
+                  <BillingActions creditPackIndex={pack.index} regionId={region.id} buttonOnly creditPurchase />
                 </div>
               ))}
             </div>

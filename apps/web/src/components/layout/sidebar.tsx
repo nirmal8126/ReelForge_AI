@@ -19,6 +19,7 @@ import {
   Quote,
   Gamepad2,
   Sparkles,
+  Globe,
 } from 'lucide-react'
 
 const navSections = [
@@ -136,6 +137,7 @@ export function Sidebar() {
                   { href: '/admin/modules', label: 'Module Settings', icon: Shield },
                   { href: '/admin/plans', label: 'Plans Settings', icon: CreditCard },
                   { href: '/admin/referrals', label: 'Referrals Settings', icon: Gift },
+                  { href: '/admin/pricing', label: 'Pricing Regions', icon: Globe },
                 ].map((item) => {
                   const isActive = pathname.startsWith(item.href)
                   return (

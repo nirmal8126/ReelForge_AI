@@ -11,6 +11,15 @@ function getPlanFromPriceId(priceId: string): string | null {
   return null
 }
 
+// Fallback: check regional price IDs in DB
+async function getPlanFromPriceIdDB(priceId: string): Promise<string | null> {
+  const regionPrice = await prisma.regionPlanPrice.findFirst({
+    where: { stripePriceId: priceId },
+    select: { plan: true },
+  })
+  return regionPrice?.plan || null
+}
+
 function getJobsLimitForPlan(plan: string): number {
   const limits: Record<string, number> = {
     FREE: 3,
@@ -132,7 +141,11 @@ export async function POST(req: NextRequest) {
         }
 
         const priceId = subscription.items.data[0]?.price.id
-        const plan = priceId ? getPlanFromPriceId(priceId) : null
+        let plan = priceId ? getPlanFromPriceId(priceId) : null
+        // Fallback: check regional price IDs in DB
+        if (!plan && priceId) {
+          plan = await getPlanFromPriceIdDB(priceId)
+        }
 
         const updateData: Record<string, unknown> = {
           status:
