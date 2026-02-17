@@ -25,6 +25,7 @@ import {
   Megaphone,
 } from 'lucide-react'
 import { DashboardBanners } from '@/components/banners/dashboard-banners'
+import { NotificationBell } from '@/components/notifications/notification-bell'
 
 const navSections = [
   {
@@ -183,6 +184,11 @@ export function Sidebar() {
         {/* Sidebar Banners */}
         <div className="mx-3 mb-2">
           <DashboardBanners placement="SIDEBAR" />
+        </div>
+
+        {/* Notification Bell */}
+        <div className="mx-3 mb-2">
+          <NotificationBell />
         </div>
 
         {/* Credits Badge — hidden for Super Admin */}

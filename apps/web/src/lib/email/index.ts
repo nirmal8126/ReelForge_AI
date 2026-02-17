@@ -48,6 +48,23 @@ export async function sendReferralEmail(email: string, name: string, referredNam
   })
 }
 
+export async function sendCampaignEmail(
+  email: string,
+  subject: string,
+  htmlBody: string,
+  recipientId: string
+) {
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
+  const trackingPixel = `<img src="${appUrl}/api/email/track/${recipientId}" width="1" height="1" style="display:none;" alt="" />`
+
+  return resend.emails.send({
+    from: FROM,
+    to: email,
+    subject,
+    html: baseTemplate(htmlBody + trackingPixel),
+  })
+}
+
 // ---- Templates ----
 
 function baseTemplate(content: string) {

@@ -37,6 +37,14 @@ import {
   PanelLeft,
   Maximize2,
   ArrowDownToLine,
+  TrendingUp,
+  Mail,
+  Send,
+  Users,
+  Play,
+  Percent,
+  DollarSign,
+  Coins,
 } from 'lucide-react'
 
 /* ─────────────── types ─────────────── */
@@ -81,6 +89,49 @@ interface PromoCode {
   _count: { redemptions: number }
 }
 
+interface NotificationBatch {
+  title: string
+  message: string
+  type: string
+  linkUrl: string | null
+  _count: { id: number }
+  _min: { createdAt: string }
+}
+
+interface EmailCampaign {
+  id: string
+  name: string
+  subject: string
+  body: string
+  status: string
+  targetPlans: string[] | null
+  targetCountries: string[] | null
+  scheduledAt: string | null
+  sentAt: string | null
+  totalRecipients: number
+  sentCount: number
+  openCount: number
+  createdAt: string
+}
+
+const NOTIF_TYPES = [
+  { value: 'INFO', label: 'Info', icon: Info, color: 'text-blue-400' },
+  { value: 'SUCCESS', label: 'Success', icon: CheckCircle, color: 'text-green-400' },
+  { value: 'WARNING', label: 'Warning', icon: AlertTriangle, color: 'text-yellow-400' },
+  { value: 'PROMOTION', label: 'Promotion', icon: Tag, color: 'text-brand-400' },
+  { value: 'ANNOUNCEMENT', label: 'Announcement', icon: Bell, color: 'text-purple-400' },
+  { value: 'NEW_FEATURE', label: 'New Feature', icon: Sparkles, color: 'text-cyan-400' },
+  { value: 'SYSTEM', label: 'System', icon: Info, color: 'text-gray-400' },
+]
+
+const CAMPAIGN_STATUS_COLORS: Record<string, string> = {
+  DRAFT: 'bg-gray-500/20 text-gray-400',
+  SCHEDULED: 'bg-yellow-500/20 text-yellow-400',
+  SENDING: 'bg-blue-500/20 text-blue-400',
+  SENT: 'bg-green-500/20 text-green-400',
+  FAILED: 'bg-red-500/20 text-red-400',
+}
+
 const BANNER_TYPES = [
   { value: 'INFO', label: 'Info', icon: Info, color: 'text-blue-400', bg: 'bg-blue-500/10 border-blue-500/20' },
   { value: 'SUCCESS', label: 'Success', icon: CheckCircle, color: 'text-green-400', bg: 'bg-green-500/10 border-green-500/20' },
@@ -109,14 +160,14 @@ const PLACEMENTS = [
 const PLANS = ['FREE', 'STARTER', 'PRO', 'BUSINESS', 'ENTERPRISE']
 
 const DISCOUNT_TYPES = [
-  { value: 'PERCENTAGE', label: 'Percentage Off' },
-  { value: 'FIXED_AMOUNT', label: 'Fixed Amount Off' },
-  { value: 'CREDIT_BONUS', label: 'Bonus Credits' },
+  { value: 'PERCENTAGE', label: 'Percentage', desc: 'Discount by %', icon: Percent, color: 'brand' },
+  { value: 'FIXED_AMOUNT', label: 'Fixed Amount', desc: 'Flat $ off', icon: DollarSign, color: 'emerald' },
+  { value: 'CREDIT_BONUS', label: 'Bonus Credits', desc: 'Extra credits', icon: Coins, color: 'amber' },
 ]
 
 /* ─────────────── page ─────────────── */
 export default function AdminMarketingPage() {
-  const [activeTab, setActiveTab] = useState<'banners' | 'promos'>('banners')
+  const [activeTab, setActiveTab] = useState<'banners' | 'promos' | 'notifications' | 'campaigns'>('banners')
   const [banners, setBanners] = useState<Banner[]>([])
   const [promos, setPromos] = useState<PromoCode[]>([])
   const [loading, setLoading] = useState(true)
@@ -154,6 +205,7 @@ export default function AdminMarketingPage() {
   // Promo modal
   const [promoModal, setPromoModal] = useState(false)
   const [editingPromo, setEditingPromo] = useState<PromoCode | null>(null)
+  const [generatingPromo, setGeneratingPromo] = useState(false)
   const [promoForm, setPromoForm] = useState({
     code: '',
     description: '',
@@ -167,12 +219,36 @@ export default function AdminMarketingPage() {
     expiresAt: '',
   })
 
+  // Notifications
+  const [notifBatches, setNotifBatches] = useState<NotificationBatch[]>([])
+  const [notifModal, setNotifModal] = useState(false)
+  const [sendingNotif, setSendingNotif] = useState(false)
+  const [notifForm, setNotifForm] = useState({
+    title: '', message: '', type: 'INFO',
+    linkUrl: '', targetType: 'all' as 'all' | 'plans' | 'countries' | 'user',
+    targetPlans: [] as string[], targetCountries: '',
+    targetUserId: '',
+  })
+
+  // Email Campaigns
+  const [campaigns, setCampaigns] = useState<EmailCampaign[]>([])
+  const [campaignModal, setCampaignModal] = useState(false)
+  const [editingCampaign, setEditingCampaign] = useState<EmailCampaign | null>(null)
+  const [campaignForm, setCampaignForm] = useState({
+    name: '', subject: '', body: '',
+    targetPlans: [] as string[], targetCountries: '',
+    scheduledAt: '',
+  })
+  const [sendingCampaign, setSendingCampaign] = useState(false)
+
   // Delete confirmation
-  const [deleteTarget, setDeleteTarget] = useState<{ type: 'banner' | 'promo'; id: string; name: string } | null>(null)
+  const [deleteTarget, setDeleteTarget] = useState<{ type: 'banner' | 'promo' | 'campaign'; id: string; name: string } | null>(null)
 
   useEffect(() => {
     fetchBanners()
     fetchPromos()
+    fetchNotifBatches()
+    fetchCampaigns()
   }, [])
 
   useEffect(() => {
@@ -202,6 +278,22 @@ export default function AdminMarketingPage() {
     } catch {
       setToast({ type: 'error', message: 'Failed to load promo codes' })
     }
+  }
+
+  async function fetchNotifBatches() {
+    try {
+      const res = await fetch('/api/admin/notifications')
+      const data = await res.json()
+      setNotifBatches(data.batches || [])
+    } catch {}
+  }
+
+  async function fetchCampaigns() {
+    try {
+      const res = await fetch('/api/admin/marketing/campaigns')
+      const data = await res.json()
+      setCampaigns(data.campaigns || [])
+    } catch {}
   }
 
   function showToast(type: 'success' | 'error', message: string) {
@@ -459,6 +551,42 @@ export default function AdminMarketingPage() {
     setPromoModal(true)
   }
 
+  async function handleGeneratePromoIdea() {
+    setGeneratingPromo(true)
+    try {
+      const res = await fetch('/api/admin/marketing/generate-promo', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({}),
+      })
+      if (!res.ok) throw new Error('Generation failed')
+      const data = await res.json()
+      const gen = data.generated
+      if (gen) {
+        const now = new Date()
+        const validDays = gen.validDays || 14
+        const expiresDate = new Date(now.getTime() + validDays * 24 * 60 * 60 * 1000)
+        setPromoForm((prev) => ({
+          ...prev,
+          code: (gen.code || prev.code).toUpperCase().replace(/[^A-Z0-9_]/g, '').slice(0, 20),
+          description: gen.description || prev.description,
+          discountType: gen.discountType || prev.discountType,
+          discountValue: gen.discountValue ?? prev.discountValue,
+          bonusCredits: gen.bonusCredits ?? prev.bonusCredits,
+          maxUses: gen.maxUses ?? prev.maxUses,
+          targetPlans: gen.targetPlans?.length > 0 ? gen.targetPlans : prev.targetPlans,
+          startsAt: now.toISOString().slice(0, 16),
+          expiresAt: expiresDate.toISOString().slice(0, 16),
+        }))
+        showToast('success', `AI idea: ${gen.occasion || 'Promo generated'}!`)
+      }
+    } catch {
+      showToast('error', 'Failed to generate promo idea. Check API keys.')
+    } finally {
+      setGeneratingPromo(false)
+    }
+  }
+
   async function savePromo() {
     setSaving(true)
     try {
@@ -497,17 +625,119 @@ export default function AdminMarketingPage() {
   async function handleDelete() {
     if (!deleteTarget) return
     try {
-      const endpoint = deleteTarget.type === 'banner'
-        ? `/api/admin/marketing/banners?id=${deleteTarget.id}`
-        : `/api/admin/marketing/promos?id=${deleteTarget.id}`
-
-      await fetch(endpoint, { method: 'DELETE' })
-      showToast('success', `${deleteTarget.type === 'banner' ? 'Banner' : 'Promo code'} deleted`)
+      const endpoints: Record<string, string> = {
+        banner: `/api/admin/marketing/banners?id=${deleteTarget.id}`,
+        promo: `/api/admin/marketing/promos?id=${deleteTarget.id}`,
+        campaign: `/api/admin/marketing/campaigns?id=${deleteTarget.id}`,
+      }
+      await fetch(endpoints[deleteTarget.type], { method: 'DELETE' })
+      showToast('success', `${deleteTarget.type === 'banner' ? 'Banner' : deleteTarget.type === 'promo' ? 'Promo code' : 'Campaign'} deleted`)
       setDeleteTarget(null)
       if (deleteTarget.type === 'banner') fetchBanners()
-      else fetchPromos()
+      else if (deleteTarget.type === 'promo') fetchPromos()
+      else fetchCampaigns()
     } catch {
       showToast('error', 'Delete failed')
+    }
+  }
+
+  /* ── Notification Send ── */
+  async function sendNotification() {
+    setSendingNotif(true)
+    try {
+      const target: any = { type: notifForm.targetType }
+      if (notifForm.targetType === 'plans') target.plans = notifForm.targetPlans
+      if (notifForm.targetType === 'countries') target.countries = notifForm.targetCountries.split(',').map(c => c.trim().toUpperCase()).filter(Boolean)
+      if (notifForm.targetType === 'user') target.userId = notifForm.targetUserId
+
+      const res = await fetch('/api/admin/notifications/send', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title: notifForm.title,
+          message: notifForm.message,
+          type: notifForm.type,
+          linkUrl: notifForm.linkUrl || null,
+          target,
+        }),
+      })
+
+      if (!res.ok) {
+        const err = await res.json()
+        throw new Error(err.error || 'Failed')
+      }
+
+      const data = await res.json()
+      showToast('success', `Notification sent to ${data.count} users`)
+      setNotifModal(false)
+      setNotifForm({ title: '', message: '', type: 'INFO', linkUrl: '', targetType: 'all', targetPlans: [], targetCountries: '', targetUserId: '' })
+      fetchNotifBatches()
+    } catch (err: any) {
+      showToast('error', err.message || 'Failed to send notification')
+    } finally {
+      setSendingNotif(false)
+    }
+  }
+
+  /* ── Campaign CRUD ── */
+  function openCampaignCreate() {
+    setEditingCampaign(null)
+    setCampaignForm({ name: '', subject: '', body: '', targetPlans: [], targetCountries: '', scheduledAt: '' })
+    setCampaignModal(true)
+  }
+
+  function openCampaignEdit(c: EmailCampaign) {
+    setEditingCampaign(c)
+    setCampaignForm({
+      name: c.name, subject: c.subject, body: c.body,
+      targetPlans: c.targetPlans || [],
+      targetCountries: c.targetCountries ? (c.targetCountries as string[]).join(', ') : '',
+      scheduledAt: c.scheduledAt ? c.scheduledAt.slice(0, 16) : '',
+    })
+    setCampaignModal(true)
+  }
+
+  async function saveCampaign() {
+    setSaving(true)
+    try {
+      const payload = {
+        name: campaignForm.name, subject: campaignForm.subject, body: campaignForm.body,
+        targetPlans: campaignForm.targetPlans.length > 0 ? campaignForm.targetPlans : null,
+        targetCountries: campaignForm.targetCountries ? campaignForm.targetCountries.split(',').map(c => c.trim().toUpperCase()).filter(Boolean) : null,
+        scheduledAt: campaignForm.scheduledAt || null,
+      }
+
+      const method = editingCampaign ? 'PUT' : 'POST'
+      const body = editingCampaign ? { id: editingCampaign.id, ...payload } : payload
+
+      const res = await fetch('/api/admin/marketing/campaigns', {
+        method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
+      })
+
+      if (!res.ok) { const err = await res.json(); throw new Error(err.error || 'Failed') }
+
+      showToast('success', editingCampaign ? 'Campaign updated' : 'Campaign saved as draft')
+      setCampaignModal(false)
+      fetchCampaigns()
+    } catch (err: any) {
+      showToast('error', err.message || 'Failed to save campaign')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  async function sendCampaign(id: string) {
+    setSendingCampaign(true)
+    try {
+      const res = await fetch(`/api/admin/marketing/campaigns/${id}/send`, { method: 'POST' })
+      if (!res.ok) { const err = await res.json(); throw new Error(err.error || 'Failed') }
+      const data = await res.json()
+      showToast('success', `Campaign sending to ${data.totalRecipients} recipients`)
+      fetchCampaigns()
+    } catch (err: any) {
+      showToast('error', err.message || 'Failed to send campaign')
+    } finally {
+      setSendingCampaign(false)
     }
   }
 
@@ -590,11 +820,74 @@ export default function AdminMarketingPage() {
           Promo Codes
           <span className="ml-1 text-xs bg-white/[0.06] px-1.5 py-0.5 rounded">{promos.length}</span>
         </button>
+        <button
+          onClick={() => setActiveTab('notifications')}
+          className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+            activeTab === 'notifications'
+              ? 'bg-brand-500/15 text-brand-400 shadow-sm'
+              : 'text-gray-400 hover:text-gray-200'
+          }`}
+        >
+          <Send className="h-4 w-4" />
+          Notifications
+        </button>
+        <button
+          onClick={() => setActiveTab('campaigns')}
+          className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+            activeTab === 'campaigns'
+              ? 'bg-brand-500/15 text-brand-400 shadow-sm'
+              : 'text-gray-400 hover:text-gray-200'
+          }`}
+        >
+          <Mail className="h-4 w-4" />
+          Email Campaigns
+          <span className="ml-1 text-xs bg-white/[0.06] px-1.5 py-0.5 rounded">{campaigns.length}</span>
+        </button>
       </div>
 
       {/* ═══════════════ Banners Tab ═══════════════ */}
       {activeTab === 'banners' && (
         <div className="space-y-4">
+          {/* Analytics Stats */}
+          {(() => {
+            const totalViews = banners.reduce((s, b) => s + b.viewCount, 0)
+            const totalClicks = banners.reduce((s, b) => s + b.clickCount, 0)
+            const overallCTR = totalViews > 0 ? ((totalClicks / totalViews) * 100).toFixed(1) : '0.0'
+            const activeCount = banners.filter(b => b.isActive).length
+            return (
+              <div className="grid grid-cols-4 gap-3">
+                <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-4">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Eye className="h-4 w-4 text-blue-400" />
+                    <span className="text-[11px] text-gray-500 font-medium">Total Views</span>
+                  </div>
+                  <p className="text-2xl font-bold text-white">{totalViews.toLocaleString()}</p>
+                </div>
+                <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-4">
+                  <div className="flex items-center gap-2 mb-2">
+                    <MousePointerClick className="h-4 w-4 text-green-400" />
+                    <span className="text-[11px] text-gray-500 font-medium">Total Clicks</span>
+                  </div>
+                  <p className="text-2xl font-bold text-white">{totalClicks.toLocaleString()}</p>
+                </div>
+                <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-4">
+                  <div className="flex items-center gap-2 mb-2">
+                    <TrendingUp className="h-4 w-4 text-purple-400" />
+                    <span className="text-[11px] text-gray-500 font-medium">Overall CTR</span>
+                  </div>
+                  <p className="text-2xl font-bold text-white">{overallCTR}%</p>
+                </div>
+                <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-4">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Bell className="h-4 w-4 text-brand-400" />
+                    <span className="text-[11px] text-gray-500 font-medium">Active Banners</span>
+                  </div>
+                  <p className="text-2xl font-bold text-white">{activeCount}</p>
+                </div>
+              </div>
+            )
+          })()}
+
           <div className="flex justify-between items-center">
             <p className="text-sm text-gray-400">
               Create banners and announcements shown to users on their dashboard
@@ -665,6 +958,9 @@ export default function AdminMarketingPage() {
                           </span>
                           <span className="flex items-center gap-1">
                             <MousePointerClick className="h-3 w-3" /> {banner.clickCount} clicks
+                          </span>
+                          <span className="flex items-center gap-1">
+                            <TrendingUp className="h-3 w-3" /> {banner.viewCount > 0 ? ((banner.clickCount / banner.viewCount) * 100).toFixed(1) : '0.0'}% CTR
                           </span>
                           {banner.targetPlans && banner.targetPlans.length > 0 && (
                             <span className="flex items-center gap-1">
@@ -759,10 +1055,14 @@ export default function AdminMarketingPage() {
 
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 mb-1">
-                          <span className="text-sm text-white font-medium">
-                            {promo.discountType === 'PERCENTAGE' && `${promo.discountValue}% Off`}
-                            {promo.discountType === 'FIXED_AMOUNT' && `$${(promo.discountValue / 100).toFixed(2)} Off`}
-                            {promo.discountType === 'CREDIT_BONUS' && `${promo.bonusCredits} Bonus Credits`}
+                          <span className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md text-xs font-semibold ${
+                            promo.discountType === 'PERCENTAGE' ? 'bg-brand-500/10 text-brand-400' :
+                            promo.discountType === 'FIXED_AMOUNT' ? 'bg-emerald-500/10 text-emerald-400' :
+                            'bg-amber-500/10 text-amber-400'
+                          }`}>
+                            {promo.discountType === 'PERCENTAGE' && <><Percent className="h-3 w-3" />{promo.discountValue}% Off</>}
+                            {promo.discountType === 'FIXED_AMOUNT' && <><DollarSign className="h-3 w-3" />${(promo.discountValue / 100).toFixed(2)} Off</>}
+                            {promo.discountType === 'CREDIT_BONUS' && <><Coins className="h-3 w-3" />{promo.bonusCredits} Credits</>}
                           </span>
                           <span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold ${status.color}`}>
                             {status.label}
@@ -802,6 +1102,418 @@ export default function AdminMarketingPage() {
               })}
             </div>
           )}
+        </div>
+      )}
+
+      {/* ═══════════════ Notifications Tab ═══════════════ */}
+      {activeTab === 'notifications' && (
+        <div className="space-y-4">
+          <div className="flex justify-between items-center">
+            <p className="text-sm text-gray-400">
+              Send in-app notifications to your users
+            </p>
+            <button
+              onClick={() => {
+                setNotifForm({ title: '', message: '', type: 'INFO', linkUrl: '', targetType: 'all', targetPlans: [], targetCountries: '', targetUserId: '' })
+                setNotifModal(true)
+              }}
+              className="flex items-center gap-2 px-4 py-2 rounded-lg bg-brand-500 hover:bg-brand-600 text-white text-sm font-medium transition"
+            >
+              <Send className="h-4 w-4" /> Send Notification
+            </button>
+          </div>
+
+          {notifBatches.length === 0 ? (
+            <div className="text-center py-16 rounded-xl border border-white/[0.06] bg-white/[0.02]">
+              <Send className="h-10 w-10 text-gray-600 mx-auto mb-3" />
+              <p className="text-gray-400 font-medium">No notifications sent yet</p>
+              <p className="text-sm text-gray-500 mt-1">Send your first notification to engage users</p>
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {notifBatches.map((batch, i) => {
+                const typeInfo = NOTIF_TYPES.find(t => t.value === batch.type) || NOTIF_TYPES[0]
+                const TypeIcon = typeInfo.icon
+                return (
+                  <div key={i} className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-4 hover:bg-white/[0.03] transition">
+                    <div className="flex items-start gap-3">
+                      <div className={`mt-0.5 ${typeInfo.color}`}>
+                        <TypeIcon className="h-5 w-5" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 mb-1">
+                          <h3 className="text-sm font-semibold text-white truncate">{batch.title}</h3>
+                          <span className="px-2 py-0.5 rounded bg-white/[0.06] text-[10px] text-gray-400">
+                            {batch._count.id} recipients
+                          </span>
+                        </div>
+                        <p className="text-xs text-gray-400 line-clamp-1">{batch.message}</p>
+                        <p className="text-[11px] text-gray-500 mt-1">
+                          {new Date(batch._min.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ═══════════════ Email Campaigns Tab ═══════════════ */}
+      {activeTab === 'campaigns' && (
+        <div className="space-y-4">
+          <div className="flex justify-between items-center">
+            <p className="text-sm text-gray-400">
+              Create and send email campaigns to your users
+            </p>
+            <button
+              onClick={openCampaignCreate}
+              className="flex items-center gap-2 px-4 py-2 rounded-lg bg-brand-500 hover:bg-brand-600 text-white text-sm font-medium transition"
+            >
+              <Plus className="h-4 w-4" /> New Campaign
+            </button>
+          </div>
+
+          {campaigns.length === 0 ? (
+            <div className="text-center py-16 rounded-xl border border-white/[0.06] bg-white/[0.02]">
+              <Mail className="h-10 w-10 text-gray-600 mx-auto mb-3" />
+              <p className="text-gray-400 font-medium">No email campaigns yet</p>
+              <p className="text-sm text-gray-500 mt-1">Create your first campaign to reach users via email</p>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {campaigns.map((c) => (
+                <div key={c.id} className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-4 hover:bg-white/[0.03] transition">
+                  <div className="flex items-start gap-4">
+                    <div className="h-10 w-10 rounded-lg bg-white/[0.04] flex items-center justify-center flex-shrink-0">
+                      <Mail className="h-5 w-5 text-gray-400" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 mb-1 flex-wrap">
+                        <h3 className="text-sm font-semibold text-white truncate">{c.name}</h3>
+                        <span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold ${CAMPAIGN_STATUS_COLORS[c.status] || CAMPAIGN_STATUS_COLORS.DRAFT}`}>
+                          {c.status}
+                        </span>
+                      </div>
+                      <p className="text-xs text-gray-400 line-clamp-1 mb-2">Subject: {c.subject}</p>
+                      <div className="flex items-center gap-4 text-[11px] text-gray-500">
+                        {c.status !== 'DRAFT' && (
+                          <>
+                            <span className="flex items-center gap-1">
+                              <Users className="h-3 w-3" /> {c.sentCount}/{c.totalRecipients} sent
+                            </span>
+                            <span className="flex items-center gap-1">
+                              <Eye className="h-3 w-3" /> {c.openCount} opened
+                              {c.sentCount > 0 && ` (${((c.openCount / c.sentCount) * 100).toFixed(1)}%)`}
+                            </span>
+                          </>
+                        )}
+                        {c.targetPlans && (
+                          <span>Plans: {(c.targetPlans as string[]).join(', ')}</span>
+                        )}
+                        <span className="flex items-center gap-1">
+                          <Calendar className="h-3 w-3" />
+                          {new Date(c.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                        </span>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-1.5 flex-shrink-0">
+                      {c.status === 'DRAFT' && (
+                        <>
+                          <button
+                            onClick={() => sendCampaign(c.id)}
+                            disabled={sendingCampaign}
+                            className="p-2 rounded-lg hover:bg-green-500/10 transition disabled:opacity-50"
+                            title="Send Now"
+                          >
+                            <Play className="h-4 w-4 text-green-400" />
+                          </button>
+                          <button onClick={() => openCampaignEdit(c)} className="p-2 rounded-lg hover:bg-white/[0.06] transition">
+                            <Pencil className="h-4 w-4 text-gray-400" />
+                          </button>
+                          <button
+                            onClick={() => setDeleteTarget({ type: 'campaign', id: c.id, name: c.name })}
+                            className="p-2 rounded-lg hover:bg-red-500/10 transition"
+                          >
+                            <Trash2 className="h-4 w-4 text-red-400" />
+                          </button>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ═══════════════ Notification Modal ═══════════════ */}
+      {notifModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center">
+          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
+          <div className="relative bg-[#12121A] border border-white/[0.08] rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto mx-4">
+            <div className="sticky top-0 bg-[#12121A] border-b border-white/[0.06] px-6 py-4 flex items-center justify-between z-10">
+              <h2 className="text-lg font-bold text-white">Send Notification</h2>
+              <button onClick={() => setNotifModal(false)} className="p-1.5 rounded-lg hover:bg-white/[0.06]">
+                <X className="h-5 w-5 text-gray-400" />
+              </button>
+            </div>
+
+            <div className="p-6 space-y-5">
+              <div>
+                <label className="text-xs font-medium text-gray-400 mb-1.5 block">Title *</label>
+                <input
+                  value={notifForm.title}
+                  onChange={(e) => setNotifForm({ ...notifForm, title: e.target.value })}
+                  className="w-full px-3 py-2 rounded-lg bg-white/[0.04] border border-white/[0.08] text-sm text-white focus:outline-none focus:border-brand-500/50"
+                  placeholder="Notification title"
+                />
+              </div>
+
+              <div>
+                <label className="text-xs font-medium text-gray-400 mb-1.5 block">Message *</label>
+                <textarea
+                  value={notifForm.message}
+                  onChange={(e) => setNotifForm({ ...notifForm, message: e.target.value })}
+                  rows={3}
+                  className="w-full px-3 py-2 rounded-lg bg-white/[0.04] border border-white/[0.08] text-sm text-white focus:outline-none focus:border-brand-500/50 resize-none"
+                  placeholder="Notification message..."
+                />
+              </div>
+
+              <div>
+                <label className="text-xs font-medium text-gray-400 mb-2 block">Type</label>
+                <div className="grid grid-cols-4 gap-2">
+                  {NOTIF_TYPES.slice(0, 4).map((t) => {
+                    const isSelected = notifForm.type === t.value
+                    const Icon = t.icon
+                    return (
+                      <button
+                        key={t.value}
+                        type="button"
+                        onClick={() => setNotifForm({ ...notifForm, type: t.value })}
+                        className={`flex flex-col items-center gap-1 py-2 px-2 rounded-xl border text-center transition ${
+                          isSelected
+                            ? 'bg-brand-500/10 border-brand-500/30 text-brand-400'
+                            : 'bg-white/[0.02] border-white/[0.06] text-gray-500 hover:border-white/[0.12]'
+                        }`}
+                      >
+                        <Icon className="h-4 w-4" />
+                        <span className="text-[10px] font-medium">{t.label}</span>
+                      </button>
+                    )
+                  })}
+                </div>
+              </div>
+
+              <div>
+                <label className="text-xs font-medium text-gray-400 mb-1.5 block">Link URL (optional)</label>
+                <input
+                  value={notifForm.linkUrl}
+                  onChange={(e) => setNotifForm({ ...notifForm, linkUrl: e.target.value })}
+                  className="w-full px-3 py-2 rounded-lg bg-white/[0.04] border border-white/[0.08] text-sm text-white focus:outline-none focus:border-brand-500/50"
+                  placeholder="/billing or https://..."
+                />
+              </div>
+
+              <div>
+                <label className="text-xs font-medium text-gray-400 mb-2 block">Target Audience</label>
+                <div className="space-y-2">
+                  {[
+                    { value: 'all', label: 'All Users' },
+                    { value: 'plans', label: 'By Plan' },
+                    { value: 'countries', label: 'By Country' },
+                    { value: 'user', label: 'Individual User' },
+                  ].map((opt) => (
+                    <label key={opt.value} className="flex items-center gap-2 cursor-pointer">
+                      <input
+                        type="radio"
+                        name="targetType"
+                        checked={notifForm.targetType === opt.value}
+                        onChange={() => setNotifForm({ ...notifForm, targetType: opt.value as any })}
+                        className="text-brand-500 focus:ring-brand-500"
+                      />
+                      <span className="text-sm text-gray-300">{opt.label}</span>
+                    </label>
+                  ))}
+                </div>
+
+                {notifForm.targetType === 'plans' && (
+                  <div className="flex flex-wrap gap-1.5 mt-3">
+                    {PLANS.map((plan) => (
+                      <button
+                        key={plan} type="button"
+                        onClick={() => {
+                          const plans = notifForm.targetPlans.includes(plan)
+                            ? notifForm.targetPlans.filter(p => p !== plan)
+                            : [...notifForm.targetPlans, plan]
+                          setNotifForm({ ...notifForm, targetPlans: plans })
+                        }}
+                        className={`px-2.5 py-1 rounded-lg text-[11px] font-medium transition border ${
+                          notifForm.targetPlans.includes(plan)
+                            ? 'bg-brand-500/15 border-brand-500/30 text-brand-400'
+                            : 'bg-white/[0.03] border-white/[0.06] text-gray-400 hover:border-white/[0.1]'
+                        }`}
+                      >
+                        {plan}
+                      </button>
+                    ))}
+                  </div>
+                )}
+
+                {notifForm.targetType === 'countries' && (
+                  <input
+                    value={notifForm.targetCountries}
+                    onChange={(e) => setNotifForm({ ...notifForm, targetCountries: e.target.value })}
+                    className="w-full mt-3 px-3 py-2 rounded-lg bg-white/[0.04] border border-white/[0.08] text-sm text-white focus:outline-none focus:border-brand-500/50"
+                    placeholder="US, IN, GB (comma-separated country codes)"
+                  />
+                )}
+
+                {notifForm.targetType === 'user' && (
+                  <input
+                    value={notifForm.targetUserId}
+                    onChange={(e) => setNotifForm({ ...notifForm, targetUserId: e.target.value })}
+                    className="w-full mt-3 px-3 py-2 rounded-lg bg-white/[0.04] border border-white/[0.08] text-sm text-white focus:outline-none focus:border-brand-500/50"
+                    placeholder="User ID"
+                  />
+                )}
+              </div>
+            </div>
+
+            <div className="sticky bottom-0 bg-[#12121A] border-t border-white/[0.06] px-6 py-4 flex justify-end gap-3">
+              <button
+                onClick={() => setNotifModal(false)}
+                className="px-4 py-2 rounded-lg border border-white/[0.08] text-sm text-gray-400 hover:bg-white/[0.04] transition"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={sendNotification}
+                disabled={sendingNotif || !notifForm.title || !notifForm.message}
+                className="px-5 py-2 rounded-lg bg-brand-500 hover:bg-brand-600 text-white text-sm font-medium transition disabled:opacity-50"
+              >
+                {sendingNotif ? 'Sending...' : 'Send Notification'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ═══════════════ Campaign Modal ═══════════════ */}
+      {campaignModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center">
+          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
+          <div className="relative bg-[#12121A] border border-white/[0.08] rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto mx-4">
+            <div className="sticky top-0 bg-[#12121A] border-b border-white/[0.06] px-6 py-4 flex items-center justify-between z-10">
+              <h2 className="text-lg font-bold text-white">
+                {editingCampaign ? 'Edit Campaign' : 'Create Campaign'}
+              </h2>
+              <button onClick={() => setCampaignModal(false)} className="p-1.5 rounded-lg hover:bg-white/[0.06]">
+                <X className="h-5 w-5 text-gray-400" />
+              </button>
+            </div>
+
+            <div className="p-6 space-y-5">
+              <div>
+                <label className="text-xs font-medium text-gray-400 mb-1.5 block">Campaign Name *</label>
+                <input
+                  value={campaignForm.name}
+                  onChange={(e) => setCampaignForm({ ...campaignForm, name: e.target.value })}
+                  className="w-full px-3 py-2 rounded-lg bg-white/[0.04] border border-white/[0.08] text-sm text-white focus:outline-none focus:border-brand-500/50"
+                  placeholder="e.g., February Newsletter"
+                />
+              </div>
+
+              <div>
+                <label className="text-xs font-medium text-gray-400 mb-1.5 block">Email Subject *</label>
+                <input
+                  value={campaignForm.subject}
+                  onChange={(e) => setCampaignForm({ ...campaignForm, subject: e.target.value })}
+                  className="w-full px-3 py-2 rounded-lg bg-white/[0.04] border border-white/[0.08] text-sm text-white focus:outline-none focus:border-brand-500/50"
+                  placeholder="Subject line for the email"
+                />
+              </div>
+
+              <div>
+                <label className="text-xs font-medium text-gray-400 mb-1.5 block">Email Body * (HTML supported)</label>
+                <textarea
+                  value={campaignForm.body}
+                  onChange={(e) => setCampaignForm({ ...campaignForm, body: e.target.value })}
+                  rows={8}
+                  className="w-full px-3 py-2 rounded-lg bg-white/[0.04] border border-white/[0.08] text-sm text-white focus:outline-none focus:border-brand-500/50 resize-none font-mono text-xs"
+                  placeholder="<h1>Hello!</h1><p>Your email content here...</p>"
+                />
+              </div>
+
+              <div>
+                <label className="text-xs font-medium text-gray-400 mb-1.5 block">
+                  Target Plans <span className="text-gray-500">(empty = all plans)</span>
+                </label>
+                <div className="flex flex-wrap gap-1.5">
+                  {PLANS.map((plan) => (
+                    <button
+                      key={plan} type="button"
+                      onClick={() => {
+                        const plans = campaignForm.targetPlans.includes(plan)
+                          ? campaignForm.targetPlans.filter(p => p !== plan)
+                          : [...campaignForm.targetPlans, plan]
+                        setCampaignForm({ ...campaignForm, targetPlans: plans })
+                      }}
+                      className={`px-2.5 py-1 rounded-lg text-[11px] font-medium transition border ${
+                        campaignForm.targetPlans.includes(plan)
+                          ? 'bg-brand-500/15 border-brand-500/30 text-brand-400'
+                          : 'bg-white/[0.03] border-white/[0.06] text-gray-400 hover:border-white/[0.1]'
+                      }`}
+                    >
+                      {plan}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div>
+                <label className="text-xs font-medium text-gray-400 mb-1.5 block">
+                  Target Countries <span className="text-gray-500">(empty = all countries)</span>
+                </label>
+                <input
+                  value={campaignForm.targetCountries}
+                  onChange={(e) => setCampaignForm({ ...campaignForm, targetCountries: e.target.value })}
+                  className="w-full px-3 py-2 rounded-lg bg-white/[0.04] border border-white/[0.08] text-sm text-white focus:outline-none focus:border-brand-500/50"
+                  placeholder="US, IN, GB (comma-separated)"
+                />
+              </div>
+
+              <div>
+                <label className="text-xs font-medium text-gray-400 mb-1.5 block">Schedule (optional)</label>
+                <input
+                  type="datetime-local"
+                  value={campaignForm.scheduledAt}
+                  onChange={(e) => setCampaignForm({ ...campaignForm, scheduledAt: e.target.value })}
+                  className="w-full px-3 py-2 rounded-lg bg-white/[0.04] border border-white/[0.08] text-sm text-white focus:outline-none focus:border-brand-500/50"
+                />
+              </div>
+            </div>
+
+            <div className="sticky bottom-0 bg-[#12121A] border-t border-white/[0.06] px-6 py-4 flex justify-end gap-3">
+              <button
+                onClick={() => setCampaignModal(false)}
+                className="px-4 py-2 rounded-lg border border-white/[0.08] text-sm text-gray-400 hover:bg-white/[0.04] transition"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={saveCampaign}
+                disabled={saving || !campaignForm.name || !campaignForm.subject || !campaignForm.body}
+                className="px-5 py-2 rounded-lg bg-brand-500 hover:bg-brand-600 text-white text-sm font-medium transition disabled:opacity-50"
+              >
+                {saving ? 'Saving...' : editingCampaign ? 'Update Campaign' : 'Save as Draft'}
+              </button>
+            </div>
+          </div>
         </div>
       )}
 
@@ -1349,9 +2061,25 @@ export default function AdminMarketingPage() {
               <h2 className="text-lg font-bold text-white">
                 {editingPromo ? 'Edit Promo Code' : 'Create Promo Code'}
               </h2>
-              <button onClick={() => setPromoModal(false)} className="p-1.5 rounded-lg hover:bg-white/[0.06]">
-                <X className="h-5 w-5 text-gray-400" />
-              </button>
+              <div className="flex items-center gap-2">
+                {!editingPromo && (
+                  <button
+                    onClick={handleGeneratePromoIdea}
+                    disabled={generatingPromo}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-purple-500/15 hover:bg-purple-500/25 border border-purple-500/20 text-purple-300 text-xs font-medium transition disabled:opacity-50"
+                  >
+                    {generatingPromo ? (
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    ) : (
+                      <Wand2 className="h-3.5 w-3.5" />
+                    )}
+                    {generatingPromo ? 'Generating...' : 'Generate Idea'}
+                  </button>
+                )}
+                <button onClick={() => setPromoModal(false)} className="p-1.5 rounded-lg hover:bg-white/[0.06]">
+                  <X className="h-5 w-5 text-gray-400" />
+                </button>
+              </div>
             </div>
 
             <div className="p-6 space-y-5">
@@ -1375,24 +2103,50 @@ export default function AdminMarketingPage() {
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="text-xs font-medium text-gray-400 mb-1.5 block">Discount Type</label>
-                  <select
-                    value={promoForm.discountType}
-                    onChange={(e) => setPromoForm({ ...promoForm, discountType: e.target.value })}
-                    className="w-full px-3 py-2 rounded-lg bg-white/[0.04] border border-white/[0.08] text-sm text-white focus:outline-none focus:border-brand-500/50"
-                  >
-                    {DISCOUNT_TYPES.map((t) => (
-                      <option key={t.value} value={t.value}>{t.label}</option>
-                    ))}
-                  </select>
+              <div>
+                <label className="text-xs font-medium text-gray-400 mb-2 block">Discount Type</label>
+                <div className="grid grid-cols-3 gap-2.5">
+                  {DISCOUNT_TYPES.map((t) => {
+                    const isSelected = promoForm.discountType === t.value
+                    const colorMap: Record<string, { bg: string; border: string; text: string; iconBg: string; ring: string }> = {
+                      brand: { bg: 'bg-brand-500/10', border: 'border-brand-500/40', text: 'text-brand-400', iconBg: 'bg-brand-500/20', ring: 'ring-brand-500/20' },
+                      emerald: { bg: 'bg-emerald-500/10', border: 'border-emerald-500/40', text: 'text-emerald-400', iconBg: 'bg-emerald-500/20', ring: 'ring-emerald-500/20' },
+                      amber: { bg: 'bg-amber-500/10', border: 'border-amber-500/40', text: 'text-amber-400', iconBg: 'bg-amber-500/20', ring: 'ring-amber-500/20' },
+                    }
+                    const c = colorMap[t.color]
+                    return (
+                      <button
+                        key={t.value}
+                        type="button"
+                        onClick={() => setPromoForm({ ...promoForm, discountType: t.value })}
+                        className={`relative flex flex-col items-center gap-1.5 rounded-xl border p-3 transition-all ${
+                          isSelected
+                            ? `${c.bg} ${c.border} ${c.text} ring-1 ${c.ring}`
+                            : 'bg-white/[0.02] border-white/[0.08] text-gray-400 hover:bg-white/[0.04] hover:border-white/[0.12]'
+                        }`}
+                      >
+                        <div className={`h-8 w-8 rounded-lg flex items-center justify-center ${isSelected ? c.iconBg : 'bg-white/[0.06]'}`}>
+                          <t.icon className="h-4 w-4" />
+                        </div>
+                        <span className="text-[11px] font-semibold">{t.label}</span>
+                        <span className={`text-[10px] ${isSelected ? 'opacity-70' : 'text-gray-500'}`}>{t.desc}</span>
+                        {isSelected && (
+                          <div className={`absolute top-1.5 right-1.5 h-1.5 w-1.5 rounded-full ${
+                            t.color === 'brand' ? 'bg-brand-400' : t.color === 'emerald' ? 'bg-emerald-400' : 'bg-amber-400'
+                          }`} />
+                        )}
+                      </button>
+                    )
+                  })}
                 </div>
-                <div>
-                  <label className="text-xs font-medium text-gray-400 mb-1.5 block">
-                    {promoForm.discountType === 'PERCENTAGE' ? 'Discount (%)' :
-                     promoForm.discountType === 'FIXED_AMOUNT' ? 'Amount (cents)' : 'Bonus Credits'}
-                  </label>
+              </div>
+
+              <div>
+                <label className="text-xs font-medium text-gray-400 mb-1.5 block">
+                  {promoForm.discountType === 'PERCENTAGE' ? 'Discount Percentage (%)' :
+                   promoForm.discountType === 'FIXED_AMOUNT' ? 'Discount Amount (cents)' : 'Bonus Credits to Award'}
+                </label>
+                <div className="relative">
                   <input
                     type="number"
                     value={promoForm.discountType === 'CREDIT_BONUS' ? promoForm.bonusCredits : promoForm.discountValue}
@@ -1404,9 +2158,15 @@ export default function AdminMarketingPage() {
                         setPromoForm({ ...promoForm, discountValue: val })
                       }
                     }}
-                    className="w-full px-3 py-2 rounded-lg bg-white/[0.04] border border-white/[0.08] text-sm text-white focus:outline-none focus:border-brand-500/50"
+                    className="w-full px-3 py-2 pl-9 rounded-lg bg-white/[0.04] border border-white/[0.08] text-sm text-white focus:outline-none focus:border-brand-500/50"
                     min={0}
+                    placeholder={promoForm.discountType === 'PERCENTAGE' ? 'e.g., 25' : promoForm.discountType === 'FIXED_AMOUNT' ? 'e.g., 500' : 'e.g., 10'}
                   />
+                  <div className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500">
+                    {promoForm.discountType === 'PERCENTAGE' && <Percent className="h-3.5 w-3.5" />}
+                    {promoForm.discountType === 'FIXED_AMOUNT' && <DollarSign className="h-3.5 w-3.5" />}
+                    {promoForm.discountType === 'CREDIT_BONUS' && <Coins className="h-3.5 w-3.5" />}
+                  </div>
                 </div>
               </div>
 

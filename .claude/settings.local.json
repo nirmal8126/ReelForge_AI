@@ -25,7 +25,8 @@
       "Bash(xargs kill:*)",
       "Bash(npx tsc:*)",
       "Bash(npx next dev:*)",
-      "Bash(ffmpeg:*)"
+      "Bash(ffmpeg:*)",
+      "Bash(wc:*)"
     ]
   }
 }

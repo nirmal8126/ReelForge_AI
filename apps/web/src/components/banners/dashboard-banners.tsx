@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import Link from 'next/link'
 import {
   Info,
@@ -45,9 +45,18 @@ const TYPE_DEFAULTS: Record<string, { bg: string; border: string; text: string }
   NEW_FEATURE: { bg: 'bg-cyan-500/10', border: 'border-cyan-500/20', text: 'text-cyan-300' },
 }
 
+function trackBanner(bannerId: string, action: 'view' | 'click') {
+  fetch('/api/banners/track', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ bannerId, action }),
+  }).catch(() => {})
+}
+
 export function DashboardBanners({ placement = 'DASHBOARD_TOP' }: { placement?: string }) {
   const [banners, setBanners] = useState<Banner[]>([])
   const [dismissed, setDismissed] = useState<Set<string>>(new Set())
+  const trackedRef = useRef<Set<string>>(new Set())
 
   useEffect(() => {
     // Load dismissed banners from localStorage
@@ -62,16 +71,27 @@ export function DashboardBanners({ placement = 'DASHBOARD_TOP' }: { placement?: 
       .catch(() => {})
   }, [])
 
+  const visible = banners.filter(
+    (b) => b.placement === placement && !dismissed.has(b.id)
+  )
+
+  // Track views once per banner per component lifetime
+  useEffect(() => {
+    visible.forEach((banner) => {
+      const key = `${placement}_${banner.id}`
+      if (!trackedRef.current.has(key)) {
+        trackedRef.current.add(key)
+        trackBanner(banner.id, 'view')
+      }
+    })
+  }, [visible, placement])
+
   function dismiss(id: string) {
     const next = new Set(dismissed)
     next.add(id)
     setDismissed(next)
     localStorage.setItem('dismissed_banners', JSON.stringify([...next]))
   }
-
-  const visible = banners.filter(
-    (b) => b.placement === placement && !dismissed.has(b.id)
-  )
 
   if (visible.length === 0) return null
 
@@ -110,6 +130,7 @@ export function DashboardBanners({ placement = 'DASHBOARD_TOP' }: { placement?: 
                 {banner.linkUrl && banner.linkText && (
                   <Link
                     href={banner.linkUrl}
+                    onClick={() => trackBanner(banner.id, 'click')}
                     className="inline-flex items-center gap-1 mt-2 text-xs font-medium text-brand-400 underline underline-offset-2 hover:opacity-80 transition"
                   >
                     {banner.linkText}
@@ -143,6 +164,7 @@ export function DashboardBanners({ placement = 'DASHBOARD_TOP' }: { placement?: 
                 {banner.linkUrl && banner.linkText && (
                   <Link
                     href={banner.linkUrl}
+                    onClick={() => trackBanner(banner.id, 'click')}
                     className={`inline-flex items-center gap-1 mt-2 text-xs font-medium underline underline-offset-2 ${
                       hasCustomColors ? '' : defaults.text
                     } hover:opacity-80 transition`}

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import Link from 'next/link'
 import {
   Info,
@@ -45,10 +45,19 @@ const TYPE_COLORS: Record<string, { accent: string; glow: string }> = {
   NEW_FEATURE: { accent: 'from-cyan-500 to-teal-600', glow: 'shadow-cyan-500/20' },
 }
 
+function trackBanner(bannerId: string, action: 'view' | 'click') {
+  fetch('/api/banners/track', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ bannerId, action }),
+  }).catch(() => {})
+}
+
 export function FullPageBannerModal() {
   const [banners, setBanners] = useState<Banner[]>([])
   const [dismissed, setDismissed] = useState<Set<string>>(new Set())
   const [currentIndex, setCurrentIndex] = useState(0)
+  const trackedRef = useRef<Set<string>>(new Set())
 
   useEffect(() => {
     try {
@@ -76,6 +85,14 @@ export function FullPageBannerModal() {
 
   const visible = banners.filter((b) => !dismissed.has(b.id))
   const banner = visible[currentIndex]
+
+  // Track view when modal banner is shown
+  useEffect(() => {
+    if (banner && !trackedRef.current.has(banner.id)) {
+      trackedRef.current.add(banner.id)
+      trackBanner(banner.id, 'view')
+    }
+  }, [banner?.id])
 
   if (!banner) return null
 
@@ -130,7 +147,7 @@ export function FullPageBannerModal() {
                 {banner.linkUrl && banner.linkText && (
                   <Link
                     href={banner.linkUrl}
-                    onClick={handleDismiss}
+                    onClick={() => { trackBanner(banner.id, 'click'); handleDismiss() }}
                     className={`inline-flex items-center gap-2 mt-5 px-6 py-2.5 rounded-xl bg-gradient-to-r ${colors.accent} text-white text-sm font-semibold shadow-lg ${colors.glow} hover:opacity-90 transition`}
                   >
                     {banner.linkText}
@@ -160,7 +177,7 @@ export function FullPageBannerModal() {
                 {banner.linkUrl && banner.linkText && (
                   <Link
                     href={banner.linkUrl}
-                    onClick={handleDismiss}
+                    onClick={() => { trackBanner(banner.id, 'click'); handleDismiss() }}
                     className={`inline-flex items-center gap-2 mt-6 px-6 py-2.5 rounded-xl bg-gradient-to-r ${colors.accent} text-white text-sm font-semibold shadow-lg ${colors.glow} hover:opacity-90 transition`}
                   >
                     {banner.linkText}

@@ -50,6 +50,7 @@ model User {
   challengeJobs      ChallengeJob[]
   accounts           Account[]
   sessions           Session[]
+  notifications      Notification[]
 
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
@@ -1091,6 +1092,97 @@ enum DiscountType {
   PERCENTAGE
   FIXED_AMOUNT
   CREDIT_BONUS
+}
+
+// ---------------------------------------------------------------------------
+// Notifications — in-app notification system
+// ---------------------------------------------------------------------------
+model Notification {
+  id        String           @id @default(cuid())
+  userId    String           @map("user_id")
+  title     String           @db.VarChar(200)
+  message   String           @db.Text
+  type      NotificationType @default(INFO)
+  linkUrl   String?          @map("link_url") @db.VarChar(500)
+  isRead    Boolean          @default(false) @map("is_read")
+
+  user User @relation(fields: [userId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([userId, isRead])
+  @@index([createdAt])
+  @@map("notifications")
+}
+
+enum NotificationType {
+  INFO
+  SUCCESS
+  WARNING
+  PROMOTION
+  ANNOUNCEMENT
+  NEW_FEATURE
+  SYSTEM
+}
+
+// ---------------------------------------------------------------------------
+// Email Campaigns — bulk marketing email system
+// ---------------------------------------------------------------------------
+model EmailCampaign {
+  id              String              @id @default(cuid())
+  name            String              @db.VarChar(200)
+  subject         String              @db.VarChar(200)
+  body            String              @db.LongText
+  status          EmailCampaignStatus @default(DRAFT)
+  targetPlans     Json?               @map("target_plans")
+  targetCountries Json?               @map("target_countries")
+  scheduledAt     DateTime?           @map("scheduled_at")
+  sentAt          DateTime?           @map("sent_at")
+  totalRecipients Int                 @default(0) @map("total_recipients")
+  sentCount       Int                 @default(0) @map("sent_count")
+  openCount       Int                 @default(0) @map("open_count")
+
+  recipients EmailRecipient[]
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([status])
+  @@map("email_campaigns")
+}
+
+model EmailRecipient {
+  id         String               @id @default(cuid())
+  campaignId String               @map("campaign_id")
+  userId     String               @map("user_id")
+  email      String               @db.VarChar(255)
+  status     EmailRecipientStatus @default(PENDING)
+  sentAt     DateTime?            @map("sent_at")
+  openedAt   DateTime?            @map("opened_at")
+
+  campaign EmailCampaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@unique([campaignId, userId])
+  @@index([campaignId])
+  @@index([userId])
+  @@map("email_recipients")
+}
+
+enum EmailCampaignStatus {
+  DRAFT
+  SCHEDULED
+  SENDING
+  SENT
+  FAILED
+}
+
+enum EmailRecipientStatus {
+  PENDING
+  SENT
+  OPENED
+  FAILED
 }
 
 // ---------------------------------------------------------------------------
