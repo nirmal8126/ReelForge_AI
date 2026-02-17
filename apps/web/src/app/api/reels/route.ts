@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { auth } from '@/lib/auth'
 import { prisma } from '@reelforge/db'
 import { enqueueReelJob } from '@/lib/queue'
+import { checkModuleCredits } from '@/lib/module-config'
 import { z } from 'zod'
 import { REEL_DURATIONS, ASPECT_RATIOS } from '@/lib/constants'
 
@@ -85,48 +86,10 @@ export async function POST(req: NextRequest) {
     const body = await req.json()
     const data = createReelSchema.parse(body)
 
-    // Check subscription quota
-    const subscription = await prisma.subscription.findUnique({
-      where: { userId: session.user.id },
-    })
-
-    if (!subscription) {
-      return NextResponse.json({ error: 'No active subscription found' }, { status: 403 })
-    }
-
-    const hasUnlimitedJobs = subscription.jobsLimit === -1
-    const hasQuota = hasUnlimitedJobs || subscription.jobsUsed < subscription.jobsLimit
-
-    if (!hasQuota) {
-      // Check if user has credits as fallback
-      const user = await prisma.user.findUnique({
-        where: { id: session.user.id },
-        select: { creditsBalance: true },
-      })
-
-      if (!user || user.creditsBalance < 1) {
-        return NextResponse.json(
-          { error: 'Monthly quota exceeded. Upgrade your plan or purchase credits.' },
-          { status: 403 }
-        )
-      }
-
-      // Deduct a credit
-      await prisma.$transaction([
-        prisma.user.update({
-          where: { id: session.user.id },
-          data: { creditsBalance: { decrement: 1 } },
-        }),
-        prisma.creditTransaction.create({
-          data: {
-            userId: session.user.id,
-            amount: -1,
-            type: 'JOB_DEBIT',
-            description: 'Reel generation (over quota)',
-            balanceAfter: (user.creditsBalance - 1),
-          },
-        }),
-      ])
+    // Check module pricing + credits
+    const creditCheck = await checkModuleCredits(session.user.id, 'reels')
+    if (!creditCheck.ok) {
+      return NextResponse.json({ error: creditCheck.error }, { status: creditCheck.status })
     }
 
     // Validate channel profile if provided
@@ -171,16 +134,8 @@ export async function POST(req: NextRequest) {
       durationSeconds: data.durationSeconds,
       aspectRatio: data.aspectRatio,
       channelProfileId: data.channelProfileId,
-      plan: subscription.plan,
+      plan: creditCheck.subscription.plan,
     })
-
-    // Increment jobs used on subscription (if not using credits)
-    if (hasQuota) {
-      await prisma.subscription.update({
-        where: { userId: session.user.id },
-        data: { jobsUsed: { increment: 1 } },
-      })
-    }
 
     return NextResponse.json({
       id: reelJob.id,

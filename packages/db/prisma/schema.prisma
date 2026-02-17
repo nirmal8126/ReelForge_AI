@@ -917,3 +917,18 @@ enum ChallengeJobStatus {
   COMPLETED
   FAILED
 }
+
+// ---------------------------------------------------------------------------
+// Admin Module Config — controls free/paid pricing per module
+// ---------------------------------------------------------------------------
+model ModuleConfig {
+  id            String   @id @default(cuid())
+  moduleId      String   @unique @map("module_id") @db.VarChar(50)  // reels, quotes, challenges, long_form, cartoon_studio
+  moduleName    String   @map("module_name") @db.VarChar(100)
+  isFree        Boolean  @default(false) @map("is_free")
+  creditCost    Int      @default(1) @map("credit_cost")
+  isEnabled     Boolean  @default(true) @map("is_enabled")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  @@map("module_configs")
+}

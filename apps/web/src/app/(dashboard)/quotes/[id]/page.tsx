@@ -261,7 +261,7 @@ export default async function QuoteDetailPage({ params }: QuoteDetailPageProps) 
                   <Zap className="h-4 w-4" />
                   Cost
                 </dt>
-                <dd className="text-sm text-white">{quote.creditsCost} credit</dd>
+                <dd className={`text-sm font-medium ${quote.creditsCost === 0 ? 'text-green-400' : 'text-white'}`}>{quote.creditsCost === 0 ? 'Free' : `${quote.creditsCost} credit`}</dd>
               </div>
             </dl>
           </div>
