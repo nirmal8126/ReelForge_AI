@@ -223,6 +223,7 @@ export default function AdminMarketingPage() {
   const [notifBatches, setNotifBatches] = useState<NotificationBatch[]>([])
   const [notifModal, setNotifModal] = useState(false)
   const [sendingNotif, setSendingNotif] = useState(false)
+  const [generatingNotif, setGeneratingNotif] = useState(false)
   const [notifForm, setNotifForm] = useState({
     title: '', message: '', type: 'INFO',
     linkUrl: '', targetType: 'all' as 'all' | 'plans' | 'countries' | 'user',
@@ -240,6 +241,7 @@ export default function AdminMarketingPage() {
     scheduledAt: '',
   })
   const [sendingCampaign, setSendingCampaign] = useState(false)
+  const [generatingCampaign, setGeneratingCampaign] = useState(false)
 
   // Delete confirmation
   const [deleteTarget, setDeleteTarget] = useState<{ type: 'banner' | 'promo' | 'campaign'; id: string; name: string } | null>(null)
@@ -676,6 +678,61 @@ export default function AdminMarketingPage() {
       showToast('error', err.message || 'Failed to send notification')
     } finally {
       setSendingNotif(false)
+    }
+  }
+
+  async function handleGenerateNotifIdea() {
+    setGeneratingNotif(true)
+    try {
+      const res = await fetch('/api/admin/marketing/generate-content', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ contentType: 'notification' }),
+      })
+      if (!res.ok) throw new Error('Generation failed')
+      const data = await res.json()
+      const gen = data.generated
+      if (gen) {
+        setNotifForm((prev) => ({
+          ...prev,
+          title: gen.title || prev.title,
+          message: gen.message || prev.message,
+          type: gen.type || prev.type,
+          linkUrl: gen.linkUrl || prev.linkUrl,
+        }))
+        showToast('success', `AI idea: ${gen.occasion || 'Notification generated'}!`)
+      }
+    } catch {
+      showToast('error', 'Failed to generate notification idea. Check API keys.')
+    } finally {
+      setGeneratingNotif(false)
+    }
+  }
+
+  async function handleGenerateCampaignIdea() {
+    setGeneratingCampaign(true)
+    try {
+      const res = await fetch('/api/admin/marketing/generate-content', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ contentType: 'campaign' }),
+      })
+      if (!res.ok) throw new Error('Generation failed')
+      const data = await res.json()
+      const gen = data.generated
+      if (gen) {
+        setCampaignForm((prev) => ({
+          ...prev,
+          name: gen.name || prev.name,
+          subject: gen.subject || prev.subject,
+          body: gen.body || prev.body,
+        }))
+        showToast('success', `AI idea: ${gen.occasion || 'Campaign generated'}!`)
+      }
+    } catch {
+      showToast('error', 'Failed to generate campaign idea. Check API keys.')
+    } finally {
+      setGeneratingCampaign(false)
     }
   }
 
@@ -1257,9 +1314,23 @@ export default function AdminMarketingPage() {
           <div className="relative bg-[#12121A] border border-white/[0.08] rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto mx-4">
             <div className="sticky top-0 bg-[#12121A] border-b border-white/[0.06] px-6 py-4 flex items-center justify-between z-10">
               <h2 className="text-lg font-bold text-white">Send Notification</h2>
-              <button onClick={() => setNotifModal(false)} className="p-1.5 rounded-lg hover:bg-white/[0.06]">
-                <X className="h-5 w-5 text-gray-400" />
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={handleGenerateNotifIdea}
+                  disabled={generatingNotif}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-purple-500/15 hover:bg-purple-500/25 border border-purple-500/20 text-purple-300 text-xs font-medium transition disabled:opacity-50"
+                >
+                  {generatingNotif ? (
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  ) : (
+                    <Wand2 className="h-3.5 w-3.5" />
+                  )}
+                  {generatingNotif ? 'Generating...' : 'Generate Idea'}
+                </button>
+                <button onClick={() => setNotifModal(false)} className="p-1.5 rounded-lg hover:bg-white/[0.06]">
+                  <X className="h-5 w-5 text-gray-400" />
+                </button>
+              </div>
             </div>
 
             <div className="p-6 space-y-5">
@@ -1412,9 +1483,25 @@ export default function AdminMarketingPage() {
               <h2 className="text-lg font-bold text-white">
                 {editingCampaign ? 'Edit Campaign' : 'Create Campaign'}
               </h2>
-              <button onClick={() => setCampaignModal(false)} className="p-1.5 rounded-lg hover:bg-white/[0.06]">
-                <X className="h-5 w-5 text-gray-400" />
-              </button>
+              <div className="flex items-center gap-2">
+                {!editingCampaign && (
+                  <button
+                    onClick={handleGenerateCampaignIdea}
+                    disabled={generatingCampaign}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-purple-500/15 hover:bg-purple-500/25 border border-purple-500/20 text-purple-300 text-xs font-medium transition disabled:opacity-50"
+                  >
+                    {generatingCampaign ? (
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    ) : (
+                      <Wand2 className="h-3.5 w-3.5" />
+                    )}
+                    {generatingCampaign ? 'Generating...' : 'Generate Idea'}
+                  </button>
+                )}
+                <button onClick={() => setCampaignModal(false)} className="p-1.5 rounded-lg hover:bg-white/[0.06]">
+                  <X className="h-5 w-5 text-gray-400" />
+                </button>
+              </div>
             </div>
 
             <div className="p-6 space-y-5">
