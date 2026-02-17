@@ -20,6 +20,8 @@ import {
   Gamepad2,
   Sparkles,
   Globe,
+  Tv,
+  Wrench,
 } from 'lucide-react'
 
 const navSections = [
@@ -32,15 +34,15 @@ const navSections = [
       { href: '/long-form', label: 'My Videos', icon: Video, moduleId: 'long_form' },
       { href: '/cartoon-studio', label: 'Cartoon Studio', icon: Clapperboard, moduleId: 'cartoon_studio' },
       { href: '/challenges', label: 'Challenges', icon: Gamepad2, moduleId: 'challenges' },
+      { href: '/profiles', label: 'Channels', icon: Tv, hideForAdmin: true },
     ],
   },
   {
     label: 'Account',
     items: [
-      { href: '/profiles', label: 'Channels', icon: Users },
       { href: '/billing', label: 'Billing', icon: CreditCard, hideForAdmin: true },
       { href: '/referrals', label: 'Referrals', icon: Gift, hideForAdmin: true },
-      { href: '/settings', label: 'Settings', icon: Settings },
+      { href: '/settings', label: 'Settings', icon: Settings, hideForAdmin: true },
     ],
   },
 ]
@@ -134,10 +136,12 @@ export function Sidebar() {
               <div className="space-y-0.5">
                 {[
                   { href: '/admin/users', label: 'Users', icon: Users },
+                  { href: '/admin/channels', label: 'Channels', icon: Tv },
                   { href: '/admin/modules', label: 'Module Settings', icon: Shield },
                   { href: '/admin/plans', label: 'Plans Settings', icon: CreditCard },
                   { href: '/admin/referrals', label: 'Referrals Settings', icon: Gift },
                   { href: '/admin/pricing', label: 'Pricing Regions', icon: Globe },
+                  { href: '/admin/settings', label: 'App Settings', icon: Wrench },
                 ].map((item) => {
                   const isActive = pathname.startsWith(item.href)
                   return (
