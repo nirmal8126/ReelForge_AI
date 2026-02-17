@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import Link from 'next/link'
 import {
   Info,
@@ -25,6 +25,11 @@ interface Banner {
   textColor: string | null
   placement: string
   dismissible: boolean
+  triggerType: string
+  triggerDelay: number | null
+  triggerScrollPercent: number | null
+  showFrequency: string
+  maxImpressions: number | null
 }
 
 const TYPE_ICONS: Record<string, typeof Info> = {
@@ -53,16 +58,62 @@ function trackBanner(bannerId: string, action: 'view' | 'click') {
   }).catch(() => {})
 }
 
+/* ── Frequency & Impression helpers ── */
+
+function isFrequencyBlocked(banner: Banner): boolean {
+  const freq = banner.showFrequency || 'EVERY_VISIT'
+  if (freq === 'EVERY_VISIT') return false
+  if (freq === 'ONCE') {
+    return localStorage.getItem(`banner_dismissed_${banner.id}`) === '1'
+  }
+  if (freq === 'ONCE_PER_SESSION') {
+    return sessionStorage.getItem(`banner_session_${banner.id}`) === '1'
+  }
+  return false
+}
+
+function isImpressionCapped(banner: Banner): boolean {
+  if (!banner.maxImpressions) return false
+  const count = parseInt(localStorage.getItem(`banner_impressions_${banner.id}`) || '0', 10)
+  return count >= banner.maxImpressions
+}
+
+function recordImpression(banner: Banner) {
+  const count = parseInt(localStorage.getItem(`banner_impressions_${banner.id}`) || '0', 10)
+  localStorage.setItem(`banner_impressions_${banner.id}`, String(count + 1))
+}
+
+function recordDismiss(banner: Banner) {
+  const freq = banner.showFrequency || 'EVERY_VISIT'
+  if (freq === 'ONCE') {
+    localStorage.setItem(`banner_dismissed_${banner.id}`, '1')
+  } else if (freq === 'ONCE_PER_SESSION') {
+    sessionStorage.setItem(`banner_session_${banner.id}`, '1')
+  }
+  // Also keep legacy dismissed_banners for backwards compat
+  try {
+    const saved = localStorage.getItem('dismissed_banners')
+    const arr: string[] = saved ? JSON.parse(saved) : []
+    if (!arr.includes(banner.id)) {
+      arr.push(banner.id)
+      localStorage.setItem('dismissed_banners', JSON.stringify(arr))
+    }
+  } catch {}
+}
+
 export function FullPageBannerModal() {
   const [banners, setBanners] = useState<Banner[]>([])
-  const [dismissed, setDismissed] = useState<Set<string>>(new Set())
-  const [currentIndex, setCurrentIndex] = useState(0)
+  const [triggeredIds, setTriggeredIds] = useState<Set<string>>(new Set())
+  const [dismissedIds, setDismissedIds] = useState<Set<string>>(new Set())
   const trackedRef = useRef<Set<string>>(new Set())
+  const triggersSetup = useRef(false)
 
+  // Fetch banners
   useEffect(() => {
+    // Load legacy dismissals
     try {
       const saved = localStorage.getItem('dismissed_banners')
-      if (saved) setDismissed(new Set(JSON.parse(saved)))
+      if (saved) setDismissedIds(new Set(JSON.parse(saved)))
     } catch {}
 
     fetch('/api/banners')
@@ -76,38 +127,107 @@ export function FullPageBannerModal() {
       .catch(() => {})
   }, [])
 
-  function dismiss(id: string) {
-    const next = new Set(dismissed)
-    next.add(id)
-    setDismissed(next)
-    localStorage.setItem('dismissed_banners', JSON.stringify([...next]))
-  }
+  // Setup triggers when banners load
+  useEffect(() => {
+    if (banners.length === 0 || triggersSetup.current) return
+    triggersSetup.current = true
 
-  const visible = banners.filter((b) => !dismissed.has(b.id))
-  const banner = visible[currentIndex]
+    const eligible = banners.filter(
+      (b) => !dismissedIds.has(b.id) && !isFrequencyBlocked(b) && !isImpressionCapped(b)
+    )
 
-  // Track view when modal banner is shown
+    for (const b of eligible) {
+      const trigger = b.triggerType || 'IMMEDIATE'
+
+      if (trigger === 'IMMEDIATE') {
+        setTriggeredIds((prev) => new Set(prev).add(b.id))
+      } else if (trigger === 'DELAY') {
+        const delay = (b.triggerDelay || 5) * 1000
+        setTimeout(() => {
+          setTriggeredIds((prev) => new Set(prev).add(b.id))
+        }, delay)
+      } else if (trigger === 'SCROLL') {
+        const threshold = b.triggerScrollPercent || 50
+        const handler = () => {
+          const scrollTop = window.scrollY || document.documentElement.scrollTop
+          const docHeight = document.documentElement.scrollHeight - window.innerHeight
+          if (docHeight <= 0) return
+          const percent = (scrollTop / docHeight) * 100
+          if (percent >= threshold) {
+            setTriggeredIds((prev) => new Set(prev).add(b.id))
+            window.removeEventListener('scroll', handler)
+          }
+        }
+        window.addEventListener('scroll', handler, { passive: true })
+      } else if (trigger === 'EXIT_INTENT') {
+        // Desktop only
+        const isDesktop = window.matchMedia('(pointer: fine)').matches
+        if (isDesktop) {
+          const handler = (e: MouseEvent) => {
+            if (e.clientY <= 0) {
+              setTriggeredIds((prev) => new Set(prev).add(b.id))
+              document.removeEventListener('mouseleave', handler)
+            }
+          }
+          document.addEventListener('mouseleave', handler)
+        }
+      } else if (trigger === 'IDLE') {
+        let timer: ReturnType<typeof setTimeout>
+        const resetTimer = () => {
+          clearTimeout(timer)
+          timer = setTimeout(() => {
+            setTriggeredIds((prev) => new Set(prev).add(b.id))
+            cleanup()
+          }, 30000) // 30 seconds idle
+        }
+        const events = ['mousemove', 'keydown', 'scroll', 'touchstart']
+        const cleanup = () => {
+          events.forEach((e) => window.removeEventListener(e, resetTimer))
+          clearTimeout(timer)
+        }
+        events.forEach((e) => window.addEventListener(e, resetTimer, { passive: true }))
+        resetTimer()
+      } else if (trigger === 'FIRST_VISIT') {
+        const hasVisited = localStorage.getItem('rf_has_previous_session')
+        if (!hasVisited) {
+          setTriggeredIds((prev) => new Set(prev).add(b.id))
+        }
+        // Always set the key so future visits are not "first"
+        localStorage.setItem('rf_has_previous_session', '1')
+      }
+    }
+  }, [banners, dismissedIds])
+
+  // Get the first visible triggered banner
+  const visibleBanners = banners.filter(
+    (b) =>
+      triggeredIds.has(b.id) &&
+      !dismissedIds.has(b.id) &&
+      !isFrequencyBlocked(b) &&
+      !isImpressionCapped(b)
+  )
+  const banner = visibleBanners[0] || null
+
+  // Track view + record impression
   useEffect(() => {
     if (banner && !trackedRef.current.has(banner.id)) {
       trackedRef.current.add(banner.id)
       trackBanner(banner.id, 'view')
+      recordImpression(banner)
     }
   }, [banner?.id])
+
+  const handleDismiss = useCallback(() => {
+    if (!banner) return
+    recordDismiss(banner)
+    setDismissedIds((prev) => new Set(prev).add(banner.id))
+  }, [banner])
 
   if (!banner) return null
 
   const Icon = TYPE_ICONS[banner.type] || Info
   const colors = TYPE_COLORS[banner.type] || TYPE_COLORS.INFO
   const hasCustomColors = banner.bgColor || banner.textColor
-
-  function handleDismiss() {
-    dismiss(banner.id)
-    if (currentIndex < visible.length - 1) {
-      // There are more modals — currentIndex stays, visible shrinks
-    } else {
-      setCurrentIndex(0)
-    }
-  }
 
   return (
     <div className="fixed inset-0 z-[60] flex items-center justify-center">
@@ -187,14 +307,14 @@ export function FullPageBannerModal() {
             </div>
           )}
 
-          {/* Multiple modals indicator */}
-          {visible.length > 1 && (
+          {/* Multiple banners indicator */}
+          {visibleBanners.length > 1 && (
             <div className="px-8 pb-5 flex items-center justify-center gap-1.5">
-              {visible.map((_, i) => (
+              {visibleBanners.map((_, i) => (
                 <div
                   key={i}
                   className={`h-1.5 rounded-full transition-all ${
-                    i === currentIndex ? 'w-6 bg-brand-400' : 'w-1.5 bg-white/20'
+                    i === 0 ? 'w-6 bg-brand-400' : 'w-1.5 bg-white/20'
                   }`}
                 />
               ))}
@@ -202,10 +322,9 @@ export function FullPageBannerModal() {
           )}
         </div>
 
-        {/* Skip / counter for non-dismissible with multiple */}
-        {visible.length > 1 && banner.dismissible && (
+        {visibleBanners.length > 1 && banner.dismissible && (
           <p className="text-center mt-3 text-xs text-gray-500">
-            {currentIndex + 1} of {visible.length} announcements
+            1 of {visibleBanners.length} announcements
           </p>
         )}
       </div>

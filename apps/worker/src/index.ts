@@ -9,6 +9,9 @@ import { processLongFormJob } from './jobs/long-form-processor';
 import { processCartoonEpisode } from './jobs/cartoon-episode-processor';
 import { processQuoteJob } from './jobs/quote-processor';
 import { processChallengeJob } from './jobs/challenge-processor';
+import { processSequenceEmails } from './jobs/sequence-processor';
+import { checkSequenceTriggers } from './jobs/sequence-trigger-checker';
+import { processBadgeChecker } from './jobs/badge-checker';
 
 function loadEnvFiles() {
   const cwd = process.cwd();
@@ -240,6 +243,117 @@ emailWorker.on('error', (err) => {
 });
 
 // ---------------------------------------------------------------------------
+// Sequence processor (hourly) — sends due sequence emails
+// ---------------------------------------------------------------------------
+const sequenceQueue = new Queue('sequence-processor', { connection });
+const sequenceWorker = new Worker(
+  'sequence-processor',
+  async (job) => {
+    logger.info({ jobId: job.id }, 'Processing sequence emails');
+    return processSequenceEmails(job);
+  },
+  {
+    connection,
+    concurrency: 1,
+    removeOnComplete: { count: 100 },
+    removeOnFail: { count: 100 },
+  },
+);
+
+sequenceWorker.on('completed', (job) => {
+  logger.info({ jobId: job.id }, 'Sequence processor completed');
+});
+
+sequenceWorker.on('failed', (job, err) => {
+  logger.error({ jobId: job?.id, err: err.message }, 'Sequence processor failed');
+});
+
+sequenceWorker.on('error', (err) => {
+  logger.error({ err }, 'Sequence worker error');
+});
+
+// Schedule repeating job (every hour)
+sequenceQueue.upsertJobScheduler(
+  'sequence-hourly',
+  { every: 60 * 60 * 1000 },
+  { name: 'process-sequences' },
+).catch((err) => logger.error({ err }, 'Failed to schedule sequence processor'));
+
+// ---------------------------------------------------------------------------
+// Sequence trigger checker (every 6 hours) — enrolls users in sequences
+// ---------------------------------------------------------------------------
+const triggerQueue = new Queue('sequence-trigger-checker', { connection });
+const triggerWorker = new Worker(
+  'sequence-trigger-checker',
+  async (job) => {
+    logger.info({ jobId: job.id }, 'Checking sequence triggers');
+    return checkSequenceTriggers(job);
+  },
+  {
+    connection,
+    concurrency: 1,
+    removeOnComplete: { count: 100 },
+    removeOnFail: { count: 100 },
+  },
+);
+
+triggerWorker.on('completed', (job) => {
+  logger.info({ jobId: job.id }, 'Trigger checker completed');
+});
+
+triggerWorker.on('failed', (job, err) => {
+  logger.error({ jobId: job?.id, err: err.message }, 'Trigger checker failed');
+});
+
+triggerWorker.on('error', (err) => {
+  logger.error({ err }, 'Trigger checker error');
+});
+
+// Schedule repeating job (every 6 hours)
+triggerQueue.upsertJobScheduler(
+  'trigger-6hourly',
+  { every: 6 * 60 * 60 * 1000 },
+  { name: 'check-triggers' },
+).catch((err) => logger.error({ err }, 'Failed to schedule trigger checker'));
+
+// ---------------------------------------------------------------------------
+// Badge checker (daily) — awards badges to eligible users
+// ---------------------------------------------------------------------------
+const badgeQueue = new Queue('badge-checker', { connection });
+const badgeWorker = new Worker(
+  'badge-checker',
+  async (job) => {
+    logger.info({ jobId: job.id }, 'Running badge checker');
+    return processBadgeChecker(job);
+  },
+  {
+    connection,
+    concurrency: 1,
+    removeOnComplete: { count: 100 },
+    removeOnFail: { count: 100 },
+  },
+);
+
+badgeWorker.on('completed', (job) => {
+  logger.info({ jobId: job.id }, 'Badge checker completed');
+});
+
+badgeWorker.on('failed', (job, err) => {
+  logger.error({ jobId: job?.id, err: err.message }, 'Badge checker failed');
+});
+
+badgeWorker.on('error', (err) => {
+  logger.error({ err }, 'Badge checker error');
+});
+
+// Schedule repeating job (every 24 hours)
+badgeQueue.upsertJobScheduler(
+  'badge-daily',
+  { every: 24 * 60 * 60 * 1000 },
+  { name: 'check-badges' },
+).catch((err) => logger.error({ err }, 'Failed to schedule badge checker'));
+
+// ---------------------------------------------------------------------------
 // Graceful shutdown
 // ---------------------------------------------------------------------------
 const shutdown = async (signal: string) => {
@@ -252,6 +366,9 @@ const shutdown = async (signal: string) => {
     quoteWorker.close(),
     challengeWorker.close(),
     emailWorker.close(),
+    sequenceWorker.close(),
+    triggerWorker.close(),
+    badgeWorker.close(),
   ]);
 
   await connection.quit();
@@ -267,8 +384,8 @@ process.on('SIGINT', () => shutdown('SIGINT'));
 // ---------------------------------------------------------------------------
 logger.info(
   {
-    queues: ['reel-jobs', 'long-form-jobs', 'cartoon-episode-jobs', 'quote-jobs', 'challenge-jobs', 'email-notifications'],
-    concurrency: { reelJobs: 5, longFormJobs: 2, cartoonEpisodes: 2, quoteJobs: 5, challengeJobs: 5, emailNotifications: 10 },
+    queues: ['reel-jobs', 'long-form-jobs', 'cartoon-episode-jobs', 'quote-jobs', 'challenge-jobs', 'email-notifications', 'sequence-processor', 'sequence-trigger-checker', 'badge-checker'],
+    concurrency: { reelJobs: 5, longFormJobs: 2, cartoonEpisodes: 2, quoteJobs: 5, challengeJobs: 5, emailNotifications: 10, sequences: 1, triggers: 1, badges: 1 },
     redis: process.env.REDIS_URL ? '(configured)' : 'redis://localhost:6379',
   },
   'ReelForge worker service started',

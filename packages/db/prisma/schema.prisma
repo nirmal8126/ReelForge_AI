@@ -51,6 +51,9 @@ model User {
   accounts           Account[]
   sessions           Session[]
   notifications      Notification[]
+  badges             UserBadge[]
+
+  lastLoginAt DateTime? @map("last_login_at")
 
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
@@ -788,6 +791,7 @@ enum CreditTransactionType {
   JOB_DEBIT
   ADMIN_GRANT
   REFUND
+  CAMPAIGN_BONUS
 }
 
 enum LongFormJobStatus {
@@ -1025,6 +1029,19 @@ model Banner {
   viewCount    Int          @default(0) @map("view_count")
   clickCount   Int          @default(0) @map("click_count")
 
+  // Phase 3: Trigger & frequency settings
+  triggerType          BannerTriggerType   @default(IMMEDIATE) @map("trigger_type")
+  triggerDelay         Int?                @map("trigger_delay")           // seconds for DELAY trigger
+  triggerScrollPercent Int?                @map("trigger_scroll_percent")  // 0-100 for SCROLL trigger
+  showFrequency        BannerShowFrequency @default(EVERY_VISIT) @map("show_frequency")
+  maxImpressions       Int?                @map("max_impressions")
+
+  // Phase 3: A/B experiment reference
+  experimentId         String?             @map("experiment_id")
+
+  // Phase 4: Segment targeting
+  targetSegmentId      String?             @map("target_segment_id")
+
   createdAt    DateTime     @default(now()) @map("created_at")
   updatedAt    DateTime     @updatedAt @map("updated_at")
 
@@ -1088,6 +1105,21 @@ enum BannerPlacement {
   FULL_PAGE_MODAL
 }
 
+enum BannerTriggerType {
+  IMMEDIATE
+  DELAY
+  SCROLL
+  EXIT_INTENT
+  IDLE
+  FIRST_VISIT
+}
+
+enum BannerShowFrequency {
+  ONCE
+  ONCE_PER_SESSION
+  EVERY_VISIT
+}
+
 enum DiscountType {
   PERCENTAGE
   FIXED_AMOUNT
@@ -1142,6 +1174,8 @@ model EmailCampaign {
   sentCount       Int                 @default(0) @map("sent_count")
   openCount       Int                 @default(0) @map("open_count")
 
+  targetSegmentId String?             @map("target_segment_id")
+
   recipients EmailRecipient[]
 
   createdAt DateTime @default(now()) @map("created_at")
@@ -1186,6 +1220,98 @@ enum EmailRecipientStatus {
 }
 
 // ---------------------------------------------------------------------------
+// A/B Banner Experiments
+// ---------------------------------------------------------------------------
+model BannerExperiment {
+  id              String           @id @default(cuid())
+  name            String           @db.VarChar(200)
+  bannerAId       String           @map("banner_a_id")
+  bannerBId       String           @map("banner_b_id")
+  splitPercent    Int              @default(50)              @map("split_percent")
+  status          ExperimentStatus @default(RUNNING)
+  winnerBannerId  String?          @map("winner_banner_id")
+  startedAt       DateTime         @default(now())           @map("started_at")
+  endedAt         DateTime?        @map("ended_at")
+
+  createdAt       DateTime         @default(now())           @map("created_at")
+  updatedAt       DateTime         @updatedAt                @map("updated_at")
+
+  @@index([status])
+  @@map("banner_experiments")
+}
+
+enum ExperimentStatus {
+  RUNNING
+  COMPLETED
+  STOPPED
+}
+
+// ---------------------------------------------------------------------------
+// Email Sequences — automated drip campaigns
+// ---------------------------------------------------------------------------
+model EmailSequence {
+  id          String            @id @default(cuid())
+  name        String            @db.VarChar(200)
+  trigger     SequenceTrigger   @default(SIGNUP)
+  isActive    Boolean           @default(true)    @map("is_active")
+
+  steps       EmailSequenceStep[]
+  enrollments SequenceEnrollment[]
+
+  createdAt   DateTime          @default(now())   @map("created_at")
+  updatedAt   DateTime          @updatedAt        @map("updated_at")
+
+  @@map("email_sequences")
+}
+
+enum SequenceTrigger {
+  SIGNUP
+  INACTIVITY_7D
+  INACTIVITY_30D
+  PLAN_EXPIRY
+  FIRST_REEL
+  UPGRADE
+}
+
+model EmailSequenceStep {
+  id          String        @id @default(cuid())
+  sequenceId  String        @map("sequence_id")
+  stepOrder   Int           @map("step_order")
+  delayDays   Int           @map("delay_days")
+  subject     String        @db.VarChar(200)
+  body        String        @db.LongText
+
+  sequence    EmailSequence @relation(fields: [sequenceId], references: [id], onDelete: Cascade)
+
+  @@index([sequenceId, stepOrder])
+  @@map("email_sequence_steps")
+}
+
+model SequenceEnrollment {
+  id          String           @id @default(cuid())
+  sequenceId  String           @map("sequence_id")
+  userId      String           @map("user_id")
+  currentStep Int              @default(0)    @map("current_step")
+  status      EnrollmentStatus @default(ACTIVE)
+  nextSendAt  DateTime?        @map("next_send_at")
+  completedAt DateTime?        @map("completed_at")
+
+  sequence    EmailSequence    @relation(fields: [sequenceId], references: [id], onDelete: Cascade)
+
+  createdAt   DateTime         @default(now()) @map("created_at")
+
+  @@unique([sequenceId, userId])
+  @@index([status, nextSendAt])
+  @@map("sequence_enrollments")
+}
+
+enum EnrollmentStatus {
+  ACTIVE
+  COMPLETED
+  UNSUBSCRIBED
+}
+
+// ---------------------------------------------------------------------------
 // App Settings — key-value store for global admin settings
 // ---------------------------------------------------------------------------
 model AppSetting {
@@ -1195,4 +1321,189 @@ model AppSetting {
   updatedAt DateTime @updatedAt @map("updated_at")
 
   @@map("app_settings")
+}
+
+// ---------------------------------------------------------------------------
+// Phase 4: User Segments — reusable audience targeting
+// ---------------------------------------------------------------------------
+enum SegmentMatchType {
+  ALL
+  ANY
+}
+
+model UserSegment {
+  id          String           @id @default(cuid())
+  name        String           @db.VarChar(200)
+  description String?          @db.Text
+  rules       Json
+  matchType   SegmentMatchType @default(ALL) @map("match_type")
+  cachedCount Int              @default(0) @map("cached_count")
+  lastCountAt DateTime?        @map("last_count_at")
+  isActive    Boolean          @default(true) @map("is_active")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("user_segments")
+}
+
+// ---------------------------------------------------------------------------
+// Phase 4: Referral Campaigns — time-limited referral bonus events
+// ---------------------------------------------------------------------------
+enum ReferralCampaignStatus {
+  DRAFT
+  ACTIVE
+  COMPLETED
+  CANCELLED
+}
+
+model ReferralCampaign {
+  id                  String                 @id @default(cuid())
+  name                String                 @db.VarChar(200)
+  description         String?                @db.Text
+  creditMultiplier    Float                  @default(1.0) @map("credit_multiplier")
+  bonusCredits        Int                    @default(0) @map("bonus_credits")
+  cashMultiplier      Float                  @default(1.0) @map("cash_multiplier")
+  status              ReferralCampaignStatus @default(DRAFT)
+  startsAt            DateTime               @map("starts_at")
+  endsAt              DateTime               @map("ends_at")
+  targetSegmentId     String?                @map("target_segment_id")
+  totalReferrals      Int                    @default(0) @map("total_referrals")
+  totalCreditsAwarded Int                    @default(0) @map("total_credits_awarded")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([status, startsAt, endsAt])
+  @@map("referral_campaigns")
+}
+
+// ---------------------------------------------------------------------------
+// Phase 4: User Badges — achievement / gamification system
+// ---------------------------------------------------------------------------
+enum BadgeType {
+  FIRST_REFERRAL
+  REFERRAL_5
+  REFERRAL_25
+  POWER_REFERRER_100
+  FIRST_REEL
+  REEL_MASTER_50
+  EARLY_ADOPTER
+  STREAK_7D
+}
+
+model UserBadge {
+  id        String    @id @default(cuid())
+  userId    String    @map("user_id")
+  badge     BadgeType
+  awardedAt DateTime  @default(now()) @map("awarded_at")
+  metadata  Json?
+
+  user User @relation(fields: [userId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@unique([userId, badge])
+  @@index([userId])
+  @@map("user_badges")
+}
+
+// ---------------------------------------------------------------------------
+// Phase 5: Email Templates — reusable email HTML templates
+// ---------------------------------------------------------------------------
+enum EmailTemplateCategory {
+  WELCOME
+  PROMOTIONAL
+  NEWSLETTER
+  TRANSACTIONAL
+  NOTIFICATION
+  CUSTOM
+}
+
+model EmailTemplate {
+  id         String                @id @default(cuid())
+  name       String                @db.VarChar(200)
+  category   EmailTemplateCategory @default(CUSTOM)
+  subject    String                @db.VarChar(200)
+  body       String                @db.LongText
+  variables  Json?
+  thumbnail  String?               @db.VarChar(500)
+  isActive   Boolean               @default(true) @map("is_active")
+  usageCount Int                   @default(0) @map("usage_count")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([category, isActive])
+  @@map("email_templates")
+}
+
+// ---------------------------------------------------------------------------
+// Phase 5: Marketing Calendar — custom calendar events
+// ---------------------------------------------------------------------------
+enum MarketingEventType {
+  CAMPAIGN
+  BANNER
+  PROMO
+  SEQUENCE
+  REFERRAL_CAMPAIGN
+  EXPERIMENT
+  CUSTOM
+}
+
+model MarketingEvent {
+  id          String             @id @default(cuid())
+  title       String             @db.VarChar(200)
+  description String?            @db.Text
+  type        MarketingEventType @default(CUSTOM)
+  date        DateTime
+  endDate     DateTime?          @map("end_date")
+  color       String?            @db.VarChar(20)
+  referenceId String?            @map("reference_id")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([date, endDate])
+  @@map("marketing_events")
+}
+
+// ---------------------------------------------------------------------------
+// Phase 5: UTM Tracking — trackable short links with analytics
+// ---------------------------------------------------------------------------
+model UtmLink {
+  id             String   @id @default(cuid())
+  shortCode      String   @unique @map("short_code") @db.VarChar(20)
+  destinationUrl String   @map("destination_url") @db.VarChar(1000)
+  utmSource      String   @map("utm_source") @db.VarChar(100)
+  utmMedium      String   @map("utm_medium") @db.VarChar(100)
+  utmCampaign    String   @map("utm_campaign") @db.VarChar(100)
+  utmTerm        String?  @map("utm_term") @db.VarChar(100)
+  utmContent     String?  @map("utm_content") @db.VarChar(100)
+  totalClicks    Int      @default(0) @map("total_clicks")
+  isActive       Boolean  @default(true) @map("is_active")
+
+  clicks UtmClick[]
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([shortCode])
+  @@index([utmCampaign])
+  @@map("utm_links")
+}
+
+model UtmClick {
+  id        String  @id @default(cuid())
+  utmLinkId String  @map("utm_link_id")
+  ipHash    String? @map("ip_hash") @db.VarChar(64)
+  userAgent String? @map("user_agent") @db.VarChar(500)
+  referer   String? @db.VarChar(500)
+  country   String? @db.VarChar(2)
+
+  utmLink UtmLink @relation(fields: [utmLinkId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([utmLinkId])
+  @@index([createdAt])
+  @@map("utm_clicks")
 }

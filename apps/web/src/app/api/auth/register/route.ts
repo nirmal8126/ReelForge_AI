@@ -4,6 +4,9 @@ import { prisma } from '@reelforge/db'
 import { generateReferralCode } from '@/lib/utils'
 import { detectCountry } from '@/lib/geo'
 import { z } from 'zod'
+import { enrollInSequences } from '@/lib/sequence-enrollment'
+import { getActiveReferralCampaign, computeReferralReward } from '@/lib/referral-campaign'
+import { checkAndAwardBadges } from '@/lib/badge-service'
 
 const registerSchema = z.object({
   name: z.string().min(2, 'Name must be at least 2 characters').max(100),
@@ -82,11 +85,16 @@ export async function POST(req: NextRequest) {
         },
       })
 
+      // Check for active referral campaign
+      const campaign = await getActiveReferralCampaign(referredByUserId)
+      const baseCredits = 5
+      const reward = computeReferralReward(baseCredits, campaign)
+
       // Award credits to referrer
       await prisma.user.update({
         where: { id: referredByUserId },
         data: {
-          creditsBalance: { increment: 5 },
+          creditsBalance: { increment: reward.totalCredits },
           totalReferrals: { increment: 1 },
         },
       })
@@ -94,14 +102,45 @@ export async function POST(req: NextRequest) {
       await prisma.creditTransaction.create({
         data: {
           userId: referredByUserId,
-          amount: 5,
+          amount: reward.credits,
           type: 'REFERRAL_REWARD',
           description: `Referral reward for ${email}`,
           referenceId: user.id,
-          balanceAfter: 0, // Will be computed
+          balanceAfter: 0,
         },
       })
+
+      // If campaign bonus was applied, create separate transaction
+      if (campaign && reward.bonusCredits > 0) {
+        await prisma.creditTransaction.create({
+          data: {
+            userId: referredByUserId,
+            amount: reward.bonusCredits,
+            type: 'CAMPAIGN_BONUS',
+            description: `Campaign bonus "${campaign.name}" for referral`,
+            referenceId: campaign.id,
+            balanceAfter: 0,
+          },
+        })
+      }
+
+      // Update campaign stats
+      if (campaign) {
+        await prisma.referralCampaign.update({
+          where: { id: campaign.id },
+          data: {
+            totalReferrals: { increment: 1 },
+            totalCreditsAwarded: { increment: reward.totalCredits },
+          },
+        }).catch(() => {})
+      }
+
+      // Check and award referral badges
+      checkAndAwardBadges(referredByUserId, 'referral').catch(() => {})
     }
+
+    // Enroll in SIGNUP drip sequences
+    enrollInSequences('SIGNUP', user.id).catch(() => {})
 
     return NextResponse.json({
       id: user.id,

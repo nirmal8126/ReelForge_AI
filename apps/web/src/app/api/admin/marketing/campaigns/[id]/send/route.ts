@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { auth } from '@/lib/auth'
 import { prisma } from '@reelforge/db'
+import { resolveSegmentRules, SegmentRules } from '@/lib/segment-resolver'
 
 async function requireAdmin() {
   const session = await auth()
@@ -50,6 +51,21 @@ export async function POST(
       const countries = campaign.targetCountries as string[]
       if (countries.length > 0) {
         where.country = { in: countries }
+      }
+    }
+
+    // Apply segment targeting if set
+    if (campaign.targetSegmentId) {
+      const segment = await prisma.userSegment.findUnique({
+        where: { id: campaign.targetSegmentId },
+      })
+      if (segment) {
+        const segmentWhere = resolveSegmentRules(segment.rules as unknown as SegmentRules)
+        if (where.AND) {
+          where.AND.push(segmentWhere)
+        } else {
+          where.AND = [segmentWhere]
+        }
       }
     }
 

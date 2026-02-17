@@ -19,7 +19,8 @@ async function requireAdmin() {
 }
 
 const requestSchema = z.object({
-  contentType: z.enum(['notification', 'campaign']),
+  contentType: z.enum(['notification', 'campaign', 'sequence']),
+  trigger: z.string().optional(),
 })
 
 // POST /api/admin/marketing/generate-content
@@ -31,7 +32,7 @@ export async function POST(req: NextRequest) {
 
   try {
     const body = await req.json()
-    const { contentType } = requestSchema.parse(body)
+    const { contentType, trigger } = requestSchema.parse(body)
     const today = new Date()
     const todayStr = today.toISOString().split('T')[0]
 
@@ -63,7 +64,7 @@ Examples of good notifications:
 - "New Year Challenge: Make your first reel of 2026!" with link to /challenges
 - "Valentine's Day is coming — create heartfelt video messages!" with link to /quotes/new`
 
-    } else {
+    } else if (contentType === 'campaign') {
       systemPrompt = `${baseContext}
 
 Generate an email campaign idea for ReelForge AI users. This is a marketing email sent via the admin panel.
@@ -79,9 +80,38 @@ Respond ONLY with valid JSON in this exact format:
 The email body should be well-formatted HTML with inline styles that works inside an email template wrapper.
 Use a professional but exciting tone. Include a clear call-to-action.
 Example CTA: <a href="/reels/new" style="display:inline-block;background-color:#6366F1;color:white;font-weight:600;font-size:14px;padding:12px 32px;border-radius:8px;text-decoration:none;">Create Your Reel Now</a>`
+    } else {
+      // sequence
+      const triggerLabel = trigger || 'SIGNUP'
+      systemPrompt = `${baseContext}
+
+Generate a drip email sequence for ReelForge AI users. This sequence is triggered when: ${triggerLabel}.
+
+Respond ONLY with valid JSON in this exact format:
+{
+  "name": "Internal sequence name (e.g., 'Welcome Onboarding')",
+  "occasion": "Theme or purpose",
+  "steps": [
+    { "delayDays": 0, "subject": "Email subject", "body": "HTML email body with inline styles. Dark theme (bg #111827, text white/gray, brand #6366F1). Include a CTA button." },
+    { "delayDays": 3, "subject": "...", "body": "..." },
+    { "delayDays": 7, "subject": "...", "body": "..." }
+  ]
+}
+
+Generate 3-5 steps. The delayDays is cumulative from enrollment (0 = immediately, 3 = 3 days later, etc.).
+Each email body should be well-formatted HTML with inline styles.
+Make each email progressively guide the user toward engagement.
+For SIGNUP: welcome → feature highlights → first creation nudge → success stories → upgrade prompt.
+For INACTIVITY: we miss you → new features → exclusive offer → last chance.
+For UPGRADE: thank you → premium features → tips for power users.`
     }
 
-    const userMessage = `Generate a ${contentType === 'notification' ? 'notification' : 'email campaign'} idea for ReelForge AI based on the nearest upcoming occasion from today (${todayStr}). Make it creative and relevant!`
+    const contentLabels: Record<string, string> = {
+      notification: 'notification',
+      campaign: 'email campaign',
+      sequence: `email drip sequence (trigger: ${trigger || 'SIGNUP'})`,
+    }
+    const userMessage = `Generate a ${contentLabels[contentType]} idea for ReelForge AI based on the nearest upcoming occasion from today (${todayStr}). Make it creative and relevant!`
 
     let result: Record<string, unknown> | null = null
 
@@ -138,9 +168,13 @@ Example CTA: <a href="/reels/new" style="display:inline-block;background-color:#
 
     // Template fallback
     if (!result) {
-      result = contentType === 'notification'
-        ? generateFallbackNotification(today)
-        : generateFallbackCampaign(today)
+      if (contentType === 'notification') {
+        result = generateFallbackNotification(today)
+      } else if (contentType === 'campaign') {
+        result = generateFallbackCampaign(today)
+      } else {
+        result = generateFallbackSequence(today, trigger || 'SIGNUP')
+      }
     }
 
     return NextResponse.json({ generated: result })
@@ -195,5 +229,32 @@ function generateFallbackCampaign(today: Date) {
 </div>
 <p style="color:#6B7280;font-size:13px;">Don't miss out — make the most of this ${o.occasion.toLowerCase()} season!</p>`,
     occasion: o.occasion,
+  }
+}
+
+function generateFallbackSequence(_today: Date, trigger: string) {
+  const templates: Record<string, { name: string; steps: { delayDays: number; subject: string; body: string }[] }> = {
+    SIGNUP: {
+      name: 'Welcome Onboarding',
+      steps: [
+        { delayDays: 0, subject: 'Welcome to ReelForge AI! 🎬', body: '<h1 style="color:white;font-size:24px;margin:0 0 16px;">Welcome aboard!</h1><p style="color:#9CA3AF;font-size:14px;line-height:1.6;">You\'re all set to create amazing AI-powered videos. Start with your first reel — it\'s free!</p><div style="text-align:center;margin:28px 0;"><a href="/reels/new" style="display:inline-block;background-color:#6366F1;color:white;font-weight:600;font-size:14px;padding:12px 32px;border-radius:8px;text-decoration:none;">Create Your First Reel</a></div>' },
+        { delayDays: 3, subject: 'Discover what you can create 🚀', body: '<h1 style="color:white;font-size:24px;margin:0 0 16px;">So much to explore!</h1><p style="color:#9CA3AF;font-size:14px;line-height:1.6;">From short reels to long-form videos, quote graphics to cartoon series — explore all our AI tools.</p><div style="text-align:center;margin:28px 0;"><a href="/dashboard" style="display:inline-block;background-color:#6366F1;color:white;font-weight:600;font-size:14px;padding:12px 32px;border-radius:8px;text-decoration:none;">Explore Features</a></div>' },
+        { delayDays: 7, subject: 'Tips from top creators ✨', body: '<h1 style="color:white;font-size:24px;margin:0 0 16px;">Level up your content</h1><p style="color:#9CA3AF;font-size:14px;line-height:1.6;">Our most successful creators use these strategies: batch create content, use trending topics, and experiment with different formats.</p><div style="text-align:center;margin:28px 0;"><a href="/reels/new" style="display:inline-block;background-color:#6366F1;color:white;font-weight:600;font-size:14px;padding:12px 32px;border-radius:8px;text-decoration:none;">Start Creating</a></div>' },
+      ],
+    },
+    INACTIVITY_7D: {
+      name: 'Re-engagement (7 Day)',
+      steps: [
+        { delayDays: 0, subject: 'We miss you! Come back to ReelForge AI 👋', body: '<h1 style="color:white;font-size:24px;margin:0 0 16px;">It\'s been a while!</h1><p style="color:#9CA3AF;font-size:14px;line-height:1.6;">We\'ve added new features since your last visit. Come check them out!</p><div style="text-align:center;margin:28px 0;"><a href="/dashboard" style="display:inline-block;background-color:#6366F1;color:white;font-weight:600;font-size:14px;padding:12px 32px;border-radius:8px;text-decoration:none;">See What\'s New</a></div>' },
+        { delayDays: 3, subject: 'Your unused credits are waiting 🎁', body: '<h1 style="color:white;font-size:24px;margin:0 0 16px;">Don\'t let them expire!</h1><p style="color:#9CA3AF;font-size:14px;line-height:1.6;">You still have credits available. Use them to create something amazing today.</p><div style="text-align:center;margin:28px 0;"><a href="/reels/new" style="display:inline-block;background-color:#6366F1;color:white;font-weight:600;font-size:14px;padding:12px 32px;border-radius:8px;text-decoration:none;">Use My Credits</a></div>' },
+      ],
+    },
+  }
+
+  const tmpl = templates[trigger] || templates.SIGNUP
+  return {
+    name: tmpl.name,
+    occasion: 'Automated',
+    steps: tmpl.steps,
   }
 }

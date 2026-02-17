@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { auth } from '@/lib/auth'
-import { prisma } from '@reelforge/db'
+import { prisma, Prisma } from '@reelforge/db'
 import { z } from 'zod'
 
 async function requireAdmin() {
@@ -50,6 +50,13 @@ const bannerSchema = z.object({
   startsAt: z.string().optional().nullable(),
   expiresAt: z.string().optional().nullable(),
   dismissible: z.boolean().default(true),
+  // Phase 3: Trigger settings
+  triggerType: z.enum(['IMMEDIATE', 'DELAY', 'SCROLL', 'EXIT_INTENT', 'IDLE', 'FIRST_VISIT']).default('IMMEDIATE'),
+  triggerDelay: z.number().int().min(1).max(300).optional().nullable(),
+  triggerScrollPercent: z.number().int().min(0).max(100).optional().nullable(),
+  showFrequency: z.enum(['ONCE', 'ONCE_PER_SESSION', 'EVERY_VISIT']).default('EVERY_VISIT'),
+  maxImpressions: z.number().int().min(1).optional().nullable(),
+  targetSegmentId: z.string().optional().nullable(),
 })
 
 // POST /api/admin/marketing/banners — create a banner
@@ -76,12 +83,18 @@ export async function POST(req: NextRequest) {
         bgColor: data.bgColor || null,
         textColor: data.textColor || null,
         placement: data.placement as any,
-        targetPlans: data.targetPlans || null,
+        targetPlans: data.targetPlans || Prisma.JsonNull,
         priority: data.priority,
         isActive: data.isActive,
         startsAt: data.startsAt ? new Date(data.startsAt) : null,
         expiresAt: data.expiresAt ? new Date(data.expiresAt) : null,
         dismissible: data.dismissible,
+        triggerType: data.triggerType as any,
+        triggerDelay: data.triggerDelay ?? null,
+        triggerScrollPercent: data.triggerScrollPercent ?? null,
+        showFrequency: data.showFrequency as any,
+        maxImpressions: data.maxImpressions ?? null,
+        targetSegmentId: data.targetSegmentId || null,
       },
     })
 
@@ -128,12 +141,18 @@ export async function PUT(req: NextRequest) {
         bgColor: data.bgColor || null,
         textColor: data.textColor || null,
         placement: data.placement as any,
-        targetPlans: data.targetPlans || null,
+        targetPlans: data.targetPlans || Prisma.JsonNull,
         priority: data.priority,
         isActive: data.isActive,
         startsAt: data.startsAt ? new Date(data.startsAt) : null,
         expiresAt: data.expiresAt ? new Date(data.expiresAt) : null,
         dismissible: data.dismissible,
+        triggerType: data.triggerType as any,
+        triggerDelay: data.triggerDelay ?? null,
+        triggerScrollPercent: data.triggerScrollPercent ?? null,
+        showFrequency: data.showFrequency as any,
+        maxImpressions: data.maxImpressions ?? null,
+        targetSegmentId: data.targetSegmentId || null,
       },
     })
 

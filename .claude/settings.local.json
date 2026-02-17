@@ -26,7 +26,11 @@
       "Bash(npx tsc:*)",
       "Bash(npx next dev:*)",
       "Bash(ffmpeg:*)",
-      "Bash(wc:*)"
+      "Bash(wc:*)",
+      "Bash(find:*)",
+      "Bash(cat:*)",
+      "Bash(head:*)",
+      "Bash(grep:*)"
     ]
   }
 }

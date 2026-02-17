@@ -5,6 +5,7 @@ import Credentials from 'next-auth/providers/credentials'
 import bcrypt from 'bcryptjs'
 import { prisma } from '@reelforge/db'
 import { generateReferralCode } from './utils'
+import { enrollInSequences } from './sequence-enrollment'
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
   secret: process.env.AUTH_SECRET || process.env.NEXTAUTH_SECRET,
@@ -65,6 +66,11 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         select: { isActive: true },
       })
       if (dbUser && !dbUser.isActive) return '/login?error=deactivated'
+      // Track last login for inactivity sequences
+      prisma.user.update({
+        where: { id: user.id },
+        data: { lastLoginAt: new Date() },
+      }).catch(() => {})
       return true
     },
     async jwt({ token, user, trigger }) {
@@ -113,6 +119,8 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           jobsLimit: 3,
         },
       })
+      // Enroll in SIGNUP drip sequences
+      enrollInSequences('SIGNUP', user.id!).catch(() => {})
     },
   },
 })
