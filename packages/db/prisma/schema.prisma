@@ -258,6 +258,17 @@ model Referral {
   @@map("referrals")
 }
 
+model ReferralTierConfig {
+  id                 String       @id @default(cuid())
+  tier               ReferralTier @unique
+  creditsPerReferral Int          @default(5) @map("credits_per_referral")
+  cashPercent        Int          @default(0) @map("cash_percent")
+  recurringPercent   Int          @default(0) @map("recurring_percent")
+  updatedAt          DateTime     @updatedAt @map("updated_at")
+
+  @@map("referral_tier_configs")
+}
+
 model CreditTransaction {
   id           String                @id @default(cuid())
   userId       String                @map("user_id")

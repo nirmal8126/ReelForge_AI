@@ -61,7 +61,7 @@ export default function AdminModulesPage() {
     }
     if ((session.user as Record<string, unknown>).role !== 'ADMIN') {
       router.push('/dashboard')
-      toast.error('Admin access required')
+      toast.error('Super Admin access required')
       return
     }
     fetchModules()
@@ -73,7 +73,7 @@ export default function AdminModulesPage() {
       if (!res.ok) {
         if (res.status === 403) {
           router.push('/dashboard')
-          toast.error('Admin access required')
+          toast.error('Super Admin access required')
           return
         }
         throw new Error('Failed to load')
@@ -127,7 +127,7 @@ export default function AdminModulesPage() {
           </div>
           <div>
             <h1 className="text-2xl font-bold text-white tracking-tight">Module Settings</h1>
-            <p className="text-sm text-gray-500 mt-0.5">Admin — Configure pricing for each module</p>
+            <p className="text-sm text-gray-500 mt-0.5">Super Admin — Manage and configure all modules</p>
           </div>
         </div>
       </div>

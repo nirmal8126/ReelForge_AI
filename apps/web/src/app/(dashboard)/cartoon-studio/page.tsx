@@ -3,16 +3,20 @@ import { prisma } from '@reelforge/db'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { PlusCircle, Clapperboard, Users, Film } from 'lucide-react'
+import { AdminUserBadge } from '@/components/admin-user-badge'
 
 export default async function CartoonStudioPage() {
   const session = await auth()
   if (!session) redirect('/login')
 
+  const isAdmin = session.user.role === 'ADMIN'
+
   const series = await prisma.cartoonSeries.findMany({
-    where: { userId: session.user.id },
+    where: isAdmin ? {} : { userId: session.user.id },
     include: {
       _count: { select: { characters: true, episodes: true } },
       characters: { take: 4, select: { name: true, color: true } },
+      ...(isAdmin && { user: { select: { id: true, name: true, email: true } } }),
     },
     orderBy: { updatedAt: 'desc' },
   })
@@ -21,7 +25,7 @@ export default async function CartoonStudioPage() {
     <div>
       <div className="flex items-center justify-between mb-8 pb-6 border-b border-white/[0.06]">
         <div>
-          <h1 className="text-3xl font-bold text-white tracking-tight">Cartoon Studio</h1>
+          <h1 className="text-3xl font-bold text-white tracking-tight">{isAdmin ? 'All Cartoon Series' : 'Cartoon Studio'}</h1>
           <p className="text-sm text-gray-500 mt-2">
             Create animated cartoon series with recurring characters
           </p>
@@ -109,6 +113,13 @@ export default async function CartoonStudioPage() {
                   {s._count.episodes} episodes
                 </span>
               </div>
+
+              {isAdmin && (s as Record<string, unknown>).user && (
+                <AdminUserBadge
+                  name={((s as Record<string, unknown>).user as Record<string, string>).name}
+                  email={((s as Record<string, unknown>).user as Record<string, string>).email}
+                />
+              )}
             </Link>
           ))}
         </div>

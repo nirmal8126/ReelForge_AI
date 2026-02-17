@@ -13,7 +13,7 @@ export function ModuleDisabled({ moduleName }: ModuleDisabledProps) {
       </div>
       <h2 className="text-xl font-semibold text-white mb-2">Module Unavailable</h2>
       <p className="text-sm text-gray-500 mb-6 text-center max-w-sm">
-        <span className="text-gray-400">{moduleName}</span> is currently disabled by the administrator.
+        <span className="text-gray-400">{moduleName}</span> is currently disabled by the Super Admin.
         Please check back later or contact support.
       </p>
       <Link

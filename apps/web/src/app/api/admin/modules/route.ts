@@ -19,7 +19,7 @@ async function requireAdmin() {
   })
 
   if (!user || user.role !== 'ADMIN') {
-    return { error: 'Forbidden — admin access required', status: 403 }
+    return { error: 'Forbidden — Super Admin access required', status: 403 }
   }
 
   return { userId: session.user.id }

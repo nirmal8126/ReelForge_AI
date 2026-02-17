@@ -16,6 +16,7 @@ import {
   Timer,
 } from 'lucide-react'
 import { getJobStatusColor, getJobStatusLabel } from '@/lib/utils'
+import { AdminUserBadge } from '@/components/admin-user-badge'
 
 interface ReelsPageProps {
   searchParams: { status?: string; page?: string }
@@ -25,11 +26,12 @@ export default async function ReelsPage({ searchParams }: ReelsPageProps) {
   const session = await auth()
   if (!session) redirect('/login')
 
+  const isAdmin = session.user.role === 'ADMIN'
   const statusFilter = searchParams.status || 'all'
   const page = Math.max(1, parseInt(searchParams.page || '1', 10))
   const limit = 12
 
-  const where: Record<string, unknown> = { userId: session.user.id }
+  const where: Record<string, unknown> = isAdmin ? {} : { userId: session.user.id }
 
   if (statusFilter !== 'all') {
     const statusMap: Record<string, string[]> = {
@@ -56,6 +58,7 @@ export default async function ReelsPage({ searchParams }: ReelsPageProps) {
         channelProfile: {
           select: { id: true, name: true },
         },
+        ...(isAdmin && { user: { select: { id: true, name: true, email: true } } }),
       },
     }),
     prisma.reelJob.count({ where }),
@@ -65,7 +68,7 @@ export default async function ReelsPage({ searchParams }: ReelsPageProps) {
 
   const statusCounts = await prisma.reelJob.groupBy({
     by: ['status'],
-    where: { userId: session.user.id },
+    where: isAdmin ? {} : { userId: session.user.id },
     _count: true,
   })
 
@@ -125,7 +128,7 @@ export default async function ReelsPage({ searchParams }: ReelsPageProps) {
       {/* Header */}
       <div className="flex items-center justify-between mb-8 pb-6 border-b border-white/[0.06]">
         <div>
-          <h1 className="text-3xl font-bold text-white tracking-tight">My Reels</h1>
+          <h1 className="text-3xl font-bold text-white tracking-tight">{isAdmin ? 'All Reels' : 'My Reels'}</h1>
           <p className="text-sm text-gray-500 mt-2">
             {total} reel{total !== 1 ? 's' : ''} in your library
           </p>
@@ -251,6 +254,13 @@ export default async function ReelsPage({ searchParams }: ReelsPageProps) {
                     <div className="mt-2 text-xs text-gray-500 truncate">
                       {reel.channelProfile.name}
                     </div>
+                  )}
+
+                  {isAdmin && (reel as Record<string, unknown>).user && (
+                    <AdminUserBadge
+                      name={((reel as Record<string, unknown>).user as Record<string, string>).name}
+                      email={((reel as Record<string, unknown>).user as Record<string, string>).email}
+                    />
                   )}
                 </div>
               </Link>

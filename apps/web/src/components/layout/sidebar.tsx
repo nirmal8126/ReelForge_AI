@@ -37,8 +37,8 @@ const navSections = [
     label: 'Account',
     items: [
       { href: '/profiles', label: 'Channels', icon: Users },
-      { href: '/billing', label: 'Billing', icon: CreditCard },
-      { href: '/referrals', label: 'Referrals', icon: Gift },
+      { href: '/billing', label: 'Billing', icon: CreditCard, hideForAdmin: true },
+      { href: '/referrals', label: 'Referrals', icon: Gift, hideForAdmin: true },
       { href: '/settings', label: 'Settings', icon: Settings },
     ],
   },
@@ -73,7 +73,9 @@ export function Sidebar() {
         {/* Navigation */}
         <nav className="flex-1 overflow-y-auto px-3 pt-2 pb-4">
           {navSections.map((section) => {
+            const isUserAdmin = (session?.user as Record<string, unknown>)?.role === 'ADMIN'
             const visibleItems = section.items.filter((item) => {
+              if ('hideForAdmin' in item && item.hideForAdmin && isUserAdmin) return false
               if (!('moduleId' in item) || !item.moduleId) return true
               if (!enabledModules) return true // show all while loading
               return enabledModules.includes(item.moduleId)
@@ -122,18 +124,23 @@ export function Sidebar() {
             )
           })}
 
-          {/* Admin Section — only for ADMIN users */}
+          {/* Super Admin Section — only for ADMIN users */}
           {(session?.user as Record<string, unknown>)?.role === 'ADMIN' && (
             <div className="mb-4">
               <p className="px-3 mb-2 text-[10px] font-semibold uppercase tracking-widest text-red-400/70">
-                Admin
+                Super Admin
               </p>
               <div className="space-y-0.5">
-                {(() => {
-                  const isActive = pathname.startsWith('/admin/modules')
+                {[
+                  { href: '/admin/modules', label: 'Module Settings', icon: Shield },
+                  { href: '/admin/plans', label: 'Plans Settings', icon: CreditCard },
+                  { href: '/admin/referrals', label: 'Referrals Settings', icon: Gift },
+                ].map((item) => {
+                  const isActive = pathname.startsWith(item.href)
                   return (
                     <Link
-                      href="/admin/modules"
+                      key={item.href}
+                      href={item.href}
                       className={cn(
                         'group flex items-center gap-3 rounded-lg px-3 py-2 text-[13px] font-medium transition-all',
                         isActive
@@ -149,22 +156,22 @@ export function Sidebar() {
                             : 'bg-white/[0.04] text-gray-500 group-hover:bg-white/[0.06] group-hover:text-gray-300'
                         )}
                       >
-                        <Shield className="h-3.5 w-3.5" />
+                        <item.icon className="h-3.5 w-3.5" />
                       </span>
-                      Module Settings
+                      {item.label}
                       {isActive && (
                         <span className="ml-auto h-1.5 w-1.5 rounded-full bg-red-400" />
                       )}
                     </Link>
                   )
-                })()}
+                })}
               </div>
             </div>
           )}
         </nav>
 
-        {/* Credits Badge */}
-        {session?.user && (
+        {/* Credits Badge — hidden for Super Admin */}
+        {session?.user && (session.user as Record<string, unknown>).role !== 'ADMIN' && (
           <div className="mx-3 mb-3 rounded-xl border border-white/[0.06] bg-white/[0.02] p-3.5">
             <div className="flex items-center justify-between mb-2">
               <span className="text-[11px] text-gray-500 font-medium">Credits</span>

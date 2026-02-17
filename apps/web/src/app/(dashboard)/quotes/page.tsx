@@ -11,6 +11,7 @@ import {
   Calendar,
 } from 'lucide-react'
 import { getJobStatusColor, getJobStatusLabel } from '@/lib/utils'
+import { AdminUserBadge } from '@/components/admin-user-badge'
 
 interface QuotesPageProps {
   searchParams: { status?: string; page?: string }
@@ -20,11 +21,12 @@ export default async function QuotesPage({ searchParams }: QuotesPageProps) {
   const session = await auth()
   if (!session) redirect('/login')
 
+  const isAdmin = session.user.role === 'ADMIN'
   const statusFilter = searchParams.status || 'all'
   const page = Math.max(1, parseInt(searchParams.page || '1', 10))
   const limit = 12
 
-  const where: Record<string, unknown> = { userId: session.user.id }
+  const where: Record<string, unknown> = isAdmin ? {} : { userId: session.user.id }
 
   if (statusFilter !== 'all') {
     const statusMap: Record<string, string[]> = {
@@ -46,6 +48,7 @@ export default async function QuotesPage({ searchParams }: QuotesPageProps) {
       orderBy: { createdAt: 'desc' },
       skip: (page - 1) * limit,
       take: limit,
+      ...(isAdmin && { include: { user: { select: { id: true, name: true, email: true } } } }),
     }),
     prisma.quoteJob.count({ where }),
   ])
@@ -55,7 +58,7 @@ export default async function QuotesPage({ searchParams }: QuotesPageProps) {
   // Status counts for filter badges
   const statusCounts = await prisma.quoteJob.groupBy({
     by: ['status'],
-    where: { userId: session.user.id },
+    where: isAdmin ? {} : { userId: session.user.id },
     _count: true,
   })
 
@@ -132,7 +135,7 @@ export default async function QuotesPage({ searchParams }: QuotesPageProps) {
       {/* Header */}
       <div className="flex items-center justify-between mb-8 pb-6 border-b border-white/[0.06]">
         <div>
-          <h1 className="text-3xl font-bold text-white tracking-tight">My Quotes</h1>
+          <h1 className="text-3xl font-bold text-white tracking-tight">{isAdmin ? 'All Quotes' : 'My Quotes'}</h1>
           <p className="text-sm text-gray-500 mt-2">
             {total} quote{total !== 1 ? 's' : ''} in your library
           </p>
@@ -251,6 +254,13 @@ export default async function QuotesPage({ searchParams }: QuotesPageProps) {
                       {formatDate(quote.createdAt)}
                     </span>
                   </div>
+
+                  {isAdmin && (quote as Record<string, unknown>).user && (
+                    <AdminUserBadge
+                      name={((quote as Record<string, unknown>).user as Record<string, string>).name}
+                      email={((quote as Record<string, unknown>).user as Record<string, string>).email}
+                    />
+                  )}
                 </div>
               </Link>
             ))}
