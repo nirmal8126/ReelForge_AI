@@ -36,6 +36,7 @@ const DEFAULT_MODULES = [
   { moduleId: 'long_form',      moduleName: 'My Videos',       isFree: false, creditCost: 3 },
   { moduleId: 'cartoon_studio', moduleName: 'Cartoon Studio',  isFree: false, creditCost: 2 },
   { moduleId: 'challenges',     moduleName: 'Challenges',      isFree: false, creditCost: 1 },
+  { moduleId: 'gameplay',       moduleName: '3D Gameplay',     isFree: false, creditCost: 2 },
 ]
 
 const MODULE_ORDER = DEFAULT_MODULES.map((m) => m.moduleId)

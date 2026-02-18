@@ -10,6 +10,7 @@ export const MODULE_IDS = {
   CHALLENGES: 'challenges',
   LONG_FORM: 'long_form',
   CARTOON_STUDIO: 'cartoon_studio',
+  GAMEPLAY: 'gameplay',
 } as const
 
 export type ModuleId = (typeof MODULE_IDS)[keyof typeof MODULE_IDS]
@@ -24,6 +25,7 @@ const MODULE_DEFAULTS: Record<string, { name: string; isFree: boolean; creditCos
   challenges:     { name: 'Challenges',      isFree: false, creditCost: 1 },
   long_form:      { name: 'My Videos',       isFree: false, creditCost: 3 },
   cartoon_studio: { name: 'Cartoon Studio',  isFree: false, creditCost: 2 },
+  gameplay:       { name: '3D Gameplay',     isFree: false, creditCost: 2 },
 }
 
 // ---------------------------------------------------------------------------

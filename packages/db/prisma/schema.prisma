@@ -48,6 +48,7 @@ model User {
   cartoonSeries      CartoonSeries[]
   quoteJobs          QuoteJob[]
   challengeJobs      ChallengeJob[]
+  gameplayJobs       GameplayJob[]
   accounts           Account[]
   sessions           Session[]
   notifications      Notification[]
@@ -933,6 +934,69 @@ enum ChallengeJobStatus {
   UPLOADING
   COMPLETED
   FAILED
+}
+
+// ---------------------------------------------------------------------------
+// 3D Gameplay Videos
+// ---------------------------------------------------------------------------
+enum GameplayJobStatus {
+  QUEUED
+  CONFIG_GENERATING
+  RENDERING
+  ENCODING
+  UPLOADING
+  COMPLETED
+  FAILED
+}
+
+enum GameplayTemplate {
+  ENDLESS_RUNNER
+  BALL_MAZE
+  OBSTACLE_TOWER
+  COLOR_SWITCH
+}
+
+model GameplayJob {
+  id               String              @id @default(cuid())
+  userId           String              @map("user_id")
+
+  // Game settings
+  template         GameplayTemplate
+  theme            String              @default("neon") @db.VarChar(30)
+  difficulty       String              @default("medium") @db.VarChar(20)
+  duration         Int                 @default(30)
+  aspectRatio      String              @default("9:16") @map("aspect_ratio") @db.VarChar(10)
+  musicStyle       String              @default("upbeat") @map("music_style") @db.VarChar(30)
+  gameTitle        String?             @map("game_title") @db.VarChar(100)
+  showScore        Boolean             @default(true) @map("show_score")
+  ctaText          String?             @map("cta_text") @db.VarChar(200)
+
+  // Generated config
+  gameConfig       String?             @map("game_config") @db.LongText
+
+  // Status & progress
+  status           GameplayJobStatus   @default(QUEUED)
+  progress         Int                 @default(0)
+  currentStage     String?             @map("current_stage") @db.VarChar(100)
+
+  // Output
+  outputUrl        String?             @map("output_url") @db.VarChar(500)
+  thumbnailUrl     String?             @map("thumbnail_url") @db.VarChar(500)
+
+  // Metadata
+  errorMessage     String?             @map("error_message") @db.Text
+  creditsCost      Int                 @default(2) @map("credits_cost")
+  processingTimeMs Int?                @map("processing_time_ms")
+  totalFrames      Int?                @map("total_frames")
+
+  createdAt        DateTime            @default(now()) @map("created_at")
+  completedAt      DateTime?           @map("completed_at")
+
+  user             User                @relation(fields: [userId], references: [id], onDelete: NoAction)
+
+  @@index([userId])
+  @@index([status])
+  @@map("gameplay_jobs")
 }
 
 // ---------------------------------------------------------------------------

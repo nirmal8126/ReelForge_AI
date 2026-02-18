@@ -43,6 +43,10 @@ export function getJobStatusColor(status: string): string {
     TEXT_GENERATING: 'text-purple-400',
     // Challenge pipeline stages
     CONTENT_GENERATING: 'text-blue-400',
+    // Gameplay pipeline stages
+    CONFIG_GENERATING: 'text-blue-400',
+    RENDERING: 'text-purple-400',
+    ENCODING: 'text-yellow-400',
   }
   return colors[status] || 'text-gray-400'
 }
@@ -69,6 +73,10 @@ export function getJobStatusLabel(status: string): string {
     TEXT_GENERATING: 'Generating Quote',
     // Challenge pipeline stages
     CONTENT_GENERATING: 'Generating Content',
+    // Gameplay pipeline stages
+    CONFIG_GENERATING: 'Generating Config',
+    RENDERING: 'Rendering Frames',
+    ENCODING: 'Encoding Video',
   }
   return labels[status] || status
 }

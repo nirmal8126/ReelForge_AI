@@ -9,6 +9,7 @@ import { processLongFormJob } from './jobs/long-form-processor';
 import { processCartoonEpisode } from './jobs/cartoon-episode-processor';
 import { processQuoteJob } from './jobs/quote-processor';
 import { processChallengeJob } from './jobs/challenge-processor';
+import { processGameplayJob } from './jobs/gameplay-processor';
 import { processSequenceEmails } from './jobs/sequence-processor';
 import { checkSequenceTriggers } from './jobs/sequence-trigger-checker';
 import { processBadgeChecker } from './jobs/badge-checker';
@@ -209,6 +210,35 @@ challengeWorker.on('error', (err) => {
 });
 
 // ---------------------------------------------------------------------------
+// 3D Gameplay worker
+// ---------------------------------------------------------------------------
+const gameplayWorker = new Worker(
+  'gameplay-jobs',
+  async (job) => {
+    logger.info({ jobId: job.id, data: job.data }, 'Processing gameplay job');
+    return processGameplayJob(job);
+  },
+  {
+    connection,
+    concurrency: 3,
+    removeOnComplete: { count: 500 },
+    removeOnFail: { count: 250 },
+  },
+);
+
+gameplayWorker.on('completed', (job) => {
+  logger.info({ jobId: job.id }, 'Gameplay job completed successfully');
+});
+
+gameplayWorker.on('failed', (job, err) => {
+  logger.error({ jobId: job?.id, err: err.message }, 'Gameplay job failed');
+});
+
+gameplayWorker.on('error', (err) => {
+  logger.error({ err }, 'Gameplay worker error');
+});
+
+// ---------------------------------------------------------------------------
 // Email notification worker
 // ---------------------------------------------------------------------------
 const emailWorker = new Worker(
@@ -365,6 +395,7 @@ const shutdown = async (signal: string) => {
     cartoonWorker.close(),
     quoteWorker.close(),
     challengeWorker.close(),
+    gameplayWorker.close(),
     emailWorker.close(),
     sequenceWorker.close(),
     triggerWorker.close(),
@@ -384,8 +415,8 @@ process.on('SIGINT', () => shutdown('SIGINT'));
 // ---------------------------------------------------------------------------
 logger.info(
   {
-    queues: ['reel-jobs', 'long-form-jobs', 'cartoon-episode-jobs', 'quote-jobs', 'challenge-jobs', 'email-notifications', 'sequence-processor', 'sequence-trigger-checker', 'badge-checker'],
-    concurrency: { reelJobs: 5, longFormJobs: 2, cartoonEpisodes: 2, quoteJobs: 5, challengeJobs: 5, emailNotifications: 10, sequences: 1, triggers: 1, badges: 1 },
+    queues: ['reel-jobs', 'long-form-jobs', 'cartoon-episode-jobs', 'quote-jobs', 'challenge-jobs', 'gameplay-jobs', 'email-notifications', 'sequence-processor', 'sequence-trigger-checker', 'badge-checker'],
+    concurrency: { reelJobs: 5, longFormJobs: 2, cartoonEpisodes: 2, quoteJobs: 5, challengeJobs: 5, gameplayJobs: 3, emailNotifications: 10, sequences: 1, triggers: 1, badges: 1 },
     redis: process.env.REDIS_URL ? '(configured)' : 'redis://localhost:6379',
   },
   'ReelForge worker service started',

@@ -235,3 +235,41 @@ export async function enqueueChallengeJob(data: {
 
   return job.id
 }
+
+// 3D Gameplay queue
+let gameplayQueue: Queue | null = null
+
+export function getGameplayQueue() {
+  if (!gameplayQueue) {
+    gameplayQueue = new Queue('gameplay-jobs', { connection: getConnection() })
+  }
+  return gameplayQueue
+}
+
+export async function enqueueGameplayJob(data: {
+  gameplayJobId: string
+  userId: string
+  template: string
+  theme: string
+  difficulty: string
+  duration: number
+  aspectRatio: string
+  musicStyle: string
+  gameTitle?: string
+  showScore: boolean
+  ctaText?: string
+  plan: string
+}) {
+  const queue = getGameplayQueue()
+  const priority = PLAN_PRIORITY[data.plan] || 5
+
+  const job = await queue.add('generate-gameplay', data, {
+    priority,
+    attempts: 2,
+    backoff: { type: 'exponential', delay: 10000 },
+    removeOnComplete: { count: 500 },
+    removeOnFail: { count: 250 },
+  })
+
+  return job.id
+}

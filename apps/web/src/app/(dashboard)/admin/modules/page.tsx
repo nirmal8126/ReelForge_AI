@@ -9,6 +9,7 @@ import {
   Film,
   Quote,
   Gamepad2,
+  Joystick,
   Video,
   Clapperboard,
   ToggleLeft,
@@ -44,6 +45,7 @@ const MODULE_ICONS: Record<string, React.ComponentType<{ className?: string }>> 
   challenges: Gamepad2,
   long_form: Video,
   cartoon_studio: Clapperboard,
+  gameplay: Joystick,
 }
 
 export default function AdminModulesPage() {
