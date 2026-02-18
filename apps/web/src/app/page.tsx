@@ -105,10 +105,10 @@ export default function HomePage() {
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8 max-w-6xl mx-auto">
               {[
-                { name: 'Free', price: '$0', reels: '3 reels/mo', features: ['AI script generation', 'Basic voices', 'Watermarked output', '720p quality'] },
-                { name: 'Starter', price: '$19', reels: '25 reels/mo', features: ['Everything in Free', '50+ AI voices', 'No watermark', '1080p quality', '1 channel profile'] },
-                { name: 'Pro', price: '$49', reels: '75 reels/mo', features: ['Everything in Starter', 'Priority queue', '5 channel profiles', 'Custom intros/outros', 'Analytics'], popular: true },
-                { name: 'Business', price: '$99', reels: '200 reels/mo', features: ['Everything in Pro', 'Unlimited profiles', 'Team collaboration', 'API access', 'White-label option'] },
+                { name: 'Free', price: '$0', reels: '3 jobs/mo', features: ['All 6 modules', 'AI script generation', 'Basic voices', '720p quality'] },
+                { name: 'Starter', price: '$19', reels: '25 jobs/mo', features: ['Everything in Free', '50+ AI voices', 'No watermark', '1080p quality', '1 channel profile'] },
+                { name: 'Pro', price: '$49', reels: '75 jobs/mo', features: ['Everything in Starter', 'Priority queue', '5 channel profiles', 'Custom intros/outros', 'Analytics'], popular: true },
+                { name: 'Business', price: '$99', reels: '200 jobs/mo', features: ['Everything in Pro', 'Unlimited profiles', 'Team collaboration', 'API access', 'White-label option'] },
               ].map((plan) => (
                 <div key={plan.name} className={`rounded-2xl border p-8 ${plan.popular ? 'border-brand-500 bg-brand-500/10 ring-1 ring-brand-500' : 'border-white/10 bg-white/5'}`}>
                   {plan.popular && <div className="text-brand-400 text-sm font-medium mb-4">Most Popular</div>}

@@ -124,7 +124,7 @@ export default function AdminPlansPage() {
           </div>
           <div>
             <h1 className="text-2xl font-bold text-white tracking-tight">Plans Settings</h1>
-            <p className="text-sm text-gray-500 mt-0.5">Super Admin — Manage subscription plan limits</p>
+            <p className="text-sm text-gray-500 mt-0.5">Super Admin — Manage subscription plan job quotas across all modules</p>
           </div>
         </div>
       </div>
@@ -211,13 +211,36 @@ export default function AdminPlansPage() {
         })}
       </div>
 
+      {/* Module Credit Costs Reference */}
+      <div className="mt-6 rounded-xl border border-white/10 bg-white/[0.03] overflow-hidden">
+        <div className="px-5 py-3 border-b border-white/[0.06]">
+          <h3 className="text-sm font-semibold text-white">Credit Cost per Module (when over quota)</h3>
+        </div>
+        <div className="px-5 py-3 space-y-1.5">
+          {[
+            { name: 'Reels', cost: '1-3', detail: '5-15s = 1, 30s = 2, 60s = 3' },
+            { name: 'Quotes', cost: '1', detail: 'Flat rate' },
+            { name: 'Challenges', cost: '1-3', detail: '5+ questions +1, voice +1' },
+            { name: 'Gameplay', cost: '1-3', detail: '15s = 1, 30s = 2, 45-60s = 3' },
+            { name: 'Long-Form', cost: '3-12', detail: '5min = 3, 10min = 5, 15min = 7, 20min = 9, 30min = 12' },
+            { name: 'Cartoon Studio', cost: '5', detail: 'Flat rate per episode' },
+          ].map((m) => (
+            <div key={m.name} className="flex items-center gap-3 text-xs">
+              <span className="w-28 text-gray-400 font-medium">{m.name}</span>
+              <span className="text-yellow-400 font-semibold w-12">{m.cost} cr</span>
+              <span className="text-gray-600">{m.detail}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+
       {/* Info */}
-      <div className="mt-6 rounded-xl border border-white/[0.06] bg-white/[0.02] p-4">
+      <div className="mt-4 rounded-xl border border-white/[0.06] bg-white/[0.02] p-4">
         <p className="text-xs text-gray-500 leading-relaxed">
-          <span className="text-gray-400 font-medium">How it works:</span> Changing the jobs limit
-          will update the quota for <span className="text-white">all existing subscribers</span> on
-          that plan. New subscribers will also get the updated limit. Users who exceed their quota
-          can still generate content using purchased credits.
+          <span className="text-gray-400 font-medium">How it works:</span> Each job (from any module) uses
+          1 slot from the monthly quota. Changing the jobs limit will update the quota for{' '}
+          <span className="text-white">all existing subscribers</span> on that plan. When users exceed
+          their quota, credits are deducted based on the module&apos;s cost above.
         </p>
       </div>
     </div>

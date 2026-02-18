@@ -4,7 +4,7 @@ export const PLANS = {
     price: 0,
     jobsLimit: 3,
     profilesLimit: 0,
-    features: ['3 reels per month', 'AI script generation', 'Basic voices', '720p quality', 'Watermarked'],
+    features: ['3 jobs per month', 'AI script generation', 'Basic voices', '720p quality', 'Watermarked'],
     stripePriceId: null,
   },
   STARTER: {
@@ -12,7 +12,7 @@ export const PLANS = {
     price: 1900,
     jobsLimit: 25,
     profilesLimit: 1,
-    features: ['25 reels per month', '50+ AI voices', 'No watermark', '1080p quality', '1 channel profile'],
+    features: ['25 jobs per month', '50+ AI voices', 'No watermark', '1080p quality', '1 channel profile'],
     stripePriceId: process.env.NEXT_PUBLIC_STRIPE_STARTER_PRICE_ID,
   },
   PRO: {
@@ -20,7 +20,7 @@ export const PLANS = {
     price: 4900,
     jobsLimit: 75,
     profilesLimit: 5,
-    features: ['75 reels per month', 'Priority queue', '5 channel profiles', 'Custom intros/outros', 'Analytics'],
+    features: ['75 jobs per month', 'Priority queue', '5 channel profiles', 'Custom intros/outros', 'Analytics'],
     stripePriceId: process.env.NEXT_PUBLIC_STRIPE_PRO_PRICE_ID,
   },
   BUSINESS: {
@@ -28,7 +28,7 @@ export const PLANS = {
     price: 9900,
     jobsLimit: 200,
     profilesLimit: -1,
-    features: ['200 reels per month', 'Unlimited profiles', 'Team collaboration', 'API access', 'White-label'],
+    features: ['200 jobs per month', 'Unlimited profiles', 'Team collaboration', 'API access', 'White-label'],
     stripePriceId: process.env.NEXT_PUBLIC_STRIPE_BUSINESS_PRICE_ID,
   },
 } as const

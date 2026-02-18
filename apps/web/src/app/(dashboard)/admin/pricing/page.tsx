@@ -594,6 +594,30 @@ export default function AdminPricingPage() {
         </button>
       </div>
 
+      {/* Module Credit Cost Reference */}
+      <div className="rounded-xl border border-yellow-500/10 bg-yellow-500/[0.03] p-5 mb-6">
+        <h3 className="text-sm font-semibold text-yellow-400 mb-3">Credit Cost Reference — set credit prices to stay profitable</h3>
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+          {[
+            { name: 'Reels', range: '1-3 cr', detail: 'By duration' },
+            { name: 'Quotes', range: '1 cr', detail: 'Flat' },
+            { name: 'Challenges', range: '1-3 cr', detail: 'Q count + voice' },
+            { name: 'Gameplay', range: '1-3 cr', detail: 'By duration' },
+            { name: 'Long-Form', range: '3-12 cr', detail: 'By duration' },
+            { name: 'Cartoon', range: '5 cr', detail: 'Per episode' },
+          ].map((m) => (
+            <div key={m.name} className="rounded-lg border border-white/5 bg-white/[0.02] px-3 py-2 text-center">
+              <p className="text-[10px] text-gray-500 font-medium">{m.name}</p>
+              <p className="text-sm font-bold text-yellow-400">{m.range}</p>
+              <p className="text-[10px] text-gray-600">{m.detail}</p>
+            </div>
+          ))}
+        </div>
+        <p className="text-[11px] text-gray-600 mt-2.5">
+          Each job uses 1 quota slot. Over quota, credits are charged per module above. Price credits so each credit covers your API cost (~$0.10-1.00 per credit depending on module).
+        </p>
+      </div>
+
       {/* Regions List */}
       {regions.length === 0 ? (
         <div className="rounded-xl border border-white/10 bg-white/5 p-12 text-center">

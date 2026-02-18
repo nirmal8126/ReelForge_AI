@@ -50,10 +50,10 @@ export default async function BillingPage() {
   }
 
   const plans = [
-    { key: 'FREE', name: 'Free', price: getPlanPrice('FREE'), monthly: '/mo', reels: '3 reels/mo', features: ['AI script generation', 'Basic voices', '720p quality', 'Watermarked'] },
-    { key: 'STARTER', name: 'Starter', price: getPlanPrice('STARTER'), monthly: '/mo', reels: '25 reels/mo', features: ['Everything in Free', '50+ AI voices', 'No watermark', '1080p quality', '1 channel profile'] },
-    { key: 'PRO', name: 'Pro', price: getPlanPrice('PRO'), monthly: '/mo', reels: '75 reels/mo', features: ['Everything in Starter', 'Priority queue', '5 channel profiles', 'Custom intros/outros', 'Analytics'], popular: true },
-    { key: 'BUSINESS', name: 'Business', price: getPlanPrice('BUSINESS'), monthly: '/mo', reels: '200 reels/mo', features: ['Everything in Pro', 'Unlimited profiles', 'Team collaboration', 'API access', 'White-label option'] },
+    { key: 'FREE', name: 'Free', price: getPlanPrice('FREE'), monthly: '/mo', quota: '3 jobs/mo', features: ['All 6 modules', 'AI script generation', 'Basic voices', '720p quality', 'Watermarked'] },
+    { key: 'STARTER', name: 'Starter', price: getPlanPrice('STARTER'), monthly: '/mo', quota: '25 jobs/mo', features: ['Everything in Free', '50+ AI voices', 'No watermark', '1080p quality', '1 channel profile'] },
+    { key: 'PRO', name: 'Pro', price: getPlanPrice('PRO'), monthly: '/mo', quota: '75 jobs/mo', features: ['Everything in Starter', 'Priority queue', '5 channel profiles', 'Custom intros/outros', 'Analytics'], popular: true },
+    { key: 'BUSINESS', name: 'Business', price: getPlanPrice('BUSINESS'), monthly: '/mo', quota: '200 jobs/mo', features: ['Everything in Pro', 'Unlimited profiles', 'Team collaboration', 'API access', 'White-label option'] },
   ]
 
   // Build credit packs from region data
@@ -214,7 +214,7 @@ export default async function BillingPage() {
                     <span className="text-2xl font-bold text-white">{plan.price}</span>
                     <span className="text-sm text-gray-500">{plan.monthly}</span>
                   </div>
-                  <p className="mt-1 text-xs font-medium text-gray-400">{plan.reels}</p>
+                  <p className="mt-1 text-xs font-medium text-gray-400">{plan.quota}</p>
 
                   <ul className="mt-4 space-y-2">
                     {plan.features.map((f) => (
@@ -361,7 +361,8 @@ export default async function BillingPage() {
             </thead>
             <tbody className="divide-y divide-white/5">
               {[
-                { feature: 'Reels per month', values: ['3', '25', '75', '200'] },
+                { feature: 'Jobs per month', values: ['3', '25', '75', '200'] },
+                { feature: 'Modules included', values: ['All 6', 'All 6', 'All 6', 'All 6'] },
                 { feature: 'Video quality', values: ['720p', '1080p', '1080p', '1080p'] },
                 { feature: 'AI voices', values: ['Basic', '50+', '50+', '50+'] },
                 { feature: 'Channel profiles', values: ['-', '1', '5', 'Unlimited'] },
@@ -389,6 +390,46 @@ export default async function BillingPage() {
                       )}
                     </td>
                   ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* Credit Cost per Module */}
+      <div className="rounded-xl border border-white/10 bg-white/5 overflow-hidden mt-6">
+        <div className="p-6 border-b border-white/10">
+          <h2 className="text-lg font-semibold text-white flex items-center gap-2">
+            <Zap className="h-4.5 w-4.5 text-yellow-400" />
+            Credit Cost per Module
+          </h2>
+          <p className="text-xs text-gray-500 mt-1">
+            Each job uses 1 from your monthly quota. Over quota, credits are deducted based on the module:
+          </p>
+        </div>
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-white/10">
+                <th className="text-left text-xs font-medium text-gray-400 uppercase tracking-wider px-6 py-3">Module</th>
+                <th className="text-left text-xs font-medium text-gray-400 uppercase tracking-wider px-4 py-3">Credit Cost</th>
+                <th className="text-left text-xs font-medium text-gray-400 uppercase tracking-wider px-4 py-3">Pricing Factor</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-white/5">
+              {[
+                { module: 'Reels', cost: '1-3 credits', factor: 'Duration: 5-15s = 1, 30s = 2, 60s = 3' },
+                { module: 'Quotes', cost: '1 credit', factor: 'Flat rate' },
+                { module: 'Challenges', cost: '1-3 credits', factor: '5+ questions +1, voice enabled +1' },
+                { module: 'Gameplay', cost: '1-3 credits', factor: 'Duration: 15s = 1, 30s = 2, 45-60s = 3' },
+                { module: 'Long-Form Videos', cost: '3-12 credits', factor: '5min = 3, 10min = 5, 15min = 7, 20min = 9, 30min = 12' },
+                { module: 'Cartoon Studio', cost: '5 credits', factor: 'Flat rate per episode' },
+              ].map((row) => (
+                <tr key={row.module} className="hover:bg-white/[0.02] transition">
+                  <td className="px-6 py-3 text-sm font-medium text-white">{row.module}</td>
+                  <td className="px-4 py-3 text-sm text-yellow-400 font-medium">{row.cost}</td>
+                  <td className="px-4 py-3 text-xs text-gray-500">{row.factor}</td>
                 </tr>
               ))}
             </tbody>
