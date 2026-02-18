@@ -263,6 +263,31 @@ const DISCOUNT_TYPES = [
   { value: 'CREDIT_BONUS', label: 'Bonus Credits', desc: 'Extra credits', icon: Coins, color: 'amber' },
 ]
 
+const MARKETING_NAV = [
+  { group: 'CONTENT', items: [
+    { key: 'banners', label: 'Banners & Announcements', icon: Bell, countKey: 'banners' },
+    { key: 'templates', label: 'Email Templates', icon: FileText, countKey: 'templates' },
+    { key: 'notifications', label: 'Notifications', icon: Send, countKey: null },
+  ]},
+  { group: 'CAMPAIGNS', items: [
+    { key: 'campaigns', label: 'Email Campaigns', icon: Mail, countKey: 'campaigns' },
+    { key: 'sequences', label: 'Sequences', icon: Split, countKey: 'sequences' },
+    { key: 'experiments', label: 'A/B Tests', icon: FlaskConical, countKey: 'experiments' },
+  ]},
+  { group: 'MONETIZATION', items: [
+    { key: 'promos', label: 'Promo Codes', icon: TicketPercent, countKey: 'promos' },
+    { key: 'referral-campaigns', label: 'Referral Campaigns', icon: Gift, countKey: 'referralCampaigns' },
+  ]},
+  { group: 'TARGETING', items: [
+    { key: 'segments', label: 'Segments', icon: Target, countKey: 'segments' },
+  ]},
+  { group: 'INSIGHTS', items: [
+    { key: 'analytics', label: 'Analytics', icon: BarChart3, countKey: null },
+    { key: 'utm-links', label: 'UTM Links', icon: Link2, countKey: 'utmLinks' },
+    { key: 'calendar', label: 'Calendar', icon: CalendarDays, countKey: null },
+  ]},
+]
+
 /* ─────────────── page ─────────────── */
 export default function AdminMarketingPage() {
   const [activeTab, setActiveTab] = useState<'banners' | 'promos' | 'notifications' | 'campaigns' | 'experiments' | 'sequences' | 'segments' | 'analytics' | 'referral-campaigns' | 'templates' | 'calendar' | 'utm-links'>('banners')
@@ -447,6 +472,9 @@ export default function AdminMarketingPage() {
   const [utmStatsModal, setUtmStatsModal] = useState<any>(null)
   const [utmStats, setUtmStats] = useState<any>(null)
   const [copiedLink, setCopiedLink] = useState<string | null>(null)
+
+  // Search
+  const [searchQuery, setSearchQuery] = useState('')
 
   // Delete confirmation
   const [deleteTarget, setDeleteTarget] = useState<{ type: 'banner' | 'promo' | 'campaign'; id: string; name: string } | null>(null)
@@ -777,6 +805,45 @@ export default function AdminMarketingPage() {
   function showToast(type: 'success' | 'error', message: string) {
     setToast({ type, message })
   }
+
+  function getNavCount(countKey: string | null): number | null {
+    if (!countKey) return null
+    const counts: Record<string, number> = {
+      banners: banners.length,
+      promos: promos.length,
+      campaigns: campaigns.length,
+      experiments: experiments.length,
+      sequences: sequences.length,
+      segments: segments.length,
+      templates: templates.length,
+      utmLinks: utmLinks.length,
+      referralCampaigns: referralCampaigns.length,
+    }
+    return counts[countKey] ?? null
+  }
+
+  function handleTabChange(tab: string) {
+    setActiveTab(tab as typeof activeTab)
+    setSearchQuery('')
+    if (tab === 'segments' && !segments.length) fetchSegments()
+    if (tab === 'analytics' && !analyticsData) fetchAnalytics()
+    if (tab === 'referral-campaigns' && !referralCampaigns.length) fetchReferralCampaigns()
+    if (tab === 'templates' && !templates.length) fetchTemplates()
+    if (tab === 'calendar') fetchCalendarEvents()
+    if (tab === 'utm-links' && !utmLinks.length) fetchUtmLinks()
+  }
+
+  /* ── Filtered data for search ── */
+  const sq = searchQuery.toLowerCase()
+  const filteredBanners = sq ? banners.filter(b => b.title.toLowerCase().includes(sq) || b.message.toLowerCase().includes(sq)) : banners
+  const filteredPromos = sq ? promos.filter(p => p.code.toLowerCase().includes(sq) || (p.description || '').toLowerCase().includes(sq)) : promos
+  const filteredCampaigns = sq ? campaigns.filter(c => c.name.toLowerCase().includes(sq) || c.subject.toLowerCase().includes(sq)) : campaigns
+  const filteredSequences = sq ? sequences.filter(s => s.name.toLowerCase().includes(sq)) : sequences
+  const filteredExperiments = sq ? experiments.filter(e => e.name.toLowerCase().includes(sq)) : experiments
+  const filteredSegments = sq ? segments.filter((s: any) => s.name.toLowerCase().includes(sq)) : segments
+  const filteredTemplates = sq ? templates.filter((t: any) => t.name.toLowerCase().includes(sq) || (t.subject || '').toLowerCase().includes(sq)) : templates
+  const filteredUtmLinks = sq ? utmLinks.filter((l: any) => l.destinationUrl.toLowerCase().includes(sq) || l.utmCampaign.toLowerCase().includes(sq) || l.utmSource.toLowerCase().includes(sq)) : utmLinks
+  const filteredReferralCampaigns = sq ? referralCampaigns.filter((rc: any) => rc.name.toLowerCase().includes(sq)) : referralCampaigns
 
   /* ── AI Auto-Generate ── */
   async function handleAutoGenerate() {
@@ -1706,150 +1773,46 @@ export default function AdminMarketingPage() {
         </div>
       </div>
 
-      {/* Tabs */}
-      <div className="flex gap-1 p-1 bg-white/[0.03] rounded-xl border border-white/[0.06] w-fit">
-        <button
-          onClick={() => setActiveTab('banners')}
-          className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all ${
-            activeTab === 'banners'
-              ? 'bg-brand-500/15 text-brand-400 shadow-sm'
-              : 'text-gray-400 hover:text-gray-200'
-          }`}
-        >
-          <Bell className="h-4 w-4" />
-          Banners & Announcements
-          <span className="ml-1 text-xs bg-white/[0.06] px-1.5 py-0.5 rounded">{banners.length}</span>
-        </button>
-        <button
-          onClick={() => setActiveTab('promos')}
-          className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all ${
-            activeTab === 'promos'
-              ? 'bg-brand-500/15 text-brand-400 shadow-sm'
-              : 'text-gray-400 hover:text-gray-200'
-          }`}
-        >
-          <TicketPercent className="h-4 w-4" />
-          Promo Codes
-          <span className="ml-1 text-xs bg-white/[0.06] px-1.5 py-0.5 rounded">{promos.length}</span>
-        </button>
-        <button
-          onClick={() => setActiveTab('notifications')}
-          className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all ${
-            activeTab === 'notifications'
-              ? 'bg-brand-500/15 text-brand-400 shadow-sm'
-              : 'text-gray-400 hover:text-gray-200'
-          }`}
-        >
-          <Send className="h-4 w-4" />
-          Notifications
-        </button>
-        <button
-          onClick={() => setActiveTab('campaigns')}
-          className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all ${
-            activeTab === 'campaigns'
-              ? 'bg-brand-500/15 text-brand-400 shadow-sm'
-              : 'text-gray-400 hover:text-gray-200'
-          }`}
-        >
-          <Mail className="h-4 w-4" />
-          Email Campaigns
-          <span className="ml-1 text-xs bg-white/[0.06] px-1.5 py-0.5 rounded">{campaigns.length}</span>
-        </button>
-        <button
-          onClick={() => setActiveTab('experiments')}
-          className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all ${
-            activeTab === 'experiments'
-              ? 'bg-brand-500/15 text-brand-400 shadow-sm'
-              : 'text-gray-400 hover:text-gray-200'
-          }`}
-        >
-          <FlaskConical className="h-4 w-4" />
-          A/B Tests
-          <span className="ml-1 text-xs bg-white/[0.06] px-1.5 py-0.5 rounded">{experiments.length}</span>
-        </button>
-        <button
-          onClick={() => setActiveTab('sequences')}
-          className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all ${
-            activeTab === 'sequences'
-              ? 'bg-brand-500/15 text-brand-400 shadow-sm'
-              : 'text-gray-400 hover:text-gray-200'
-          }`}
-        >
-          <Split className="h-4 w-4" />
-          Sequences
-          <span className="ml-1 text-xs bg-white/[0.06] px-1.5 py-0.5 rounded">{sequences.length}</span>
-        </button>
-        <button
-          onClick={() => { setActiveTab('segments'); if (!segments.length) fetchSegments() }}
-          className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all ${
-            activeTab === 'segments'
-              ? 'bg-brand-500/15 text-brand-400 shadow-sm'
-              : 'text-gray-400 hover:text-gray-200'
-          }`}
-        >
-          <Target className="h-4 w-4" />
-          Segments
-          <span className="ml-1 text-xs bg-white/[0.06] px-1.5 py-0.5 rounded">{segments.length}</span>
-        </button>
-        <button
-          onClick={() => { setActiveTab('analytics'); if (!analyticsData) fetchAnalytics() }}
-          className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all ${
-            activeTab === 'analytics'
-              ? 'bg-brand-500/15 text-brand-400 shadow-sm'
-              : 'text-gray-400 hover:text-gray-200'
-          }`}
-        >
-          <BarChart3 className="h-4 w-4" />
-          Analytics
-        </button>
-        <button
-          onClick={() => { setActiveTab('referral-campaigns'); if (!referralCampaigns.length) fetchReferralCampaigns() }}
-          className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all ${
-            activeTab === 'referral-campaigns'
-              ? 'bg-brand-500/15 text-brand-400 shadow-sm'
-              : 'text-gray-400 hover:text-gray-200'
-          }`}
-        >
-          <Gift className="h-4 w-4" />
-          Referral Campaigns
-          <span className="ml-1 text-xs bg-white/[0.06] px-1.5 py-0.5 rounded">{referralCampaigns.length}</span>
-        </button>
-        <button
-          onClick={() => { setActiveTab('templates'); if (!templates.length) fetchTemplates() }}
-          className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all ${
-            activeTab === 'templates'
-              ? 'bg-brand-500/15 text-brand-400 shadow-sm'
-              : 'text-gray-400 hover:text-gray-200'
-          }`}
-        >
-          <FileText className="h-4 w-4" />
-          Templates
-          <span className="ml-1 text-xs bg-white/[0.06] px-1.5 py-0.5 rounded">{templates.length}</span>
-        </button>
-        <button
-          onClick={() => { setActiveTab('calendar'); fetchCalendarEvents() }}
-          className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all ${
-            activeTab === 'calendar'
-              ? 'bg-brand-500/15 text-brand-400 shadow-sm'
-              : 'text-gray-400 hover:text-gray-200'
-          }`}
-        >
-          <CalendarDays className="h-4 w-4" />
-          Calendar
-        </button>
-        <button
-          onClick={() => { setActiveTab('utm-links'); if (!utmLinks.length) fetchUtmLinks() }}
-          className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all ${
-            activeTab === 'utm-links'
-              ? 'bg-brand-500/15 text-brand-400 shadow-sm'
-              : 'text-gray-400 hover:text-gray-200'
-          }`}
-        >
-          <Link2 className="h-4 w-4" />
-          UTM Links
-          <span className="ml-1 text-xs bg-white/[0.06] px-1.5 py-0.5 rounded">{utmLinks.length}</span>
-        </button>
-      </div>
+      {/* Main layout: Sidebar + Content */}
+      <div className="flex rounded-xl border border-white/[0.06] overflow-hidden min-h-[calc(100vh-12rem)]">
+
+        {/* ── Left Sidebar Navigation ── */}
+        <div className="w-60 flex-shrink-0 bg-white/[0.02] border-r border-white/[0.06] p-3">
+          {MARKETING_NAV.map((group) => (
+            <div key={group.group}>
+              <div className="text-[10px] font-semibold uppercase tracking-widest text-gray-600 px-3 pt-4 pb-1.5">
+                {group.group}
+              </div>
+              {group.items.map((item) => {
+                const Icon = item.icon
+                const count = getNavCount(item.countKey)
+                const isActive = activeTab === item.key
+                return (
+                  <button
+                    key={item.key}
+                    onClick={() => handleTabChange(item.key)}
+                    className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all ${
+                      isActive
+                        ? 'bg-brand-500/10 text-brand-400'
+                        : 'text-gray-400 hover:text-gray-200 hover:bg-white/[0.04]'
+                    }`}
+                  >
+                    <Icon className="h-4 w-4 flex-shrink-0" />
+                    <span className="truncate">{item.label}</span>
+                    {count !== null && count > 0 && (
+                      <span className="ml-auto text-xs bg-white/[0.06] px-1.5 py-0.5 rounded-md flex-shrink-0">
+                        {count}
+                      </span>
+                    )}
+                  </button>
+                )
+              })}
+            </div>
+          ))}
+        </div>
+
+        {/* ── Right Content Area ── */}
+        <div className="flex-1 p-6 overflow-auto">
 
       {/* ═══════════════ Banners Tab ═══════════════ */}
       {activeTab === 'banners' && (
@@ -1906,8 +1869,23 @@ export default function AdminMarketingPage() {
             </button>
           </div>
 
+          {/* Search */}
+          <div className="relative">
+            <input type="text" placeholder="Search banners..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full pl-10 pr-4 py-2.5 rounded-lg bg-white/[0.04] border border-white/[0.06] text-sm text-white placeholder:text-gray-500 focus:outline-none focus:border-brand-500/30 focus:ring-1 focus:ring-brand-500/20" />
+            <Filter className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-500" />
+            {searchQuery && (
+              <button onClick={() => setSearchQuery('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-300"><X className="h-4 w-4" /></button>
+            )}
+          </div>
+
           {loading ? (
             <div className="text-center py-12 text-gray-500">Loading...</div>
+          ) : filteredBanners.length === 0 && banners.length > 0 ? (
+            <div className="text-center py-12 text-gray-400">
+              <Filter className="h-8 w-8 mx-auto mb-2 opacity-40" />
+              <p className="text-sm">No banners match &ldquo;{searchQuery}&rdquo;</p>
+            </div>
           ) : banners.length === 0 ? (
             <div className="text-center py-16 rounded-xl border border-white/[0.06] bg-white/[0.02]">
               <Bell className="h-10 w-10 text-gray-600 mx-auto mb-3" />
@@ -1916,7 +1894,7 @@ export default function AdminMarketingPage() {
             </div>
           ) : (
             <div className="space-y-3">
-              {banners.map((banner) => {
+              {filteredBanners.map((banner) => {
                 const typeInfo = getBannerTypeInfo(banner.type)
                 const moduleInfo = getModuleInfo(banner.targetModule)
                 const status = getStatusBadge(banner.isActive, banner.startsAt, banner.expiresAt)
@@ -2029,7 +2007,22 @@ export default function AdminMarketingPage() {
             </button>
           </div>
 
-          {promos.length === 0 ? (
+          {/* Search */}
+          <div className="relative">
+            <input type="text" placeholder="Search promo codes..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full pl-10 pr-4 py-2.5 rounded-lg bg-white/[0.04] border border-white/[0.06] text-sm text-white placeholder:text-gray-500 focus:outline-none focus:border-brand-500/30 focus:ring-1 focus:ring-brand-500/20" />
+            <Filter className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-500" />
+            {searchQuery && (
+              <button onClick={() => setSearchQuery('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-300"><X className="h-4 w-4" /></button>
+            )}
+          </div>
+
+          {filteredPromos.length === 0 && promos.length > 0 ? (
+            <div className="text-center py-12 text-gray-400">
+              <Filter className="h-8 w-8 mx-auto mb-2 opacity-40" />
+              <p className="text-sm">No promo codes match &ldquo;{searchQuery}&rdquo;</p>
+            </div>
+          ) : promos.length === 0 ? (
             <div className="text-center py-16 rounded-xl border border-white/[0.06] bg-white/[0.02]">
               <TicketPercent className="h-10 w-10 text-gray-600 mx-auto mb-3" />
               <p className="text-gray-400 font-medium">No promo codes yet</p>
@@ -2037,7 +2030,7 @@ export default function AdminMarketingPage() {
             </div>
           ) : (
             <div className="grid gap-3">
-              {promos.map((promo) => {
+              {filteredPromos.map((promo) => {
                 const status = getStatusBadge(promo.isActive, promo.startsAt, promo.expiresAt)
                 return (
                   <div
@@ -2182,7 +2175,22 @@ export default function AdminMarketingPage() {
             </button>
           </div>
 
-          {campaigns.length === 0 ? (
+          {/* Search */}
+          <div className="relative">
+            <input type="text" placeholder="Search campaigns..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full pl-10 pr-4 py-2.5 rounded-lg bg-white/[0.04] border border-white/[0.06] text-sm text-white placeholder:text-gray-500 focus:outline-none focus:border-brand-500/30 focus:ring-1 focus:ring-brand-500/20" />
+            <Filter className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-500" />
+            {searchQuery && (
+              <button onClick={() => setSearchQuery('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-300"><X className="h-4 w-4" /></button>
+            )}
+          </div>
+
+          {filteredCampaigns.length === 0 && campaigns.length > 0 ? (
+            <div className="text-center py-12 text-gray-400">
+              <Filter className="h-8 w-8 mx-auto mb-2 opacity-40" />
+              <p className="text-sm">No campaigns match &ldquo;{searchQuery}&rdquo;</p>
+            </div>
+          ) : campaigns.length === 0 ? (
             <div className="text-center py-16 rounded-xl border border-white/[0.06] bg-white/[0.02]">
               <Mail className="h-10 w-10 text-gray-600 mx-auto mb-3" />
               <p className="text-gray-400 font-medium">No email campaigns yet</p>
@@ -2190,7 +2198,7 @@ export default function AdminMarketingPage() {
             </div>
           ) : (
             <div className="space-y-3">
-              {campaigns.map((c) => (
+              {filteredCampaigns.map((c) => (
                 <div key={c.id} className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-4 hover:bg-white/[0.03] transition">
                   <div className="flex items-start gap-4">
                     <div className="h-10 w-10 rounded-lg bg-white/[0.04] flex items-center justify-center flex-shrink-0">
@@ -3422,7 +3430,22 @@ export default function AdminMarketingPage() {
             </button>
           </div>
 
-          {experiments.length === 0 ? (
+          {/* Search */}
+          <div className="relative">
+            <input type="text" placeholder="Search experiments..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full pl-10 pr-4 py-2.5 rounded-lg bg-white/[0.04] border border-white/[0.06] text-sm text-white placeholder:text-gray-500 focus:outline-none focus:border-brand-500/30 focus:ring-1 focus:ring-brand-500/20" />
+            <Filter className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-500" />
+            {searchQuery && (
+              <button onClick={() => setSearchQuery('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-300"><X className="h-4 w-4" /></button>
+            )}
+          </div>
+
+          {filteredExperiments.length === 0 && experiments.length > 0 ? (
+            <div className="text-center py-12 text-gray-400">
+              <Filter className="h-8 w-8 mx-auto mb-2 opacity-40" />
+              <p className="text-sm">No experiments match &ldquo;{searchQuery}&rdquo;</p>
+            </div>
+          ) : experiments.length === 0 ? (
             <div className="text-center py-16 rounded-xl border border-white/[0.06] bg-white/[0.02]">
               <FlaskConical className="h-10 w-10 text-gray-600 mx-auto mb-3" />
               <p className="text-gray-400 font-medium">No experiments yet</p>
@@ -3430,7 +3453,7 @@ export default function AdminMarketingPage() {
             </div>
           ) : (
             <div className="space-y-4">
-              {experiments.map((exp) => {
+              {filteredExperiments.map((exp) => {
                 const ctrA = exp.bannerA && exp.bannerA.viewCount > 0
                   ? ((exp.bannerA.clickCount / exp.bannerA.viewCount) * 100).toFixed(1)
                   : '0.0'
@@ -3678,7 +3701,22 @@ export default function AdminMarketingPage() {
             </button>
           </div>
 
-          {sequences.length === 0 ? (
+          {/* Search */}
+          <div className="relative">
+            <input type="text" placeholder="Search sequences..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full pl-10 pr-4 py-2.5 rounded-lg bg-white/[0.04] border border-white/[0.06] text-sm text-white placeholder:text-gray-500 focus:outline-none focus:border-brand-500/30 focus:ring-1 focus:ring-brand-500/20" />
+            <Filter className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-500" />
+            {searchQuery && (
+              <button onClick={() => setSearchQuery('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-300"><X className="h-4 w-4" /></button>
+            )}
+          </div>
+
+          {filteredSequences.length === 0 && sequences.length > 0 ? (
+            <div className="text-center py-12 text-gray-400">
+              <Filter className="h-8 w-8 mx-auto mb-2 opacity-40" />
+              <p className="text-sm">No sequences match &ldquo;{searchQuery}&rdquo;</p>
+            </div>
+          ) : sequences.length === 0 ? (
             <div className="text-center py-16 rounded-xl border border-white/[0.06] bg-white/[0.02]">
               <Split className="h-10 w-10 text-gray-600 mx-auto mb-3" />
               <p className="text-gray-400 font-medium">No sequences yet</p>
@@ -3686,7 +3724,7 @@ export default function AdminMarketingPage() {
             </div>
           ) : (
             <div className="space-y-3">
-              {sequences.map((seq) => {
+              {filteredSequences.map((seq) => {
                 const triggerInfo = SEQUENCE_TRIGGERS.find(t => t.value === seq.trigger)
                 const TriggerIcon = triggerInfo?.icon || Mail
                 return (
@@ -3990,14 +4028,29 @@ export default function AdminMarketingPage() {
             </button>
           </div>
 
-          {segments.length === 0 ? (
+          {/* Search */}
+          <div className="relative">
+            <input type="text" placeholder="Search segments..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full pl-10 pr-4 py-2.5 rounded-lg bg-white/[0.04] border border-white/[0.06] text-sm text-white placeholder:text-gray-500 focus:outline-none focus:border-brand-500/30 focus:ring-1 focus:ring-brand-500/20" />
+            <Filter className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-500" />
+            {searchQuery && (
+              <button onClick={() => setSearchQuery('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-300"><X className="h-4 w-4" /></button>
+            )}
+          </div>
+
+          {filteredSegments.length === 0 && segments.length > 0 ? (
+            <div className="text-center py-12 text-gray-400">
+              <Filter className="h-8 w-8 mx-auto mb-2 opacity-40" />
+              <p className="text-sm">No segments match &ldquo;{searchQuery}&rdquo;</p>
+            </div>
+          ) : segments.length === 0 ? (
             <div className="text-center py-12 text-gray-400">
               <Target className="h-10 w-10 mx-auto mb-3 opacity-40" />
               <p>No segments yet. Create your first audience segment.</p>
             </div>
           ) : (
             <div className="grid gap-3">
-              {segments.map((seg: any) => (
+              {filteredSegments.map((seg: any) => (
                 <div key={seg.id} className="bg-white/[0.03] border border-white/[0.06] rounded-xl p-4">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
@@ -4383,14 +4436,29 @@ export default function AdminMarketingPage() {
               </button>
             </div>
 
-            {referralCampaigns.length === 0 ? (
+            {/* Search */}
+            <div className="relative">
+              <input type="text" placeholder="Search referral campaigns..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full pl-10 pr-4 py-2.5 rounded-lg bg-white/[0.04] border border-white/[0.06] text-sm text-white placeholder:text-gray-500 focus:outline-none focus:border-brand-500/30 focus:ring-1 focus:ring-brand-500/20" />
+              <Filter className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-500" />
+              {searchQuery && (
+                <button onClick={() => setSearchQuery('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-300"><X className="h-4 w-4" /></button>
+              )}
+            </div>
+
+            {filteredReferralCampaigns.length === 0 && referralCampaigns.length > 0 ? (
+              <div className="text-center py-12 text-gray-400">
+                <Filter className="h-8 w-8 mx-auto mb-2 opacity-40" />
+                <p className="text-sm">No referral campaigns match &ldquo;{searchQuery}&rdquo;</p>
+              </div>
+            ) : referralCampaigns.length === 0 ? (
               <div className="text-center py-12 text-gray-400">
                 <Gift className="h-10 w-10 mx-auto mb-3 opacity-40" />
                 <p>No referral campaigns yet. Create one to boost referrals.</p>
               </div>
             ) : (
               <div className="grid gap-3">
-                {referralCampaigns.map((c: any) => (
+                {filteredReferralCampaigns.map((c: any) => (
                   <div key={c.id} className="bg-white/[0.03] border border-white/[0.06] rounded-xl p-4">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-3">
@@ -4474,14 +4542,29 @@ export default function AdminMarketingPage() {
             </button>
           </div>
 
-          {templates.length === 0 ? (
+          {/* Search */}
+          <div className="relative">
+            <input type="text" placeholder="Search templates..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full pl-10 pr-4 py-2.5 rounded-lg bg-white/[0.04] border border-white/[0.06] text-sm text-white placeholder:text-gray-500 focus:outline-none focus:border-brand-500/30 focus:ring-1 focus:ring-brand-500/20" />
+            <Filter className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-500" />
+            {searchQuery && (
+              <button onClick={() => setSearchQuery('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-300"><X className="h-4 w-4" /></button>
+            )}
+          </div>
+
+          {filteredTemplates.length === 0 && templates.length > 0 ? (
+            <div className="text-center py-12 text-gray-400">
+              <Filter className="h-8 w-8 mx-auto mb-2 opacity-40" />
+              <p className="text-sm">No templates match &ldquo;{searchQuery}&rdquo;</p>
+            </div>
+          ) : templates.length === 0 ? (
             <div className="text-center py-12 text-gray-400">
               <FileText className="h-10 w-10 mx-auto mb-3 opacity-40" />
               <p>No templates yet. Create one to speed up email creation.</p>
             </div>
           ) : (
             <div className="grid gap-3">
-              {templates.map((t: any) => (
+              {filteredTemplates.map((t: any) => (
                 <div key={t.id} className="bg-white/[0.03] border border-white/[0.06] rounded-xl p-4">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
@@ -4642,14 +4725,29 @@ export default function AdminMarketingPage() {
             </button>
           </div>
 
-          {utmLinks.length === 0 ? (
+          {/* Search */}
+          <div className="relative">
+            <input type="text" placeholder="Search UTM links..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full pl-10 pr-4 py-2.5 rounded-lg bg-white/[0.04] border border-white/[0.06] text-sm text-white placeholder:text-gray-500 focus:outline-none focus:border-brand-500/30 focus:ring-1 focus:ring-brand-500/20" />
+            <Filter className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-500" />
+            {searchQuery && (
+              <button onClick={() => setSearchQuery('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-300"><X className="h-4 w-4" /></button>
+            )}
+          </div>
+
+          {filteredUtmLinks.length === 0 && utmLinks.length > 0 ? (
+            <div className="text-center py-12 text-gray-400">
+              <Filter className="h-8 w-8 mx-auto mb-2 opacity-40" />
+              <p className="text-sm">No UTM links match &ldquo;{searchQuery}&rdquo;</p>
+            </div>
+          ) : utmLinks.length === 0 ? (
             <div className="text-center py-12 text-gray-400">
               <Link2 className="h-10 w-10 mx-auto mb-3 opacity-40" />
               <p>No UTM links yet. Create one to track campaign performance.</p>
             </div>
           ) : (
             <div className="grid gap-3">
-              {utmLinks.map((link: any) => (
+              {filteredUtmLinks.map((link: any) => (
                 <div key={link.id} className="bg-white/[0.03] border border-white/[0.06] rounded-xl p-4">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3 flex-1 min-w-0">
@@ -5140,6 +5238,9 @@ export default function AdminMarketingPage() {
           </div>
         </div>
       )}
+
+        </div>{/* end right content area */}
+      </div>{/* end flex sidebar+content */}
     </div>
   )
 }
