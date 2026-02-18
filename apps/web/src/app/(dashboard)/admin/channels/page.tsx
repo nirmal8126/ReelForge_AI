@@ -1,6 +1,8 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
+import { useSession } from 'next-auth/react'
+import { useRouter } from 'next/navigation'
 import {
   Tv,
   Search,
@@ -53,6 +55,8 @@ const TONE_LABELS: Record<string, string> = {
 }
 
 export default function AdminChannelsPage() {
+  const { data: session, status } = useSession()
+  const router = useRouter()
   const [profiles, setProfiles] = useState<ChannelProfile[]>([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
@@ -61,6 +65,19 @@ export default function AdminChannelsPage() {
   const [totalPages, setTotalPages] = useState(1)
   const [total, setTotal] = useState(0)
   const [deleting, setDeleting] = useState<string | null>(null)
+
+  // Auth guard
+  useEffect(() => {
+    if (status === 'loading') return
+    if (!session?.user) {
+      router.push('/login')
+      return
+    }
+    if ((session.user as Record<string, unknown>).role !== 'ADMIN') {
+      router.push('/dashboard')
+      toast.error('Super Admin access required')
+    }
+  }, [session, status, router])
 
   const fetchProfiles = useCallback(async () => {
     setLoading(true)

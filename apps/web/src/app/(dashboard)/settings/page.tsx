@@ -5,6 +5,7 @@ import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { useSession, signOut } from 'next-auth/react'
+import { useRouter } from 'next/navigation'
 import { User, Shield, Bell, Trash2, Eye, EyeOff, Loader2 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { confirmAction } from '@/lib/confirm'
@@ -43,8 +44,17 @@ const passwordSchema = z.object({
 type PasswordForm = z.infer<typeof passwordSchema>
 
 export default function SettingsPage() {
-  const { data: session, update } = useSession()
+  const { data: session, status, update } = useSession()
+  const router = useRouter()
   const [loading, setLoading] = useState(false)
+
+  // Auth guard
+  useEffect(() => {
+    if (status === 'loading') return
+    if (!session?.user) {
+      router.push('/login')
+    }
+  }, [session, status, router])
   const [showPasswordForm, setShowPasswordForm] = useState(false)
   const [showCurrentPw, setShowCurrentPw] = useState(false)
   const [showNewPw, setShowNewPw] = useState(false)

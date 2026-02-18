@@ -45,7 +45,7 @@ export default async function BillingPage() {
   // Build plan prices from region data
   const sym = region.currencySymbol
   const getPlanPrice = (plan: string) => {
-    const pp = region.planPrices.find((p) => p.plan === plan)
+    const pp = region.planPrices.find((p: { plan: string; priceAmount: number }) => p.plan === plan)
     return pp ? formatRegionPrice(pp.priceAmount, sym) : `${sym}0`
   }
 
@@ -57,8 +57,8 @@ export default async function BillingPage() {
   ]
 
   // Build credit packs from region data
-  const regionCredits = region.creditPrices.sort((a, b) => a.credits - b.credits)
-  const creditPacks = regionCredits.map((cp, i) => {
+  const regionCredits = region.creditPrices.sort((a: { credits: number }, b: { credits: number }) => a.credits - b.credits)
+  const creditPacks = regionCredits.map((cp: { credits: number; priceAmount: number; label: string }, i: number) => {
     const perCredit = cp.priceAmount / cp.credits / 100
     const firstPerCredit = regionCredits[0] ? regionCredits[0].priceAmount / regionCredits[0].credits / 100 : perCredit
     const savings = i > 0 && firstPerCredit > 0
@@ -267,7 +267,7 @@ export default async function BillingPage() {
               <h2 className="text-lg font-semibold text-white">Buy Credits</h2>
             </div>
             <div className="space-y-3">
-              {creditPacks.map((pack) => (
+              {creditPacks.map((pack: { credits: number; price: string; perCredit: string; savings: string | null; index: number; popular?: boolean }) => (
                 <div
                   key={pack.credits}
                   className={`rounded-xl border p-4 transition ${
@@ -319,8 +319,12 @@ export default async function BillingPage() {
                     <div className="min-w-0">
                       <p className="text-xs font-medium text-white truncate">
                         {tx.type === 'REFERRAL_REWARD' ? 'Referral reward' :
-                         tx.type === 'CREDIT_PURCHASE' ? 'Credit purchase' :
-                         tx.type === 'REEL_GENERATION' ? 'Reel generated' :
+                         tx.type === 'PURCHASE' ? 'Credit purchase' :
+                         tx.type === 'JOB_DEBIT' ? 'Job debit' :
+                         tx.type === 'ADMIN_GRANT' ? 'Admin grant' :
+                         tx.type === 'REFUND' ? 'Refund' :
+                         tx.type === 'MILESTONE_REWARD' ? 'Milestone reward' :
+                         tx.type === 'CAMPAIGN_BONUS' ? 'Campaign bonus' :
                          tx.description || tx.type}
                       </p>
                       <p className="text-[10px] text-gray-600">{formatDate(tx.createdAt)}</p>

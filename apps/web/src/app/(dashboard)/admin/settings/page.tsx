@@ -1,6 +1,8 @@
 'use client'
 
 import { useState, useEffect, useCallback, useRef } from 'react'
+import { useSession } from 'next-auth/react'
+import { useRouter } from 'next/navigation'
 import {
   Settings,
   Save,
@@ -24,6 +26,8 @@ interface AppSettings {
 }
 
 export default function AdminSettingsPage() {
+  const { data: session, status } = useSession()
+  const router = useRouter()
   const [settings, setSettings] = useState<AppSettings | null>(null)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
@@ -38,6 +42,19 @@ export default function AdminSettingsPage() {
   const [newPassword, setNewPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
   const [showCurrentPw, setShowCurrentPw] = useState(false)
+
+  // Auth guard
+  useEffect(() => {
+    if (status === 'loading') return
+    if (!session?.user) {
+      router.push('/login')
+      return
+    }
+    if ((session.user as Record<string, unknown>).role !== 'ADMIN') {
+      router.push('/dashboard')
+      toast.error('Super Admin access required')
+    }
+  }, [session, status, router])
   const [showNewPw, setShowNewPw] = useState(false)
   const [changingPassword, setChangingPassword] = useState(false)
 

@@ -1,6 +1,8 @@
 'use client'
 
 import { useState, useEffect, useCallback, useRef } from 'react'
+import { useSession } from 'next-auth/react'
+import { useRouter } from 'next/navigation'
 import {
   Globe,
   Plus,
@@ -408,8 +410,22 @@ function CountryMultiSelect({
 }
 
 export default function AdminPricingPage() {
+  const { data: session, status } = useSession()
+  const router = useRouter()
   const [regions, setRegions] = useState<PricingRegion[]>([])
   const [loading, setLoading] = useState(true)
+
+  // Auth guard
+  useEffect(() => {
+    if (status === 'loading') return
+    if (!session?.user) {
+      router.push('/login')
+      return
+    }
+    if ((session.user as Record<string, unknown>).role !== 'ADMIN') {
+      router.push('/dashboard')
+    }
+  }, [session, status, router])
 
   // Modal state
   const [showModal, setShowModal] = useState(false)

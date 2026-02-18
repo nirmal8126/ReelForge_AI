@@ -381,6 +381,7 @@ const quickActions = [
 const adminLinks = [
   { href: '/admin/users', icon: Users, label: 'Manage Users', color: 'text-blue-400', bg: 'bg-blue-500/15' },
   { href: '/admin/modules', icon: Shield, label: 'Module Settings', color: 'text-purple-400', bg: 'bg-purple-500/15' },
+  { href: '/admin/financials', icon: DollarSign, label: 'Financials', color: 'text-emerald-400', bg: 'bg-emerald-500/15' },
   { href: '/admin/plans', icon: CreditCard, label: 'Plans', color: 'text-green-400', bg: 'bg-green-500/15' },
   { href: '/admin/pricing', icon: Globe, label: 'Pricing Regions', color: 'text-yellow-400', bg: 'bg-yellow-500/15' },
   { href: '/admin/marketing', icon: Megaphone, label: 'Marketing', color: 'text-red-400', bg: 'bg-red-500/15' },

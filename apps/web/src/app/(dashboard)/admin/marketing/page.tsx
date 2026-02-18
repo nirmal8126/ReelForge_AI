@@ -1,6 +1,8 @@
 'use client'
 
 import { useState, useEffect, useRef } from 'react'
+import { useSession } from 'next-auth/react'
+import { useRouter } from 'next/navigation'
 import {
   Megaphone,
   Plus,
@@ -290,6 +292,8 @@ const MARKETING_NAV = [
 
 /* ─────────────── page ─────────────── */
 export default function AdminMarketingPage() {
+  const { data: session, status: sessionStatus } = useSession()
+  const router = useRouter()
   const [activeTab, setActiveTab] = useState<'banners' | 'promos' | 'notifications' | 'campaigns' | 'experiments' | 'sequences' | 'segments' | 'analytics' | 'referral-campaigns' | 'templates' | 'calendar' | 'utm-links'>('banners')
   const [banners, setBanners] = useState<Banner[]>([])
   const [promos, setPromos] = useState<PromoCode[]>([])
@@ -298,6 +302,18 @@ export default function AdminMarketingPage() {
   const [generating, setGenerating] = useState(false)
   const [generatingImage, setGeneratingImage] = useState(false)
   const [toast, setToast] = useState<{ type: 'success' | 'error'; message: string } | null>(null)
+
+  // Auth guard
+  useEffect(() => {
+    if (sessionStatus === 'loading') return
+    if (!session?.user) {
+      router.push('/login')
+      return
+    }
+    if ((session.user as Record<string, unknown>).role !== 'ADMIN') {
+      router.push('/dashboard')
+    }
+  }, [session, sessionStatus, router])
 
   // Banner modal
   const [bannerModal, setBannerModal] = useState(false)

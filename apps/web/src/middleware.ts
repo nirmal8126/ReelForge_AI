@@ -26,10 +26,16 @@ const authPages = new Set(['/login', '/register'])
 const protectedPrefixes = [
   '/dashboard',
   '/reels',
+  '/quotes',
+  '/challenges',
+  '/gameplay',
+  '/long-form',
+  '/cartoon-studio',
   '/profiles',
   '/billing',
   '/settings',
   '/referrals',
+  '/admin',
 ]
 
 export async function middleware(request: NextRequest) {
