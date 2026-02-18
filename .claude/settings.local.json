@@ -30,7 +30,8 @@
       "Bash(find:*)",
       "Bash(cat:*)",
       "Bash(head:*)",
-      "Bash(grep:*)"
+      "Bash(grep:*)",
+      "Bash(npx next build:*)"
     ]
   }
 }

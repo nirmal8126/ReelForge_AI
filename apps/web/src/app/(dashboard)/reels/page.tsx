@@ -59,7 +59,7 @@ export default async function ReelsPage({ searchParams }: ReelsPageProps) {
         channelProfile: {
           select: { id: true, name: true },
         },
-        ...(isAdmin && { user: { select: { id: true, name: true, email: true } } }),
+        user: isAdmin ? { select: { id: true, name: true, email: true } } : false,
       },
     }),
     prisma.reelJob.count({ where }),
@@ -259,10 +259,10 @@ export default async function ReelsPage({ searchParams }: ReelsPageProps) {
                     </div>
                   )}
 
-                  {isAdmin && (reel as Record<string, unknown>).user && (
+                  {isAdmin && reel.user && (
                     <AdminUserBadge
-                      name={((reel as Record<string, unknown>).user as Record<string, string>).name}
-                      email={((reel as Record<string, unknown>).user as Record<string, string>).email}
+                      name={reel.user.name || ''}
+                      email={reel.user.email || ''}
                     />
                   )}
                   {isAdmin && (

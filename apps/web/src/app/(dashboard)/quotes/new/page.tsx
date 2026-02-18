@@ -21,7 +21,7 @@ export default function CreateQuotePage() {
   const [loading, setLoading] = useState(false)
 
   const [form, setForm] = useState({
-    category: QUOTE_CATEGORIES[0].id,
+    category: QUOTE_CATEGORIES[0].id as string,
     prompt: '',
     language: 'hi',
   })

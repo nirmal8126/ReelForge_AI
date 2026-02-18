@@ -17,7 +17,7 @@ export default async function CartoonStudioPage() {
     include: {
       _count: { select: { characters: true, episodes: true } },
       characters: { take: 4, select: { name: true, color: true } },
-      ...(isAdmin && { user: { select: { id: true, name: true, email: true } } }),
+      user: isAdmin ? { select: { id: true, name: true, email: true } } : false,
     },
     orderBy: { updatedAt: 'desc' },
   })
@@ -63,7 +63,7 @@ export default async function CartoonStudioPage() {
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {series.map((s) => (
+          {series.map((s: typeof series[number]) => (
             <Link
               key={s.id}
               href={`/cartoon-studio/${s.id}`}
@@ -119,10 +119,10 @@ export default async function CartoonStudioPage() {
                 </span>
               </div>
 
-              {isAdmin && (s as Record<string, unknown>).user && (
+              {isAdmin && s.user && (
                 <AdminUserBadge
-                  name={((s as Record<string, unknown>).user as Record<string, string>).name}
-                  email={((s as Record<string, unknown>).user as Record<string, string>).email}
+                  name={s.user.name || ''}
+                  email={s.user.email || ''}
                 />
               )}
               {isAdmin && (

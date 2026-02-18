@@ -127,7 +127,7 @@ export async function POST(req: NextRequest) {
           quality: 'standard',
         })
 
-        const generatedUrl = response.data[0]?.url
+        const generatedUrl = response.data?.[0]?.url
         if (generatedUrl) {
           const imgRes = await fetch(generatedUrl)
           if (imgRes.ok) {

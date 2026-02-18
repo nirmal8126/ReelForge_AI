@@ -15,6 +15,7 @@ import {
   MessageSquare,
   Image as ImageIcon,
 } from 'lucide-react'
+import { PublishDialog } from '@/components/publish/publish-dialog'
 
 interface Scene {
   id: string
@@ -281,12 +282,20 @@ export default function EpisodeDetailPage() {
         <div className="space-y-6">
           {/* Video Preview */}
           {episode.status === 'COMPLETED' && episode.outputUrl && (
-            <div className="rounded-xl border border-white/10 bg-black overflow-hidden">
-              <video
-                src={episode.outputUrl}
-                controls
-                className="w-full"
-                playsInline
+            <div className="space-y-3">
+              <div className="rounded-xl border border-white/10 bg-black overflow-hidden">
+                <video
+                  src={episode.outputUrl}
+                  controls
+                  className="w-full"
+                  playsInline
+                />
+              </div>
+              <PublishDialog
+                jobType="cartoon"
+                jobId={episodeId}
+                videoUrl={episode.outputUrl}
+                defaultTitle={`${episode.series.name} - Ep. ${episode.episodeNumber}: ${episode.title}`}
               />
             </div>
           )}

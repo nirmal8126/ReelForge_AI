@@ -35,6 +35,7 @@ const protectedPrefixes = [
   '/billing',
   '/settings',
   '/referrals',
+  '/social-accounts',
   '/admin',
 ]
 

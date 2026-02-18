@@ -21,6 +21,7 @@ import {
   Layout,
   Pencil,
 } from 'lucide-react'
+import { PublishDialog } from '@/components/publish/publish-dialog'
 import { getJobStatusLabel, getJobStatusColor } from '@/lib/utils'
 import { RetryButton } from './retry-button'
 
@@ -169,16 +170,24 @@ export default async function LongFormDetailPage({ params }: LongFormDetailPageP
             </Link>
           )}
           {isCompleted && job.outputUrl && (
-            <a
-              href={job.outputUrl}
-              download
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center gap-2 rounded-lg bg-green-600 px-4 py-2 text-sm font-medium text-white hover:bg-green-500 transition"
-            >
-              <Download className="h-4 w-4" />
-              Download
-            </a>
+            <>
+              <PublishDialog
+                jobType="long_form"
+                jobId={job.id}
+                videoUrl={job.outputUrl}
+                defaultTitle={job.title}
+              />
+              <a
+                href={job.outputUrl}
+                download
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-2 rounded-lg bg-green-600 px-4 py-2 text-sm font-medium text-white hover:bg-green-500 transition"
+              >
+                <Download className="h-4 w-4" />
+                Download
+              </a>
+            </>
           )}
           {job.youtubeVideoId && (
             <a

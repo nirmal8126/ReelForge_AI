@@ -19,6 +19,7 @@ import {
   Music,
   Film,
 } from 'lucide-react'
+import { PublishDialog } from '@/components/publish/publish-dialog'
 import { getJobStatusLabel, getJobStatusColor } from '@/lib/utils'
 import { DeleteGameplayButton } from './delete-button'
 import { AutoRefresh } from './auto-refresh'
@@ -150,7 +151,14 @@ export default async function GameplayDetailPage({ params }: GameplayDetailPageP
                 )}
               </div>
               {!job.outputUrl.startsWith('file://') && (
-                <div className="p-4 border-t border-white/10">
+                <div className="p-4 border-t border-white/10 flex items-center gap-3">
+                  <PublishDialog
+                    jobType="gameplay"
+                    jobId={job.id}
+                    videoUrl={job.outputUrl}
+                    thumbnailUrl={job.thumbnailUrl}
+                    defaultTitle={job.gameTitle || TEMPLATE_LABELS[job.template] || 'Gameplay Video'}
+                  />
                   <a
                     href={job.outputUrl}
                     download

@@ -16,6 +16,7 @@ import {
   HelpCircle,
   BarChart3,
 } from 'lucide-react'
+import { PublishDialog } from '@/components/publish/publish-dialog'
 import { getJobStatusLabel, getJobStatusColor } from '@/lib/utils'
 import { DeleteChallengeButton } from './delete-button'
 import { AutoRefresh } from './auto-refresh'
@@ -165,7 +166,14 @@ export default async function ChallengeDetailPage({ params }: ChallengeDetailPag
                 )}
               </div>
               {!challenge.outputUrl.startsWith('file://') && (
-                <div className="p-4 border-t border-white/10">
+                <div className="p-4 border-t border-white/10 flex items-center gap-3">
+                  <PublishDialog
+                    jobType="challenge"
+                    jobId={challenge.id}
+                    videoUrl={challenge.outputUrl}
+                    thumbnailUrl={challenge.thumbnailUrl}
+                    defaultTitle={CHALLENGE_TYPE_LABELS[challenge.challengeType] || challenge.challengeType}
+                  />
                   <a
                     href={challenge.outputUrl}
                     download

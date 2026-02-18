@@ -20,6 +20,7 @@ import {
   FileText,
   Zap,
 } from 'lucide-react'
+import { PublishDialog } from '@/components/publish/publish-dialog'
 import { getJobStatusLabel, getJobStatusColor } from '@/lib/utils'
 import { DeleteReelButton } from './delete-button'
 import { AutoRefresh } from './auto-refresh'
@@ -129,16 +130,25 @@ export default async function ReelDetailPage({ params }: ReelDetailPageProps) {
 
         <div className="flex items-center gap-3 ml-4">
           {isCompleted && videoUrl && (
-            <a
-              href={videoUrl}
-              download
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center gap-2 rounded-lg bg-green-600 px-4 py-2 text-sm font-medium text-white hover:bg-green-500 transition"
-            >
-              <Download className="h-4 w-4" />
-              Download
-            </a>
+            <>
+              <PublishDialog
+                jobType="reel"
+                jobId={reel.id}
+                videoUrl={videoUrl}
+                thumbnailUrl={reel.thumbnailUrl}
+                defaultTitle={reel.title}
+              />
+              <a
+                href={videoUrl}
+                download
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-2 rounded-lg bg-green-600 px-4 py-2 text-sm font-medium text-white hover:bg-green-500 transition"
+              >
+                <Download className="h-4 w-4" />
+                Download
+              </a>
+            </>
           )}
           <DeleteReelButton reelId={reel.id} isProcessing={isProcessing} />
         </div>

@@ -59,7 +59,7 @@ export default async function LongFormPage({ searchParams }: LongFormPageProps) 
         _count: {
           select: { segments: true },
         },
-        ...(isAdmin && { user: { select: { id: true, name: true, email: true } } }),
+        user: isAdmin ? { select: { id: true, name: true, email: true } } : false,
       },
     }),
     prisma.longFormJob.count({ where }),
@@ -279,10 +279,10 @@ export default async function LongFormPage({ searchParams }: LongFormPageProps) 
                     </div>
                   )}
 
-                  {isAdmin && (job as Record<string, unknown>).user && (
+                  {isAdmin && job.user && (
                     <AdminUserBadge
-                      name={((job as Record<string, unknown>).user as Record<string, string>).name}
-                      email={((job as Record<string, unknown>).user as Record<string, string>).email}
+                      name={job.user.name || ''}
+                      email={job.user.email || ''}
                     />
                   )}
                   {isAdmin && (

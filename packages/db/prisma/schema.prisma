@@ -53,6 +53,8 @@ model User {
   sessions           Session[]
   notifications      Notification[]
   badges             UserBadge[]
+  socialAccounts     SocialAccount[]
+  publishRecords     PublishRecord[]
 
   lastLoginAt DateTime? @map("last_login_at")
 
@@ -1570,4 +1572,80 @@ model UtmClick {
   @@index([utmLinkId])
   @@index([createdAt])
   @@map("utm_clicks")
+}
+
+// ---------------------------------------------------------------------------
+// Social Media Publishing
+// ---------------------------------------------------------------------------
+
+enum SocialPlatformStatus {
+  ENABLED
+  DISABLED
+  COMING_SOON
+}
+
+enum PublishStatus {
+  PENDING
+  UPLOADING
+  PUBLISHED
+  FAILED
+}
+
+model SocialPlatformConfig {
+  id           String               @id @default(cuid())
+  platformKey  String               @unique @map("platform_key") @db.VarChar(50)
+  platformName String               @map("platform_name") @db.VarChar(100)
+  status       SocialPlatformStatus @default(DISABLED)
+  updatedAt    DateTime             @updatedAt @map("updated_at")
+
+  @@map("social_platform_configs")
+}
+
+model SocialAccount {
+  id            String    @id @default(cuid())
+  userId        String    @map("user_id")
+  platform      Platform
+  accountId     String    @map("account_id") @db.VarChar(255)
+  accountName   String    @map("account_name") @db.VarChar(255)
+  accountAvatar String?   @map("account_avatar") @db.VarChar(500)
+  accessToken   String    @map("access_token") @db.Text
+  refreshToken  String?   @map("refresh_token") @db.Text
+  tokenExpiry   DateTime? @map("token_expiry")
+  scopes        String?   @db.VarChar(500)
+  isActive      Boolean   @default(true) @map("is_active")
+
+  user           User            @relation(fields: [userId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  publishRecords PublishRecord[]
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@unique([userId, platform, accountId])
+  @@index([userId])
+  @@map("social_accounts")
+}
+
+model PublishRecord {
+  id              String        @id @default(cuid())
+  userId          String        @map("user_id")
+  socialAccountId String        @map("social_account_id")
+  jobType         String        @map("job_type") @db.VarChar(30)
+  jobId           String        @map("job_id") @db.VarChar(100)
+  status          PublishStatus @default(PENDING)
+  title           String?       @db.VarChar(255)
+  description     String?       @db.Text
+  platformPostId  String?       @map("platform_post_id") @db.VarChar(255)
+  platformUrl     String?       @map("platform_url") @db.VarChar(500)
+  errorMessage    String?       @map("error_message") @db.Text
+  publishedAt     DateTime?     @map("published_at")
+
+  user          User          @relation(fields: [userId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  socialAccount SocialAccount @relation(fields: [socialAccountId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([userId])
+  @@index([jobType, jobId])
+  @@map("publish_records")
 }

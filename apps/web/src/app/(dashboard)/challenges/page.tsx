@@ -67,7 +67,7 @@ export default async function ChallengesPage({ searchParams }: ChallengesPagePro
       orderBy: { createdAt: 'desc' },
       skip: (page - 1) * limit,
       take: limit,
-      ...(isAdmin && { include: { user: { select: { id: true, name: true, email: true } } } }),
+      include: { user: isAdmin ? { select: { id: true, name: true, email: true } } : false },
     }),
     prisma.challengeJob.count({ where }),
   ])
@@ -292,10 +292,10 @@ export default async function ChallengesPage({ searchParams }: ChallengesPagePro
                     </span>
                   </div>
 
-                  {isAdmin && (challenge as Record<string, unknown>).user && (
+                  {isAdmin && challenge.user && (
                     <AdminUserBadge
-                      name={((challenge as Record<string, unknown>).user as Record<string, string>).name}
-                      email={((challenge as Record<string, unknown>).user as Record<string, string>).email}
+                      name={challenge.user.name || ''}
+                      email={challenge.user.email || ''}
                     />
                   )}
                   {isAdmin && (

@@ -23,6 +23,7 @@ import {
   Wrench,
   Megaphone,
   DollarSign,
+  Share2,
 } from 'lucide-react'
 import { DashboardBanners } from '@/components/banners/dashboard-banners'
 
@@ -38,6 +39,7 @@ const navSections = [
       { href: '/challenges', label: 'Challenges', icon: Gamepad2, moduleId: 'challenges' },
       { href: '/gameplay', label: '3D Gameplay', icon: Joystick, moduleId: 'gameplay' },
       { href: '/profiles', label: 'Channels', icon: Tv, hideForAdmin: true },
+      { href: '/social-accounts', label: 'Social Accounts', icon: Share2, hideForAdmin: true },
     ],
   },
 ]
@@ -137,6 +139,7 @@ export function Sidebar() {
                   { href: '/admin/referrals', label: 'Referrals Settings', icon: Gift },
                   { href: '/admin/pricing', label: 'Pricing Regions', icon: Globe },
                   { href: '/admin/financials', label: 'Financials', icon: DollarSign },
+                  { href: '/admin/social-platforms', label: 'Social Platforms', icon: Share2 },
                   { href: '/admin/marketing', label: 'Marketing', icon: Megaphone },
                   { href: '/admin/settings', label: 'App Settings', icon: Wrench },
                 ].map((item) => {

@@ -49,7 +49,7 @@ export default async function QuotesPage({ searchParams }: QuotesPageProps) {
       orderBy: { createdAt: 'desc' },
       skip: (page - 1) * limit,
       take: limit,
-      ...(isAdmin && { include: { user: { select: { id: true, name: true, email: true } } } }),
+      include: { user: isAdmin ? { select: { id: true, name: true, email: true } } : false },
     }),
     prisma.quoteJob.count({ where }),
   ])
@@ -258,10 +258,10 @@ export default async function QuotesPage({ searchParams }: QuotesPageProps) {
                     </span>
                   </div>
 
-                  {isAdmin && (quote as Record<string, unknown>).user && (
+                  {isAdmin && quote.user && (
                     <AdminUserBadge
-                      name={((quote as Record<string, unknown>).user as Record<string, string>).name}
-                      email={((quote as Record<string, unknown>).user as Record<string, string>).email}
+                      name={quote.user.name || ''}
+                      email={quote.user.email || ''}
                     />
                   )}
                   {isAdmin && (

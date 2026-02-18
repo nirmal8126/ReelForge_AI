@@ -17,7 +17,7 @@ import {
   SUPPORTED_LANGUAGES,
 } from '@/lib/constants'
 
-const TYPE_ICON_MAP: Record<string, React.ComponentType<{ className?: string }>> = {
+const TYPE_ICON_MAP: Record<string, React.ComponentType<{ className?: string; style?: React.CSSProperties }>> = {
   Smile, HelpCircle, Calculator, BookOpen, ArrowLeftRight,
 }
 
@@ -26,8 +26,8 @@ export default function CreateChallengePage() {
   const [loading, setLoading] = useState(false)
 
   const [form, setForm] = useState({
-    challengeType: CHALLENGE_TYPES[0].id,
-    category: CHALLENGE_CATEGORIES[0].id,
+    challengeType: CHALLENGE_TYPES[0].id as string,
+    category: CHALLENGE_CATEGORIES[0].id as string,
     difficulty: 'medium' as string,
     numQuestions: 3,
     timerSeconds: 5,
