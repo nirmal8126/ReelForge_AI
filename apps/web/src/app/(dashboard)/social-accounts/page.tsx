@@ -9,13 +9,8 @@ import {
   Youtube,
   Facebook,
   Instagram,
-  Film,
-  Clapperboard,
   ExternalLink,
   Trash2,
-  Clock,
-  CheckCircle2,
-  XCircle,
   AlertCircle,
 } from 'lucide-react'
 import toast from 'react-hot-toast'
@@ -40,21 +35,8 @@ interface PlatformConfig {
 
 const PLATFORM_ICONS: Record<string, React.ComponentType<{ className?: string }>> = {
   youtube: Youtube,
-  youtube_shorts: Film,
-  facebook_page: Facebook,
-  facebook_reels: Clapperboard,
+  facebook: Facebook,
   instagram: Instagram,
-  instagram_reels: Film,
-}
-
-// Map platform keys to connect endpoints
-const CONNECT_PLATFORM_MAP: Record<string, string> = {
-  youtube: 'youtube',
-  youtube_shorts: 'youtube',
-  facebook_page: 'facebook',
-  facebook_reels: 'facebook',
-  instagram: 'instagram',
-  instagram_reels: 'instagram',
 }
 
 // Map Platform enum values to display names
@@ -62,13 +44,6 @@ const PLATFORM_DISPLAY: Record<string, { name: string; icon: React.ComponentType
   YOUTUBE: { name: 'YouTube', icon: Youtube },
   FACEBOOK: { name: 'Facebook', icon: Facebook },
   INSTAGRAM: { name: 'Instagram', icon: Instagram },
-}
-
-const PUBLISH_STATUS_ICONS: Record<string, { icon: React.ComponentType<{ className?: string }>; color: string }> = {
-  PENDING: { icon: Clock, color: 'text-yellow-400' },
-  UPLOADING: { icon: Loader2, color: 'text-blue-400' },
-  PUBLISHED: { icon: CheckCircle2, color: 'text-green-400' },
-  FAILED: { icon: XCircle, color: 'text-red-400' },
 }
 
 export default function SocialAccountsPage() {
@@ -248,14 +223,10 @@ export default function SocialAccountsPage() {
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           {visiblePlatforms.map((platform) => {
             const Icon = PLATFORM_ICONS[platform.platformKey] || Share2
-            const connectKey = CONNECT_PLATFORM_MAP[platform.platformKey]
             const isComingSoon = platform.status === 'COMING_SOON'
 
             // Check if already connected (by matching platform enum)
-            const platformEnum = platform.platformKey.includes('youtube') ? 'YOUTUBE'
-              : platform.platformKey.includes('facebook') ? 'FACEBOOK'
-              : platform.platformKey.includes('instagram') ? 'INSTAGRAM'
-              : ''
+            const platformEnum = platform.platformKey.toUpperCase()
             const connectedAccounts = accountsByPlatform[platformEnum] || []
             const hasConnected = connectedAccounts.length > 0
 
@@ -286,7 +257,7 @@ export default function SocialAccountsPage() {
                   </span>
                 ) : (
                   <a
-                    href={`/api/social-accounts/connect/${connectKey}`}
+                    href={`/api/social-accounts/connect/${platform.platformKey}`}
                     className="inline-flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-md bg-brand-600 text-white hover:bg-brand-500 transition"
                   >
                     <ExternalLink className="h-3 w-3" />

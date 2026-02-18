@@ -48,12 +48,29 @@ const PLATFORM_ICONS: Record<string, React.ComponentType<{ className?: string }>
   INSTAGRAM: Instagram,
 }
 
+// Format options per platform — regular vs short-form
+const PLATFORM_FORMATS: Record<string, { value: string; label: string }[]> = {
+  YOUTUBE: [
+    { value: 'video', label: 'YouTube Video' },
+    { value: 'shorts', label: 'YouTube Shorts' },
+  ],
+  FACEBOOK: [
+    { value: 'post', label: 'Facebook Post' },
+    { value: 'reels', label: 'Facebook Reels' },
+  ],
+  INSTAGRAM: [
+    { value: 'post', label: 'Instagram Post' },
+    { value: 'reels', label: 'Instagram Reels' },
+  ],
+}
+
 export function PublishDialog({ jobType, jobId, videoUrl, thumbnailUrl, defaultTitle }: PublishDialogProps) {
   const [open, setOpen] = useState(false)
   const [accounts, setAccounts] = useState<SocialAccount[]>([])
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
   const [title, setTitle] = useState(defaultTitle || '')
   const [description, setDescription] = useState('')
+  const [formatPerAccount, setFormatPerAccount] = useState<Record<string, string>>({})
   const [loading, setLoading] = useState(false)
   const [publishing, setPublishing] = useState(false)
   const [results, setResults] = useState<PublishResult[] | null>(null)
@@ -65,6 +82,7 @@ export function PublishDialog({ jobType, jobId, videoUrl, thumbnailUrl, defaultT
       setSelectedIds(new Set())
       setTitle(defaultTitle || '')
       setDescription('')
+      setFormatPerAccount({})
 
       fetch('/api/social-accounts')
         .then((res) => res.json())
@@ -74,13 +92,19 @@ export function PublishDialog({ jobType, jobId, videoUrl, thumbnailUrl, defaultT
     }
   }, [open, defaultTitle])
 
-  function toggleAccount(id: string) {
+  function toggleAccount(id: string, platform: string) {
     setSelectedIds((prev) => {
       const next = new Set(prev)
       if (next.has(id)) {
         next.delete(id)
+        setFormatPerAccount((f) => { const copy = { ...f }; delete copy[id]; return copy })
       } else {
         next.add(id)
+        // Set default format for this account's platform
+        const formats = PLATFORM_FORMATS[platform]
+        if (formats && !formatPerAccount[id]) {
+          setFormatPerAccount((f) => ({ ...f, [id]: formats[0].value }))
+        }
       }
       return next
     })
@@ -101,6 +125,7 @@ export function PublishDialog({ jobType, jobId, videoUrl, thumbnailUrl, defaultT
           jobType,
           jobId,
           accountIds: Array.from(selectedIds),
+          formats: formatPerAccount,
           title: title || undefined,
           description: description || undefined,
         }),
@@ -223,45 +248,71 @@ export function PublishDialog({ jobType, jobId, videoUrl, thumbnailUrl, defaultT
                       {accounts.map((account) => {
                         const Icon = PLATFORM_ICONS[account.platform] || Share2
                         const isSelected = selectedIds.has(account.id)
+                        const formats = PLATFORM_FORMATS[account.platform] || []
                         return (
-                          <button
-                            key={account.id}
-                            onClick={() => toggleAccount(account.id)}
-                            className={`w-full flex items-center gap-3 p-3 rounded-lg border transition text-left ${
-                              isSelected
-                                ? 'border-brand-500/40 bg-brand-500/10'
-                                : 'border-white/[0.06] bg-white/[0.02] hover:border-white/10'
-                            }`}
-                          >
-                            {account.accountAvatar ? (
-                              <img
-                                src={account.accountAvatar}
-                                alt=""
-                                className="h-8 w-8 rounded-full object-cover flex-shrink-0"
-                              />
-                            ) : (
-                              <div className="h-8 w-8 rounded-full bg-brand-500/10 flex items-center justify-center flex-shrink-0">
-                                <Icon className="h-4 w-4 text-brand-400" />
-                              </div>
-                            )}
-                            <div className="flex-1 min-w-0">
-                              <p className="text-sm text-white truncate">{account.accountName}</p>
-                              <p className="text-xs text-gray-500">{account.platform}</p>
-                            </div>
-                            <div
-                              className={`h-5 w-5 rounded-md border-2 flex items-center justify-center transition ${
+                          <div key={account.id} className="space-y-0">
+                            <button
+                              onClick={() => toggleAccount(account.id, account.platform)}
+                              className={`w-full flex items-center gap-3 p-3 rounded-lg border transition text-left ${
                                 isSelected
-                                  ? 'border-brand-500 bg-brand-500'
-                                  : 'border-gray-600'
+                                  ? 'border-brand-500/40 bg-brand-500/10 rounded-b-none'
+                                  : 'border-white/[0.06] bg-white/[0.02] hover:border-white/10'
                               }`}
                             >
-                              {isSelected && (
-                                <svg className="h-3 w-3 text-white" viewBox="0 0 12 12" fill="none">
-                                  <path d="M2.5 6L5 8.5L9.5 3.5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                                </svg>
+                              {account.accountAvatar ? (
+                                // eslint-disable-next-line @next/next/no-img-element
+                                <img
+                                  src={account.accountAvatar}
+                                  alt=""
+                                  className="h-8 w-8 rounded-full object-cover flex-shrink-0"
+                                />
+                              ) : (
+                                <div className="h-8 w-8 rounded-full bg-brand-500/10 flex items-center justify-center flex-shrink-0">
+                                  <Icon className="h-4 w-4 text-brand-400" />
+                                </div>
                               )}
-                            </div>
-                          </button>
+                              <div className="flex-1 min-w-0">
+                                <p className="text-sm text-white truncate">{account.accountName}</p>
+                                <p className="text-xs text-gray-500">{account.platform}</p>
+                              </div>
+                              <div
+                                className={`h-5 w-5 rounded-md border-2 flex items-center justify-center transition ${
+                                  isSelected
+                                    ? 'border-brand-500 bg-brand-500'
+                                    : 'border-gray-600'
+                                }`}
+                              >
+                                {isSelected && (
+                                  <svg className="h-3 w-3 text-white" viewBox="0 0 12 12" fill="none">
+                                    <path d="M2.5 6L5 8.5L9.5 3.5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                                  </svg>
+                                )}
+                              </div>
+                            </button>
+                            {/* Format selector — shown when account is selected */}
+                            {isSelected && formats.length > 1 && (
+                              <div className="flex items-center gap-2 px-3 py-2 border border-t-0 border-brand-500/40 bg-brand-500/5 rounded-b-lg">
+                                <span className="text-xs text-gray-500 mr-1">Format:</span>
+                                {formats.map((fmt) => (
+                                  <button
+                                    key={fmt.value}
+                                    type="button"
+                                    onClick={(e) => {
+                                      e.stopPropagation()
+                                      setFormatPerAccount((f) => ({ ...f, [account.id]: fmt.value }))
+                                    }}
+                                    className={`text-xs font-medium px-2.5 py-1 rounded-md border transition ${
+                                      formatPerAccount[account.id] === fmt.value
+                                        ? 'border-brand-500/40 bg-brand-500/20 text-brand-300'
+                                        : 'border-white/[0.06] bg-white/[0.02] text-gray-500 hover:text-gray-300'
+                                    }`}
+                                  >
+                                    {fmt.label}
+                                  </button>
+                                ))}
+                              </div>
+                            )}
+                          </div>
                         )
                       })}
                     </div>

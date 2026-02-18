@@ -30,12 +30,9 @@ async function requireAdmin() {
 // ---------------------------------------------------------------------------
 
 const DEFAULT_PLATFORMS = [
-  { platformKey: 'youtube',          platformName: 'YouTube' },
-  { platformKey: 'youtube_shorts',   platformName: 'YouTube Shorts' },
-  { platformKey: 'facebook_page',    platformName: 'Facebook Page' },
-  { platformKey: 'facebook_reels',   platformName: 'Facebook Reels' },
-  { platformKey: 'instagram',        platformName: 'Instagram' },
-  { platformKey: 'instagram_reels',  platformName: 'Instagram Reels' },
+  { platformKey: 'youtube',   platformName: 'YouTube' },
+  { platformKey: 'facebook',  platformName: 'Facebook' },
+  { platformKey: 'instagram', platformName: 'Instagram' },
 ]
 
 const PLATFORM_ORDER = DEFAULT_PLATFORMS.map((p) => p.platformKey)
@@ -49,6 +46,12 @@ export async function GET() {
   if ('error' in check) {
     return NextResponse.json({ error: check.error }, { status: check.status })
   }
+
+  // Remove legacy platform keys (consolidated from 6 to 3)
+  const legacyKeys = ['youtube_shorts', 'facebook_page', 'facebook_reels', 'instagram_reels']
+  await prisma.socialPlatformConfig.deleteMany({
+    where: { platformKey: { in: legacyKeys } },
+  })
 
   // Ensure all default platforms exist
   for (const def of DEFAULT_PLATFORMS) {

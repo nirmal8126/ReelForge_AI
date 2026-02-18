@@ -24,6 +24,7 @@ const publishSchema = z.object({
   jobType: z.string().min(1),
   jobId: z.string().min(1),
   accountIds: z.array(z.string().min(1)).min(1),
+  formats: z.record(z.string(), z.string()).optional(), // accountId → format (e.g. "video", "shorts", "reels", "post")
   title: z.string().max(255).optional(),
   description: z.string().max(5000).optional(),
 })

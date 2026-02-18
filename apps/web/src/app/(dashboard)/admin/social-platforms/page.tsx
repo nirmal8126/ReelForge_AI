@@ -9,8 +9,6 @@ import {
   Youtube,
   Facebook,
   Instagram,
-  Film,
-  Clapperboard,
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 
@@ -30,11 +28,8 @@ const STATUS_OPTIONS: { value: PlatformConfig['status']; label: string; color: s
 
 const PLATFORM_ICONS: Record<string, React.ComponentType<{ className?: string }>> = {
   youtube: Youtube,
-  youtube_shorts: Film,
-  facebook_page: Facebook,
-  facebook_reels: Clapperboard,
+  facebook: Facebook,
   instagram: Instagram,
-  instagram_reels: Film,
 }
 
 export default function AdminSocialPlatformsPage() {
