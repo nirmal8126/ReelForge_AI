@@ -396,7 +396,7 @@ export default function CreateGameplayPage() {
       {/* Cost + Submit */}
       <div className="mt-6 flex items-center justify-between rounded-2xl border border-white/10 bg-white/[0.03] px-6 py-4">
         <p className="text-sm text-gray-400">
-          Cost: <span className="text-brand-400 font-medium">2 credits</span>
+          Cost: <span className="text-brand-400 font-medium">{form.duration <= 15 ? 1 : form.duration <= 30 ? 2 : 3} credit{form.duration <= 15 ? '' : 's'}</span>
           <span className="text-gray-600 mx-2">·</span>
           {form.duration}s {TEMPLATES.find(t => t.id === form.template)?.name} video
           <span className="text-gray-600 mx-2">·</span>

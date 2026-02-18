@@ -3,6 +3,8 @@ import { auth } from '@/lib/auth'
 import { prisma } from '@reelforge/db'
 import { z } from 'zod'
 import { enqueueLongFormJob } from '@/lib/queue'
+import { checkModuleCredits } from '@/lib/module-config'
+import { getLongFormCreditCost } from '@/lib/credit-cost'
 
 const outlineSegmentSchema = z.object({
   title: z.string().min(1).max(255),
@@ -37,16 +39,10 @@ export async function POST(req: NextRequest) {
     const body = await req.json()
     const data = createLongFormSchema.parse(body)
 
-    // Calculate credit cost based on duration and AI ratio
-    // Base: 3 credits for 5 min, 5 credits for 10 min, 7 for 15, 9 for 20, 12 for 30
-    const creditsCost = Math.ceil(
-      data.durationMinutes <= 5 ? 3 :
-      data.durationMinutes <= 10 ? 5 :
-      data.durationMinutes <= 15 ? 7 :
-      data.durationMinutes <= 20 ? 9 : 12
-    )
+    // Calculate credit cost based on duration
+    const creditsCost = getLongFormCreditCost(data.durationMinutes)
 
-    // Estimate external API costs in cents
+    // Estimate external API costs in cents (for display/logging)
     const segmentCount = Math.ceil((data.durationMinutes * 60) / 30) // ~30s per segment
     const aiSegments = Math.ceil(segmentCount * data.aiClipRatio)
     const estimatedCostCents = Math.ceil(
@@ -55,27 +51,20 @@ export async function POST(req: NextRequest) {
       10 // Claude script generation
     )
 
-    // Check user credits/subscription
+    // Check module pricing + credits (uses subscription quota first, then credits)
+    const creditCheck = await checkModuleCredits(session.user.id, 'long_form', creditsCost)
+    if (!creditCheck.ok) {
+      return NextResponse.json(
+        { error: creditCheck.error, creditsCost },
+        { status: creditCheck.status }
+      )
+    }
+
+    // Get user subscription for queue priority
     const user = await prisma.user.findUnique({
       where: { id: session.user.id },
       include: { subscription: true },
     })
-
-    if (!user) {
-      return NextResponse.json({ error: 'User not found' }, { status: 404 })
-    }
-
-    // Check if user has enough credits
-    if (user.creditsBalance < creditsCost) {
-      return NextResponse.json(
-        {
-          error: `Insufficient credits. Need ${creditsCost} credits, have ${user.creditsBalance}.`,
-          creditsCost,
-          creditsAvailable: user.creditsBalance,
-        },
-        { status: 402 }
-      )
-    }
 
     const title = data.title || data.prompt.substring(0, 80)
 
@@ -95,7 +84,7 @@ export async function POST(req: NextRequest) {
         useStockFootage: data.useStockFootage,
         useStaticVisuals: data.useStaticVisuals,
         publishToYouTube: data.publishToYouTube,
-        creditsCost,
+        creditsCost: creditCheck.creditsCost,
         estimatedCostCents,
         outline: data.outline ? JSON.parse(JSON.stringify(data.outline)) : undefined,
         status: 'QUEUED',
@@ -118,7 +107,7 @@ export async function POST(req: NextRequest) {
       useStaticVisuals: data.useStaticVisuals,
       publishToYouTube: data.publishToYouTube,
       channelProfileId: data.channelProfileId,
-      plan: user.subscription?.plan || 'FREE',
+      plan: creditCheck.subscription.plan,
     })
 
     return NextResponse.json(
@@ -126,7 +115,7 @@ export async function POST(req: NextRequest) {
         job: longFormJob,
         queueJobId,
         estimatedCostCents,
-        creditsCost,
+        creditsCost: creditCheck.creditsCost,
         message: 'Long-form video job created successfully',
       },
       { status: 201 }

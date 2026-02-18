@@ -182,7 +182,7 @@ export default function AdminModulesPage() {
 
                   {/* Credit Cost */}
                   {!mod.isFree && (
-                    <Tooltip text="Credits deducted per use when user exceeds their subscription quota">
+                    <Tooltip text="Base credits per use (actual cost varies by duration/options). Deducted when user exceeds quota.">
                       <div className="flex items-center gap-2">
                         <label className="text-xs text-gray-500">Credits:</label>
                         <select

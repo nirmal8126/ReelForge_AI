@@ -658,7 +658,7 @@ export default function CreateReelPage() {
 
           <div className="rounded-lg bg-brand-500/10 border border-brand-500/20 p-4">
             <p className="text-sm text-brand-400">
-              <strong>Cost:</strong> 1 credit or 1 reel from your monthly quota.
+              <strong>Cost:</strong> {form.durationSeconds <= 15 ? '1 credit' : form.durationSeconds <= 30 ? '2 credits' : '3 credits'} or 1 job from your monthly quota.
               Estimated generation time: 2-5 minutes.
             </p>
           </div>

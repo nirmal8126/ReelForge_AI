@@ -3,6 +3,7 @@ import { auth } from '@/lib/auth'
 import { prisma } from '@reelforge/db'
 import { enqueueReelJob } from '@/lib/queue'
 import { checkModuleCredits } from '@/lib/module-config'
+import { getReelCreditCost } from '@/lib/credit-cost'
 import { z } from 'zod'
 import { REEL_DURATIONS, ASPECT_RATIOS } from '@/lib/constants'
 
@@ -86,8 +87,9 @@ export async function POST(req: NextRequest) {
     const body = await req.json()
     const data = createReelSchema.parse(body)
 
-    // Check module pricing + credits
-    const creditCheck = await checkModuleCredits(session.user.id, 'reels')
+    // Check module pricing + credits (cost varies by duration)
+    const creditCost = getReelCreditCost(data.durationSeconds)
+    const creditCheck = await checkModuleCredits(session.user.id, 'reels', creditCost)
     if (!creditCheck.ok) {
       return NextResponse.json({ error: creditCheck.error }, { status: creditCheck.status })
     }
@@ -119,6 +121,7 @@ export async function POST(req: NextRequest) {
         aspectRatio: data.aspectRatio,
         channelProfileId: data.channelProfileId || null,
         status: 'QUEUED',
+        creditsCost: creditCheck.creditsCost,
       },
     })
 

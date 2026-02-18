@@ -285,9 +285,9 @@ export default function CreateChallengePage() {
       {/* Cost + Submit */}
       <div className="mt-6 flex items-center justify-between rounded-2xl border border-white/10 bg-white/[0.03] px-6 py-4">
         <p className="text-sm text-gray-400">
-          Cost: <span className="text-brand-400 font-medium">1 credit</span>
+          Cost: <span className="text-brand-400 font-medium">{(() => { let c = 1; if (form.numQuestions >= 5) c++; if (form.voiceEnabled) c++; return c; })()} credit{(() => { let c = 1; if (form.numQuestions >= 5) c++; if (form.voiceEnabled) c++; return c > 1 ? 's' : ''; })()}</span>
           <span className="text-gray-600 mx-2">·</span>
-          {form.numQuestions} question{form.numQuestions > 1 ? 's' : ''}
+          {form.numQuestions} question{form.numQuestions > 1 ? 's' : ''}{form.voiceEnabled ? ' + voice' : ''}
           <span className="text-gray-600 mx-2">·</span>
           ~{form.numQuestions * (10 + form.timerSeconds)}s video
         </p>

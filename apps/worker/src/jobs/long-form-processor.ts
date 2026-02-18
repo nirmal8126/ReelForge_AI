@@ -410,18 +410,8 @@ export async function processLongFormJob(job: Job<LongFormJobData>): Promise<Lon
       },
     });
 
-    // Deduct credits from user
-    const jobData = await prisma.longFormJob.findUnique({
-      where: { id: longFormJobId },
-      select: { creditsCost: true },
-    });
-
-    if (jobData?.creditsCost) {
-      await prisma.user.update({
-        where: { id: userId },
-        data: { creditsBalance: { decrement: jobData.creditsCost } },
-      });
-    }
+    // Credits are deducted at submission time via checkModuleCredits()
+    // No worker-side deduction needed (prevents double-charging)
 
     // Cleanup audio cache
     try { await fs.unlink(audioCachePath); } catch { /* ignore */ }

@@ -206,7 +206,7 @@ export default function NewEpisodePage() {
         <div className="rounded-lg border border-white/10 bg-white/5 p-4">
           <div className="flex items-center gap-2 text-sm text-gray-300">
             <CreditCard className="h-4 w-4 text-brand-400" />
-            <span>Cost: <strong className="text-white">{CREDITS_PER_EPISODE} credits</strong></span>
+            <span>Cost: <strong className="text-white">{CREDITS_PER_EPISODE} credits</strong> or 1 job from your monthly quota</span>
           </div>
           <p className="text-[10px] text-gray-600 mt-1">
             Includes AI story generation, multi-voice dialogue, scene images, and video composition

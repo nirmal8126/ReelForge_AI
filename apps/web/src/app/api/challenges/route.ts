@@ -3,6 +3,7 @@ import { auth } from '@/lib/auth'
 import { prisma } from '@reelforge/db'
 import { enqueueChallengeJob } from '@/lib/queue'
 import { checkModuleCredits } from '@/lib/module-config'
+import { getChallengeCreditCost } from '@/lib/credit-cost'
 import { z } from 'zod'
 
 const createChallengeSchema = z.object({
@@ -81,8 +82,9 @@ export async function POST(req: NextRequest) {
     const body = await req.json()
     const data = createChallengeSchema.parse(body)
 
-    // Check module pricing + credits
-    const creditCheck = await checkModuleCredits(session.user.id, 'challenges')
+    // Check module pricing + credits (cost varies by questions + voice)
+    const creditCost = getChallengeCreditCost(data.numQuestions, data.voiceEnabled)
+    const creditCheck = await checkModuleCredits(session.user.id, 'challenges', creditCost)
     if (!creditCheck.ok) {
       return NextResponse.json({ error: creditCheck.error }, { status: creditCheck.status })
     }

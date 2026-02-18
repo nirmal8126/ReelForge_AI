@@ -3,6 +3,7 @@ import { auth } from '@/lib/auth'
 import { prisma } from '@reelforge/db'
 import { enqueueGameplayJob } from '@/lib/queue'
 import { checkModuleCredits } from '@/lib/module-config'
+import { getGameplayCreditCost } from '@/lib/credit-cost'
 import { z } from 'zod'
 
 const createGameplaySchema = z.object({
@@ -80,8 +81,9 @@ export async function POST(req: NextRequest) {
     const body = await req.json()
     const data = createGameplaySchema.parse(body)
 
-    // Check module pricing + credits
-    const creditCheck = await checkModuleCredits(session.user.id, 'gameplay')
+    // Check module pricing + credits (cost varies by duration)
+    const creditCost = getGameplayCreditCost(data.duration)
+    const creditCheck = await checkModuleCredits(session.user.id, 'gameplay', creditCost)
     if (!creditCheck.ok) {
       return NextResponse.json({ error: creditCheck.error }, { status: creditCheck.status })
     }

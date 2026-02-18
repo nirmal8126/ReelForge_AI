@@ -364,14 +364,8 @@ export async function processCartoonEpisode(
       },
     });
 
-    // Deduct credits
-    const ep = await prisma.cartoonEpisode.findUnique({ where: { id: episodeId } });
-    if (ep && ep.creditsCost > 0) {
-      await prisma.user.update({
-        where: { id: userId },
-        data: { creditsBalance: { decrement: ep.creditsCost } },
-      });
-    }
+    // Credits are deducted at submission time via checkModuleCredits()
+    // No worker-side deduction needed (prevents double-charging)
 
     // Cleanup audio cache
     try { await fs.unlink(audioCachePath); } catch { /* ignore */ }

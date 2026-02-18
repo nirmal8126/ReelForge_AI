@@ -165,7 +165,7 @@ export default async function BillingPage() {
             <p className="text-2xl font-bold text-white">{user?.creditsBalance || 0}</p>
             <span className="text-sm text-gray-500">credits</span>
           </div>
-          <p className="text-xs text-gray-500 mt-1">1 credit = 1 extra reel generation</p>
+          <p className="text-xs text-gray-500 mt-1">Credits used when over monthly quota (1-12 per job)</p>
         </div>
       </div>
 

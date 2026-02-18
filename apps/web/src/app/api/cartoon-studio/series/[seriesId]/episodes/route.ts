@@ -3,14 +3,14 @@ import { auth } from '@/lib/auth'
 import { prisma } from '@reelforge/db'
 import { z } from 'zod'
 import { enqueueCartoonEpisode } from '@/lib/queue'
+import { checkModuleCredits } from '@/lib/module-config'
+import { getCartoonCreditCost } from '@/lib/credit-cost'
 
 const createEpisodeSchema = z.object({
   title: z.string().min(1).max(300),
   prompt: z.string().min(10).max(3000),
   synopsis: z.string().max(2000).optional(),
 })
-
-const CREDITS_PER_EPISODE = 5
 
 // GET /api/cartoon-studio/series/[seriesId]/episodes
 export async function GET(
@@ -56,14 +56,11 @@ export async function POST(
     return NextResponse.json({ error: 'Series must have at least one character' }, { status: 400 })
   }
 
-  // Check credits
-  const user = await prisma.user.findUnique({ where: { id: session.user.id } })
-  if (!user || user.creditsBalance < CREDITS_PER_EPISODE) {
-    return NextResponse.json({
-      error: 'Insufficient credits',
-      required: CREDITS_PER_EPISODE,
-      balance: user?.creditsBalance || 0,
-    }, { status: 402 })
+  // Check module pricing + credits (uses subscription quota first, then credits)
+  const creditCost = getCartoonCreditCost()
+  const creditCheck = await checkModuleCredits(session.user.id, 'cartoon_studio', creditCost)
+  if (!creditCheck.ok) {
+    return NextResponse.json({ error: creditCheck.error }, { status: creditCheck.status })
   }
 
   try {
@@ -84,14 +81,9 @@ export async function POST(
         prompt: data.prompt,
         synopsis: data.synopsis,
         episodeNumber,
-        creditsCost: CREDITS_PER_EPISODE,
+        creditsCost: creditCheck.creditsCost,
         status: 'QUEUED',
       },
-    })
-
-    // Get user's subscription plan for queue priority
-    const subscription = await prisma.subscription.findUnique({
-      where: { userId: session.user.id },
     })
 
     await enqueueCartoonEpisode({
@@ -103,7 +95,7 @@ export async function POST(
       language: series.language,
       aspectRatio: series.aspectRatio,
       narratorVoiceId: series.narratorVoiceId || undefined,
-      plan: subscription?.plan || 'FREE',
+      plan: creditCheck.subscription.plan,
     })
 
     return NextResponse.json({ episode }, { status: 201 })
