@@ -22,6 +22,7 @@ import {
   Tv,
   Wrench,
   Megaphone,
+  DollarSign,
 } from 'lucide-react'
 import { DashboardBanners } from '@/components/banners/dashboard-banners'
 
@@ -135,6 +136,7 @@ export function Sidebar() {
                   { href: '/admin/plans', label: 'Plans Settings', icon: CreditCard },
                   { href: '/admin/referrals', label: 'Referrals Settings', icon: Gift },
                   { href: '/admin/pricing', label: 'Pricing Regions', icon: Globe },
+                  { href: '/admin/financials', label: 'Financials', icon: DollarSign },
                   { href: '/admin/marketing', label: 'Marketing', icon: Megaphone },
                   { href: '/admin/settings', label: 'App Settings', icon: Wrench },
                 ].map((item) => {
