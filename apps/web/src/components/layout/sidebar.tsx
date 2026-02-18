@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { useSession, signOut } from 'next-auth/react'
+import { useSession } from 'next-auth/react'
 import { cn } from '@/lib/utils'
 import {
   LayoutDashboard,
@@ -11,8 +11,6 @@ import {
   Users,
   CreditCard,
   Gift,
-  Settings,
-  LogOut,
   Shield,
   Video,
   Clapperboard,
@@ -26,7 +24,6 @@ import {
   Megaphone,
 } from 'lucide-react'
 import { DashboardBanners } from '@/components/banners/dashboard-banners'
-import { NotificationBell } from '@/components/notifications/notification-bell'
 
 const navSections = [
   {
@@ -40,14 +37,6 @@ const navSections = [
       { href: '/challenges', label: 'Challenges', icon: Gamepad2, moduleId: 'challenges' },
       { href: '/gameplay', label: '3D Gameplay', icon: Joystick, moduleId: 'gameplay' },
       { href: '/profiles', label: 'Channels', icon: Tv, hideForAdmin: true },
-    ],
-  },
-  {
-    label: 'Account',
-    items: [
-      { href: '/billing', label: 'Billing', icon: CreditCard, hideForAdmin: true },
-      { href: '/referrals', label: 'Referrals', icon: Gift, hideForAdmin: true },
-      { href: '/settings', label: 'Settings', icon: Settings, hideForAdmin: true },
     ],
   },
 ]
@@ -68,7 +57,7 @@ export function Sidebar() {
     <aside className="fixed left-0 top-0 z-40 h-screen w-64 border-r border-white/[0.06] bg-[#0A0A0F]">
       <div className="flex h-full flex-col">
         {/* Logo */}
-        <div className="flex items-center gap-2.5 px-5 py-5">
+        <Link href="/dashboard" className="flex items-center gap-2.5 px-5 py-5 hover:opacity-90 transition-opacity">
           <div className="h-9 w-9 rounded-xl bg-gradient-to-br from-brand-500 to-brand-600 flex items-center justify-center shadow-lg shadow-brand-500/20">
             <Sparkles className="h-4.5 w-4.5 text-white" />
           </div>
@@ -76,7 +65,7 @@ export function Sidebar() {
             <span className="text-base font-bold text-white tracking-tight">ReelForge</span>
             <span className="text-base font-bold text-brand-400 ml-1">AI</span>
           </div>
-        </div>
+        </Link>
 
         {/* Navigation */}
         <nav className="flex-1 overflow-y-auto px-3 pt-2 pb-4">
@@ -184,51 +173,8 @@ export function Sidebar() {
         </nav>
 
         {/* Sidebar Banners */}
-        <div className="mx-3 mb-2">
+        <div className="mx-3 mb-3">
           <DashboardBanners placement="SIDEBAR" />
-        </div>
-
-        {/* Notification Bell */}
-        <div className="mx-3 mb-2">
-          <NotificationBell />
-        </div>
-
-        {/* Credits Badge — hidden for Super Admin */}
-        {session?.user && (session.user as Record<string, unknown>).role !== 'ADMIN' && (
-          <div className="mx-3 mb-3 rounded-xl border border-white/[0.06] bg-white/[0.02] p-3.5">
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-[11px] text-gray-500 font-medium">Credits</span>
-              <span className="text-sm font-bold text-brand-400">{session.user.creditsBalance || 0}</span>
-            </div>
-            <div className="flex items-center justify-between">
-              <span className="text-[11px] text-gray-500 font-medium">Plan</span>
-              <span className="text-[11px] font-semibold text-white capitalize px-1.5 py-0.5 rounded bg-white/[0.06]">
-                {session.user.plan?.toLowerCase() || 'free'}
-              </span>
-            </div>
-          </div>
-        )}
-
-        {/* User */}
-        <div className="border-t border-white/[0.06] px-3 py-3">
-          <div className="flex items-center gap-2.5 mb-2 px-1">
-            <div className="h-8 w-8 rounded-full bg-gradient-to-br from-brand-500/30 to-brand-600/20 flex items-center justify-center ring-1 ring-white/[0.06]">
-              <span className="text-xs font-semibold text-brand-400">
-                {session?.user?.name?.[0]?.toUpperCase() || '?'}
-              </span>
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-[13px] font-medium text-white truncate">{session?.user?.name}</p>
-              <p className="text-[11px] text-gray-500 truncate">{session?.user?.email}</p>
-            </div>
-          </div>
-          <button
-            onClick={() => signOut({ callbackUrl: '/' })}
-            className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-[13px] text-gray-500 hover:bg-white/[0.04] hover:text-gray-300 transition"
-          >
-            <LogOut className="h-3.5 w-3.5" />
-            Sign Out
-          </button>
         </div>
       </div>
     </aside>

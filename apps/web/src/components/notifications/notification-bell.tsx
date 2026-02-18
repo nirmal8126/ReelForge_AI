@@ -129,14 +129,11 @@ export function NotificationBell() {
       {/* Bell button */}
       <button
         onClick={() => setOpen(!open)}
-        className="relative flex items-center gap-2.5 w-full rounded-lg px-3 py-2 text-[13px] text-gray-400 hover:bg-white/[0.04] hover:text-gray-200 transition"
+        className="relative flex h-9 w-9 items-center justify-center rounded-lg text-gray-400 hover:bg-white/[0.06] hover:text-gray-200 transition"
       >
-        <span className="flex h-7 w-7 items-center justify-center rounded-md bg-white/[0.04] text-gray-500">
-          <Bell className="h-3.5 w-3.5" />
-        </span>
-        Notifications
+        <Bell className="h-4 w-4" />
         {unreadCount > 0 && (
-          <span className="ml-auto flex h-5 min-w-[20px] items-center justify-center rounded-full bg-red-500 px-1.5 text-[10px] font-bold text-white">
+          <span className="absolute -top-0.5 -right-0.5 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-red-500 px-1 text-[9px] font-bold text-white">
             {unreadCount > 99 ? '99+' : unreadCount}
           </span>
         )}
@@ -144,7 +141,7 @@ export function NotificationBell() {
 
       {/* Dropdown */}
       {open && (
-        <div className="absolute bottom-full left-0 mb-2 w-80 rounded-xl border border-white/[0.08] bg-[#12121A] shadow-2xl z-50 overflow-hidden">
+        <div className="absolute right-0 top-full mt-2 w-80 rounded-xl border border-white/[0.08] bg-[#12121A] shadow-2xl z-50 overflow-hidden">
           {/* Header */}
           <div className="flex items-center justify-between px-4 py-3 border-b border-white/[0.06]">
             <span className="text-sm font-semibold text-white">Notifications</span>
