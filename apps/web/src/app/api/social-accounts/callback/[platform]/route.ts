@@ -22,14 +22,14 @@ const PLATFORM_TOKEN: Record<string, TokenConfig> = {
     platformEnum: 'YOUTUBE',
   },
   facebook: {
-    tokenUrl: 'https://graph.facebook.com/v18.0/oauth/access_token',
+    tokenUrl: 'https://graph.facebook.com/v21.0/oauth/access_token',
     clientIdEnv: 'FACEBOOK_APP_ID',
     clientSecretEnv: 'FACEBOOK_APP_SECRET',
-    profileUrl: 'https://graph.facebook.com/v18.0/me?fields=id,name,picture',
+    profileUrl: 'https://graph.facebook.com/v21.0/me?fields=id,name,picture',
     platformEnum: 'FACEBOOK',
   },
   instagram: {
-    tokenUrl: 'https://graph.facebook.com/v18.0/oauth/access_token',
+    tokenUrl: 'https://graph.facebook.com/v21.0/oauth/access_token',
     clientIdEnv: 'FACEBOOK_APP_ID',
     clientSecretEnv: 'FACEBOOK_APP_SECRET',
     platformEnum: 'INSTAGRAM',
@@ -131,22 +131,16 @@ export async function GET(
         accountAvatar = channel.snippet?.thumbnails?.default?.url || null
       }
     } else if (platform === 'facebook' && config.profileUrl) {
-      const profileRes = await fetch(`${config.profileUrl}&access_token=${accessToken}`)
-      const profileData = await profileRes.json()
-      accountId = profileData.id || ''
-      accountName = profileData.name || 'Facebook Account'
-      accountAvatar = profileData.picture?.data?.url || null
-
-      // Also fetch pages the user manages
+      // Fetch pages the user manages — publishing requires page tokens
       try {
         const pagesRes = await fetch(
-          `https://graph.facebook.com/v18.0/me/accounts?access_token=${accessToken}`
+          `https://graph.facebook.com/v21.0/me/accounts?fields=id,name,access_token,picture{url}&access_token=${accessToken}`
         )
         const pagesData = await pagesRes.json()
 
-        // Save each page as a separate social account
         if (pagesData.data?.length) {
           for (const page of pagesData.data) {
+            const pageAvatar = page.picture?.data?.url || null
             await prisma.socialAccount.upsert({
               where: {
                 userId_platform_accountId: {
@@ -160,28 +154,45 @@ export async function GET(
                 platform: 'FACEBOOK',
                 accountId: page.id,
                 accountName: `${page.name} (Page)`,
+                accountAvatar: pageAvatar,
                 accessToken: page.access_token,
                 refreshToken: null,
                 tokenExpiry: null,
-                scopes: page.perms?.join(',') || null,
+                scopes: 'pages_read_engagement,pages_manage_posts,publish_video',
                 isActive: true,
               },
               update: {
                 accountName: `${page.name} (Page)`,
+                accountAvatar: pageAvatar,
                 accessToken: page.access_token,
                 isActive: true,
               },
             })
           }
+
+          // Use the first page as the primary account
+          accountId = pagesData.data[0].id
+          accountName = `${pagesData.data[0].name} (Page)`
+          accountAvatar = pagesData.data[0].picture?.data?.url || null
+
+          // Skip saving user profile — only page tokens can publish
+          return NextResponse.redirect(`${baseUrl}/social-accounts?connected=${platform}`)
         }
       } catch (err) {
         console.error('Failed to fetch Facebook pages:', err)
       }
+
+      // If no pages found, save user profile but warn
+      const profileRes = await fetch(`${config.profileUrl}&access_token=${accessToken}`)
+      const profileData = await profileRes.json()
+      accountId = profileData.id || ''
+      accountName = profileData.name || 'Facebook Account'
+      accountAvatar = profileData.picture?.data?.url || null
     } else if (platform === 'instagram') {
       // Instagram accounts are connected through Facebook pages
       try {
         const pagesRes = await fetch(
-          `https://graph.facebook.com/v18.0/me/accounts?access_token=${accessToken}`
+          `https://graph.facebook.com/v21.0/me/accounts?access_token=${accessToken}`
         )
         const pagesData = await pagesRes.json()
 
@@ -189,7 +200,7 @@ export async function GET(
           for (const page of pagesData.data) {
             // Get Instagram Business Account linked to this page
             const igRes = await fetch(
-              `https://graph.facebook.com/v18.0/${page.id}?fields=instagram_business_account{id,name,username,profile_picture_url}&access_token=${page.access_token}`
+              `https://graph.facebook.com/v21.0/${page.id}?fields=instagram_business_account{id,name,username,profile_picture_url}&access_token=${page.access_token}`
             )
             const igData = await igRes.json()
             const igAccount = igData.instagram_business_account

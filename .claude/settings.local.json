@@ -31,7 +31,13 @@
       "Bash(cat:*)",
       "Bash(head:*)",
       "Bash(grep:*)",
-      "Bash(npx next build:*)"
+      "Bash(npx next build:*)",
+      "Bash(ln -s ../../.env.local /Users/mac/Desktop/ReelForge_AI/apps/web/.env.local)",
+      "Bash(ln -s ../../.env.local /Users/mac/Desktop/ReelForge_AI/apps/admin/.env.local)",
+      "Bash(npx turbo build --filter=@reelforge/web)",
+      "Bash(npx turbo dev --filter=@reelforge/web --filter=@reelforge/admin)",
+      "Bash(npm run dev)",
+      "Bash(npx prisma:*)"
     ]
   }
 }

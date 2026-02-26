@@ -18,9 +18,13 @@ import toast from 'react-hot-toast'
 interface PublishDialogProps {
   jobType: string
   jobId: string
-  videoUrl: string
+  videoUrl?: string | null
   thumbnailUrl?: string | null
   defaultTitle?: string | null
+  /** For text-only content (e.g. quotes) — posted as text status on Facebook */
+  textContent?: string | null
+  /** Compact trigger button style (for inline use in lists) */
+  compact?: boolean
 }
 
 interface SocialAccount {
@@ -64,7 +68,7 @@ const PLATFORM_FORMATS: Record<string, { value: string; label: string }[]> = {
   ],
 }
 
-export function PublishDialog({ jobType, jobId, videoUrl, thumbnailUrl, defaultTitle }: PublishDialogProps) {
+export function PublishDialog({ jobType, jobId, videoUrl, thumbnailUrl, defaultTitle, textContent, compact }: PublishDialogProps) {
   const [open, setOpen] = useState(false)
   const [accounts, setAccounts] = useState<SocialAccount[]>([])
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
@@ -74,6 +78,8 @@ export function PublishDialog({ jobType, jobId, videoUrl, thumbnailUrl, defaultT
   const [loading, setLoading] = useState(false)
   const [publishing, setPublishing] = useState(false)
   const [results, setResults] = useState<PublishResult[] | null>(null)
+
+  const isTextOnly = !videoUrl && !!textContent
 
   useEffect(() => {
     if (open) {
@@ -86,11 +92,18 @@ export function PublishDialog({ jobType, jobId, videoUrl, thumbnailUrl, defaultT
 
       fetch('/api/social-accounts')
         .then((res) => res.json())
-        .then((data) => setAccounts(data.accounts || []))
+        .then((data) => {
+          let accs: SocialAccount[] = data.accounts || []
+          // Text-only content can only go to Facebook (YouTube/Instagram need media)
+          if (isTextOnly) {
+            accs = accs.filter((a: SocialAccount) => a.platform === 'FACEBOOK')
+          }
+          setAccounts(accs)
+        })
         .catch(() => toast.error('Failed to load accounts'))
         .finally(() => setLoading(false))
     }
-  }, [open, defaultTitle])
+  }, [open, defaultTitle, isTextOnly])
 
   function toggleAccount(id: string, platform: string) {
     setSelectedIds((prev) => {
@@ -128,6 +141,7 @@ export function PublishDialog({ jobType, jobId, videoUrl, thumbnailUrl, defaultT
           formats: formatPerAccount,
           title: title || undefined,
           description: description || undefined,
+          textContent: textContent || undefined,
         }),
       })
 
@@ -151,9 +165,13 @@ export function PublishDialog({ jobType, jobId, videoUrl, thumbnailUrl, defaultT
       {/* Trigger Button */}
       <button
         onClick={() => setOpen(true)}
-        className="inline-flex items-center gap-2 rounded-lg bg-green-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-green-500 transition shadow-lg shadow-green-600/20"
+        className={
+          compact
+            ? 'inline-flex items-center gap-1 text-xs font-medium px-2 py-1 rounded bg-green-500/20 text-green-400 hover:bg-green-500/30 hover:text-green-300 transition'
+            : 'inline-flex items-center gap-2 rounded-lg bg-green-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-green-500 transition shadow-lg shadow-green-600/20'
+        }
       >
-        <Upload className="h-4 w-4" />
+        <Upload className={compact ? 'h-3 w-3' : 'h-4 w-4'} />
         Publish
       </button>
 
@@ -229,8 +247,14 @@ export function PublishDialog({ jobType, jobId, videoUrl, thumbnailUrl, defaultT
                 /* No accounts connected */
                 <div className="text-center py-8">
                   <Share2 className="h-8 w-8 text-gray-600 mx-auto mb-3" />
-                  <p className="text-sm text-gray-400 mb-1">No social accounts connected</p>
-                  <p className="text-xs text-gray-600 mb-4">Connect your accounts to start publishing</p>
+                  <p className="text-sm text-gray-400 mb-1">
+                    {isTextOnly ? 'No Facebook accounts connected' : 'No social accounts connected'}
+                  </p>
+                  <p className="text-xs text-gray-600 mb-4">
+                    {isTextOnly
+                      ? 'Text quotes can be published to Facebook. Connect a Facebook page to get started.'
+                      : 'Connect your accounts to start publishing'}
+                  </p>
                   <Link
                     href="/social-accounts"
                     onClick={() => setOpen(false)}

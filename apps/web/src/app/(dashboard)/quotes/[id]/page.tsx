@@ -12,12 +12,14 @@ import {
   AlertTriangle,
   Zap,
   RefreshCw,
+  Download,
 } from 'lucide-react'
 import { getJobStatusLabel, getJobStatusColor } from '@/lib/utils'
 import { DeleteQuoteButton } from './delete-button'
 import { AutoRefresh } from './auto-refresh'
 import { RetryButton } from './retry-button'
 import { CopyButton } from './copy-button'
+import { PublishQuoteButton } from './publish-quote-button'
 
 interface QuoteDetailPageProps {
   params: { id: string }
@@ -125,6 +127,18 @@ export default async function QuoteDetailPage({ params }: QuoteDetailPageProps) 
         </div>
 
         <div className="flex items-center gap-3 ml-4">
+          {isCompleted && (quote.imageUrl || quote.videoUrl) && (
+            <a
+              href={quote.videoUrl || quote.imageUrl!}
+              download
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-2 rounded-lg bg-green-600 px-4 py-2 text-sm font-medium text-white hover:bg-green-500 transition"
+            >
+              <Download className="h-4 w-4" />
+              Download
+            </a>
+          )}
           {isFailed && <RetryButton quoteId={quote.id} />}
           <DeleteQuoteButton quoteId={quote.id} isProcessing={isProcessing} />
         </div>
@@ -205,7 +219,17 @@ export default async function QuoteDetailPage({ params }: QuoteDetailPageProps) 
                           </p>
                         )}
                       </div>
-                      <CopyButton text={`"${variation.quote}" — ${variation.author || 'Unknown'}`} />
+                      <div className="flex items-center gap-1.5 flex-shrink-0">
+                        {isCompleted && (
+                          <PublishQuoteButton
+                            jobId={quote.id}
+                            quoteText={`"${variation.quote}" — ${variation.author || 'Unknown'}`}
+                            videoUrl={quote.videoUrl || quote.imageUrl}
+                            thumbnailUrl={quote.thumbnailUrl}
+                          />
+                        )}
+                        <CopyButton text={`"${variation.quote}" — ${variation.author || 'Unknown'}`} />
+                      </div>
                     </div>
                   </div>
                 ))}

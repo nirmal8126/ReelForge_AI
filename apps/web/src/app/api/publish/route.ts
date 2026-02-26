@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { auth } from '@/lib/auth'
 import { prisma } from '@reelforge/db'
 import { z } from 'zod'
+import { publishToPlatform } from '@/lib/social-publish'
 
 // ---------------------------------------------------------------------------
 // Valid job types (mapped to Prisma model names)
@@ -17,16 +18,17 @@ const JOB_TYPE_MODELS: Record<string, string> = {
 }
 
 // ---------------------------------------------------------------------------
-// POST /api/publish — create publish record(s)
+// POST /api/publish — publish content to social media
 // ---------------------------------------------------------------------------
 
 const publishSchema = z.object({
   jobType: z.string().min(1),
   jobId: z.string().min(1),
   accountIds: z.array(z.string().min(1)).min(1),
-  formats: z.record(z.string(), z.string()).optional(), // accountId → format (e.g. "video", "shorts", "reels", "post")
+  formats: z.record(z.string(), z.string()).optional(),
   title: z.string().max(255).optional(),
   description: z.string().max(5000).optional(),
+  textContent: z.string().max(5000).optional(), // For text-only content (e.g. quotes)
 })
 
 export async function POST(req: NextRequest) {
@@ -44,6 +46,12 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Invalid job type' }, { status: 400 })
   }
 
+  // QuoteJob uses different field names (imageUrl/videoUrl instead of outputUrl)
+  const isQuote = modelName === 'quoteJob'
+  const selectFields = isQuote
+    ? { id: true, status: true, imageUrl: true, videoUrl: true, quoteText: true, thumbnailUrl: true }
+    : { id: true, status: true, outputUrl: true, title: true, thumbnailUrl: true }
+
   // Verify user owns the job and it's completed
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const job = await (prisma as any)[modelName].findFirst({
@@ -51,7 +59,7 @@ export async function POST(req: NextRequest) {
       id: data.jobId,
       userId: session.user.id,
     },
-    select: { id: true, status: true, outputUrl: true, title: true },
+    select: selectFields,
   })
 
   if (!job) {
@@ -62,7 +70,13 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Job is not completed yet' }, { status: 400 })
   }
 
-  if (!job.outputUrl) {
+  // Resolve the media URL and determine content type
+  const mediaUrl: string = job.outputUrl || job.videoUrl || job.imageUrl || ''
+  const jobTitle: string = job.title || job.quoteText || ''
+  const isImage = isQuote && !!job.imageUrl && !job.videoUrl
+  const isTextOnly = !mediaUrl && !!data.textContent
+
+  if (!mediaUrl && !isTextOnly) {
     return NextResponse.json({ error: 'Job has no output file' }, { status: 400 })
   }
 
@@ -79,7 +93,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'One or more accounts are invalid or inactive' }, { status: 400 })
   }
 
-  // Create publish records for each selected account
+  // Create publish records (PENDING) for each selected account
   const records = await Promise.all(
     accounts.map((account) =>
       prisma.publishRecord.create({
@@ -88,7 +102,7 @@ export async function POST(req: NextRequest) {
           socialAccountId: account.id,
           jobType: data.jobType,
           jobId: data.jobId,
-          title: data.title || job.title || null,
+          title: data.title || jobTitle || null,
           description: data.description || null,
           status: 'PENDING',
         },
@@ -104,20 +118,54 @@ export async function POST(req: NextRequest) {
     )
   )
 
-  // TODO: In production, this would queue jobs for actual upload via BullMQ
-  // For now, simulate a successful publish by marking as PUBLISHED
+  // Upload to each platform (in parallel)
   await Promise.all(
-    records.map((record) =>
-      prisma.publishRecord.update({
+    records.map(async (record) => {
+      const account = accounts.find((a) => a.id === record.socialAccountId)!
+      const format = data.formats?.[account.id]
+
+      // Mark as uploading
+      await prisma.publishRecord.update({
         where: { id: record.id },
-        data: {
-          status: 'PUBLISHED',
-          publishedAt: new Date(),
-          platformPostId: `sim_${record.id}`,
-          platformUrl: '#',
-        },
+        data: { status: 'UPLOADING' },
       })
-    )
+
+      try {
+        const result = await publishToPlatform(account.platform, {
+          accessToken: account.accessToken,
+          accountId: account.accountId,
+          videoUrl: mediaUrl,
+          title: data.title || jobTitle || 'Untitled',
+          description: data.description,
+          format,
+          isImage,
+          textContent: data.textContent,
+        })
+
+        await prisma.publishRecord.update({
+          where: { id: record.id },
+          data: result.success
+            ? {
+                status: 'PUBLISHED',
+                publishedAt: new Date(),
+                platformPostId: result.platformPostId || null,
+                platformUrl: result.platformUrl || null,
+              }
+            : {
+                status: 'FAILED',
+                errorMessage: result.errorMessage || 'Unknown error',
+              },
+        })
+      } catch (err) {
+        await prisma.publishRecord.update({
+          where: { id: record.id },
+          data: {
+            status: 'FAILED',
+            errorMessage: err instanceof Error ? err.message : 'Unexpected error',
+          },
+        })
+      }
+    })
   )
 
   // Refetch updated records
