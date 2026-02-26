@@ -23,7 +23,7 @@ export async function downloadStockFootage(opts: StockFootageOptions): Promise<s
   log.info({ query, durationSeconds }, 'Searching for stock footage');
 
   // Check cache first
-  const cached = await checkCache(query, durationSeconds);
+  const cached = await checkCache(query);
   if (cached) {
     log.info({ query, cachedUrl: cached }, 'Using cached stock footage');
     return cached;
@@ -33,10 +33,10 @@ export async function downloadStockFootage(opts: StockFootageOptions): Promise<s
   const pexelsKey = process.env.PEXELS_API_KEY;
   if (pexelsKey) {
     try {
-      const url = await fetchFromPexels(query, durationSeconds, pexelsKey);
-      if (url) {
-        await cacheFootage(query, durationSeconds, url, 'PEXELS');
-        return url;
+      const result = await fetchFromPexels(query, durationSeconds, pexelsKey);
+      if (result) {
+        await cacheFootage(query, result.url, result.externalId, 'pexels', result.duration);
+        return result.url;
       }
     } catch (error) {
       log.warn({ query, err: error }, 'Pexels fetch failed, trying Pixabay');
@@ -47,10 +47,10 @@ export async function downloadStockFootage(opts: StockFootageOptions): Promise<s
   const pixabayKey = process.env.PIXABAY_API_KEY;
   if (pixabayKey) {
     try {
-      const url = await fetchFromPixabay(query, durationSeconds, pixabayKey);
-      if (url) {
-        await cacheFootage(query, durationSeconds, url, 'PIXABAY');
-        return url;
+      const result = await fetchFromPixabay(query, durationSeconds, pixabayKey);
+      if (result) {
+        await cacheFootage(query, result.url, result.externalId, 'pixabay', result.duration);
+        return result.url;
       }
     } catch (error) {
       log.error({ query, err: error }, 'Pixabay fetch failed');
@@ -63,6 +63,16 @@ export async function downloadStockFootage(opts: StockFootageOptions): Promise<s
 }
 
 // ---------------------------------------------------------------------------
+// Result type
+// ---------------------------------------------------------------------------
+
+interface StockResult {
+  url: string;
+  externalId: string;
+  duration: number;
+}
+
+// ---------------------------------------------------------------------------
 // Pexels Integration
 // ---------------------------------------------------------------------------
 
@@ -70,12 +80,12 @@ async function fetchFromPexels(
   query: string,
   durationSeconds: number,
   apiKey: string
-): Promise<string | null> {
+): Promise<StockResult | null> {
   const response = await axios.get(PEXELS_API_URL, {
     params: {
       query,
       per_page: 10,
-      orientation: 'landscape', // For 16:9 videos
+      orientation: 'landscape',
     },
     headers: {
       Authorization: apiKey,
@@ -101,14 +111,17 @@ async function fetchFromPexels(
     return null;
   }
 
-  // Get HD video file (1920x1080 or closest)
   const video = sorted[0];
   const hdFile = video.video_files.find(
     (f: any) => f.quality === 'hd' && f.width >= 1280
   ) || video.video_files[0];
 
   log.info({ query, provider: 'Pexels', videoUrl: hdFile.link }, 'Stock footage found');
-  return hdFile.link;
+  return {
+    url: hdFile.link,
+    externalId: String(video.id),
+    duration: video.duration,
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -119,7 +132,7 @@ async function fetchFromPixabay(
   query: string,
   durationSeconds: number,
   apiKey: string
-): Promise<string | null> {
+): Promise<StockResult | null> {
   const response = await axios.get(PIXABAY_API_URL, {
     params: {
       key: apiKey,
@@ -135,7 +148,6 @@ async function fetchFromPixabay(
     return null;
   }
 
-  // Find video with duration close to target
   const sorted = videos
     .filter((v: any) => v.videos && v.videos.large)
     .sort((a: any, b: any) => {
@@ -148,34 +160,31 @@ async function fetchFromPixabay(
     return null;
   }
 
-  // Get large video file (1920x1080)
   const video = sorted[0];
   const videoUrl = video.videos.large.url;
 
   log.info({ query, provider: 'Pixabay', videoUrl }, 'Stock footage found');
-  return videoUrl;
+  return {
+    url: videoUrl,
+    externalId: String(video.id),
+    duration: video.duration,
+  };
 }
 
 // ---------------------------------------------------------------------------
-// Cache Management
+// Cache Management (matches StockFootageCache Prisma model)
 // ---------------------------------------------------------------------------
 
-async function checkCache(query: string, durationSeconds: number): Promise<string | null> {
+async function checkCache(query: string): Promise<string | null> {
   try {
     const cached = await prisma.stockFootageCache.findFirst({
       where: {
         query: query.toLowerCase(),
-        durationSeconds: {
-          gte: durationSeconds - 5,
-          lte: durationSeconds + 5,
-        },
-        expiresAt: {
-          gt: new Date(),
-        },
       },
+      orderBy: { createdAt: 'desc' },
     });
 
-    return cached?.videoUrl || null;
+    return cached?.url || null;
   } catch (error) {
     log.warn({ err: error }, 'Cache check failed');
     return null;
@@ -184,21 +193,19 @@ async function checkCache(query: string, durationSeconds: number): Promise<strin
 
 async function cacheFootage(
   query: string,
-  durationSeconds: number,
-  videoUrl: string,
-  provider: 'PEXELS' | 'PIXABAY'
+  url: string,
+  externalId: string,
+  provider: string,
+  duration?: number,
 ): Promise<void> {
   try {
-    const expiresAt = new Date();
-    expiresAt.setDate(expiresAt.getDate() + 30); // Cache for 30 days
-
     await prisma.stockFootageCache.create({
       data: {
         query: query.toLowerCase(),
-        durationSeconds,
-        videoUrl,
+        url,
+        externalId,
         provider,
-        expiresAt,
+        duration: duration || null,
       },
     });
 

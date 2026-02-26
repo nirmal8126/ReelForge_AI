@@ -37,7 +37,8 @@
       "Bash(npx turbo build --filter=@reelforge/web)",
       "Bash(npx turbo dev --filter=@reelforge/web --filter=@reelforge/admin)",
       "Bash(npm run dev)",
-      "Bash(npx prisma:*)"
+      "Bash(npx prisma:*)",
+      "WebFetch(domain:ai.google.dev)"
     ]
   }
 }

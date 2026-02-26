@@ -23,6 +23,8 @@ export interface ReelJobData {
   captionStyle?: string;
   primaryColor?: string;
   channelProfileId?: string;
+  aspectRatio?: string;
+  plan?: string;
 }
 
 export interface ReelJobResult {
@@ -101,8 +103,11 @@ export async function processReelJob(job: Job<ReelJobData>): Promise<ReelJobResu
 
     const videoBuffer = await generateVideo({
       prompt,
+      script,
       style: job.data.style || 'cinematic',
       durationSeconds,
+      aspectRatio: job.data.aspectRatio || '9:16',
+      plan: job.data.plan,
     });
 
     log.info({ videoSizeBytes: videoBuffer.length }, 'Video generated');
