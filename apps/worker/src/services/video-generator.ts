@@ -1,8 +1,8 @@
 import axios, { AxiosInstance } from 'axios';
 import { logger } from '../utils/logger';
-import { downloadStockFootage } from './stock-footage';
-import { generateSceneImages } from './image-generator';
-import { composeImagesIntoVideo } from './image-video-composer';
+import { convertScriptToSearchKeywords, generateSceneImages } from './image-generator';
+import { searchPexelsForClip } from './stock-footage';
+import { concatenateClipsWithCrossfade, SceneClip } from './scene-clip-composer';
 
 const log = logger.child({ service: 'video-generator' });
 
@@ -65,51 +65,57 @@ function sleep(ms: number): Promise<void> {
 /**
  * Generate a video clip using a provider fallback chain:
  *
- * 1. DEV_MODE → placeholder (Gemini images or solid color)
- * 2. NODE_ENV=development → skip RunwayML, use free providers only
- * 3. Premium plans (STARTER+) + RUNWAY_API_KEY → RunwayML AI video
- * 4. Pexels/Pixabay stock footage (free, requires PEXELS_API_KEY)
- * 5. Gemini AI images + FFmpeg Ken Burns composition (fallback)
+ * 1. DEV_MODE → per-scene Pexels pipeline
+ * 2. NODE_ENV=development → skip paid providers, use per-scene Pexels
+ * 3. Premium plans (STARTER+):
+ *    a. RUNWAY_API_KEY → RunwayML AI video (best quality)
+ *    b. GEMINI_API_KEY → Google Veo 3 Fast AI video ($0.15/sec, same API key)
+ * 4. Per-scene Pexels stock video pipeline (free, default for all)
  */
 export async function generateVideo(opts: VideoGenerationOptions): Promise<Buffer> {
   const { prompt, script, style, durationSeconds, aspectRatio, plan } = opts;
 
-  // DEV_MODE: use Gemini images or placeholder
+  // DEV_MODE: use per-scene Pexels pipeline
   if (process.env.DEV_MODE === 'true') {
-    log.info({ prompt: prompt.substring(0, 50) }, 'DEV_MODE: Using image-based video generation');
-    return generateWithGeminiImages(prompt, style, durationSeconds, aspectRatio, script);
+    log.info({ prompt: prompt.substring(0, 50) }, 'DEV_MODE: Using per-scene Pexels pipeline');
+    return generateWithPerScenePexels(prompt, style, durationSeconds, aspectRatio, script);
   }
 
-  // Premium users: try RunwayML first (skip in development)
   const isPremium = plan && PREMIUM_PLANS.includes(plan);
   const isDev = process.env.NODE_ENV === 'development';
 
   if (isDev) {
-    log.info('NODE_ENV=development — skipping RunwayML, using free providers');
-  } else if (isPremium && process.env.RUNWAY_API_KEY) {
-    try {
-      log.info({ plan }, 'Premium plan — trying RunwayML');
-      return await generateWithRunway(prompt, style, durationSeconds, aspectRatio);
-    } catch (err) {
-      log.warn({ err: err instanceof Error ? err.message : err }, 'RunwayML failed, falling back to stock footage');
+    log.info('NODE_ENV=development — skipping paid providers, using per-scene Pexels');
+  } else if (isPremium) {
+    // Premium: try RunwayML first
+    if (process.env.RUNWAY_API_KEY) {
+      try {
+        log.info({ plan }, 'Premium plan — trying RunwayML');
+        return await generateWithRunway(prompt, style, durationSeconds, aspectRatio);
+      } catch (err) {
+        log.warn({ err: err instanceof Error ? err.message : err }, 'RunwayML failed, trying Veo');
+      }
+    }
+
+    // Premium fallback: try Google Veo 3 Fast (uses same Gemini API key)
+    if (process.env.GEMINI_API_KEY) {
+      try {
+        log.info({ plan }, 'Premium plan — trying Google Veo 3 Fast');
+        return await generateWithVeo(prompt, style, durationSeconds, aspectRatio);
+      } catch (err) {
+        log.warn({ err: err instanceof Error ? err.message : err }, 'Veo failed, falling back to Pexels');
+      }
     }
   } else {
-    log.info({ plan: plan || 'FREE' }, 'Free plan — skipping RunwayML');
+    log.info({ plan: plan || 'FREE' }, 'Free plan — using per-scene Pexels pipeline');
   }
 
-  // Try Pexels/Pixabay stock footage
-  try {
-    return await generateWithStockFootage(prompt, durationSeconds, script);
-  } catch (err) {
-    log.warn({ err: err instanceof Error ? err.message : err }, 'Stock footage failed, falling back to Gemini images');
-  }
-
-  // Final fallback: Gemini AI images + FFmpeg composition
-  return generateWithGeminiImages(prompt, style, durationSeconds, aspectRatio, script);
+  // Per-scene Pexels stock video pipeline (free, default for all)
+  return generateWithPerScenePexels(prompt, style, durationSeconds, aspectRatio, script);
 }
 
 // ---------------------------------------------------------------------------
-// Provider 1: RunwayML (Premium only)
+// Provider 1: RunwayML (Premium only, production)
 // ---------------------------------------------------------------------------
 
 async function generateWithRunway(
@@ -199,86 +205,218 @@ async function generateWithRunway(
 }
 
 // ---------------------------------------------------------------------------
-// Provider 2: Pexels/Pixabay stock footage
+// Provider 2: Google Veo 3 Fast (Premium, uses same Gemini API key)
+// Cost: ~$0.15/sec — much cheaper than RunwayML
 // ---------------------------------------------------------------------------
 
-async function generateWithStockFootage(
+const VEO_MODEL = 'veo-3.0-fast-generate-001';
+const VEO_POLL_INTERVAL_MS = 10_000;
+const VEO_MAX_POLL_ATTEMPTS = 36; // 6 minutes max
+
+async function generateWithVeo(
   prompt: string,
+  style: string,
   durationSeconds: number,
-  script?: string,
+  aspectRatio?: string,
 ): Promise<Buffer> {
-  // Extract a better search query from the script if available
-  const searchQuery = script
-    ? extractStockSearchQuery(script, prompt)
-    : prompt.substring(0, 100);
+  const apiKey = process.env.GEMINI_API_KEY!;
+  const baseUrl = 'https://generativelanguage.googleapis.com/v1beta';
 
-  log.info({ searchQuery }, 'Searching for stock footage');
+  // Veo supports up to 8s per clip
+  const veoDuration = Math.min(8, durationSeconds);
+  const ar = aspectRatio === '9:16' ? '9:16' : aspectRatio === '1:1' ? '1:1' : '16:9';
 
-  const videoUrl = await downloadStockFootage({
-    query: searchQuery,
-    durationSeconds,
-  });
+  log.info({ model: VEO_MODEL, durationSeconds: veoDuration, aspectRatio: ar }, 'Initiating Veo video generation');
 
-  // downloadStockFootage returns a placeholder image URL if no stock found
-  if (videoUrl.includes('placeholder.com') || !videoUrl.startsWith('http')) {
-    throw new Error('No suitable stock footage found');
+  // Step 1: Start async generation
+  const initResponse = await axios.post(
+    `${baseUrl}/models/${VEO_MODEL}:predictLongRunning`,
+    {
+      instances: [{
+        prompt: `${style} style, cinematic: ${prompt}`,
+      }],
+      parameters: {
+        aspectRatio: ar,
+        durationSeconds: String(veoDuration),
+      },
+    },
+    {
+      headers: {
+        'Content-Type': 'application/json',
+        'x-goog-api-key': apiKey,
+      },
+      timeout: 30_000,
+    },
+  );
+
+  const operationName = initResponse.data.name;
+  if (!operationName) {
+    throw new Error('Veo: No operation name returned');
   }
 
-  log.info({ videoUrl }, 'Downloading stock footage');
+  log.info({ operationName }, 'Veo generation started, polling...');
 
-  const response = await axios.get(videoUrl, {
-    responseType: 'arraybuffer',
-    timeout: 60_000,
-  });
+  // Step 2: Poll for completion
+  let attempts = 0;
+  while (attempts < VEO_MAX_POLL_ATTEMPTS) {
+    attempts++;
+    await sleep(VEO_POLL_INTERVAL_MS);
 
-  const videoBuffer = Buffer.from(response.data);
-  log.info({ videoSizeBytes: videoBuffer.length }, 'Stock footage downloaded');
+    const pollResponse = await axios.get(
+      `${baseUrl}/${operationName}`,
+      {
+        headers: { 'x-goog-api-key': apiKey },
+        timeout: 15_000,
+      },
+    );
 
-  return videoBuffer;
+    const { done, response: opResponse, error: opError } = pollResponse.data;
+
+    log.debug({ operationName, done, attempt: attempts }, 'Polling Veo status');
+
+    if (opError) {
+      throw new Error(`Veo generation failed: ${opError.message || JSON.stringify(opError)}`);
+    }
+
+    if (done && opResponse) {
+      const samples = opResponse.generateVideoResponse?.generatedSamples;
+      if (!samples || samples.length === 0) {
+        throw new Error('Veo: No video samples returned');
+      }
+
+      const videoUri = samples[0].video?.uri;
+      if (!videoUri) {
+        throw new Error('Veo: No video URI in response');
+      }
+
+      log.info({ videoUri: videoUri.substring(0, 80) }, 'Downloading Veo video');
+
+      // Step 3: Download the video
+      const downloadResponse = await axios.get(videoUri, {
+        responseType: 'arraybuffer',
+        headers: { 'x-goog-api-key': apiKey },
+        timeout: 60_000,
+      });
+
+      const videoBuffer = Buffer.from(downloadResponse.data);
+      log.info({ videoSizeBytes: videoBuffer.length }, 'Veo video downloaded');
+
+      return videoBuffer;
+    }
+  }
+
+  throw new Error(`Veo timed out after ${VEO_MAX_POLL_ATTEMPTS * VEO_POLL_INTERVAL_MS / 1000}s`);
 }
+
+// ---------------------------------------------------------------------------
+// Provider 3: Per-Scene Pexels Stock Video Pipeline (Free)
+// ---------------------------------------------------------------------------
 
 /**
- * Extract a concise English search query from script content for stock footage APIs.
- * Stock footage APIs work best with short English keywords.
+ * Generate a video by searching Pexels for stock video clips per script scene,
+ * then concatenating them with crossfade transitions.
+ *
+ * Flow:
+ *  1. Gemini text model converts script → English search keywords per scene
+ *  2. Search Pexels for a video clip per scene keyword
+ *  3. If Pexels has no result → retry simplified keyword → fall back to Gemini image
+ *  4. Concatenate all clips with FFmpeg xfade transitions
  */
-function extractStockSearchQuery(script: string, fallbackPrompt: string): string {
-  // Use the original prompt as the primary search term (it's usually in English or short)
-  // but enhance it with key visual terms from the script
-  return fallbackPrompt.substring(0, 100);
-}
-
-// ---------------------------------------------------------------------------
-// Provider 3: Gemini AI images + FFmpeg composition
-// ---------------------------------------------------------------------------
-
-async function generateWithGeminiImages(
+async function generateWithPerScenePexels(
   prompt: string,
   style: string,
   durationSeconds: number,
   aspectRatio?: string,
   script?: string,
 ): Promise<Buffer> {
-  // Generate 3-5 images based on duration
-  const imageCount = durationSeconds <= 15 ? 3 : durationSeconds <= 30 ? 4 : 5;
+  const sceneCount = durationSeconds <= 15 ? 3 : durationSeconds <= 30 ? 4 : 5;
+  const orientation = aspectRatio === '9:16' ? 'portrait' : aspectRatio === '1:1' ? 'square' : 'landscape';
 
-  log.info({ imageCount, durationSeconds, aspectRatio, hasScript: !!script }, 'Generating scene images with Gemini');
-
-  const imageBuffers = await generateSceneImages({
-    prompt,
-    script,
-    style,
-    count: imageCount,
-    aspectRatio,
-  });
-
-  log.info({ generatedImages: imageBuffers.length }, 'Composing images into video');
-
-  const videoBuffer = await composeImagesIntoVideo({
-    imageBuffers,
+  // Step 1: Generate scene keywords from script
+  log.info({ sceneCount, durationSeconds }, 'Step 1: Generating scene keywords from script');
+  const scenes = await convertScriptToSearchKeywords(
+    script || prompt,
+    sceneCount,
     durationSeconds,
-    aspectRatio,
-    transitionStyle: 'fade',
-  });
+  );
 
-  return videoBuffer;
+  // Step 2: Search Pexels for each scene and build clip list
+  log.info({ sceneCount: scenes.length }, 'Step 2: Searching Pexels for scene clips');
+  const clips: SceneClip[] = [];
+
+  for (const scene of scenes) {
+    log.info({ keyword: scene.keyword, duration: scene.durationSeconds }, 'Searching for scene clip');
+
+    // Try the keyword from Gemini
+    let pexelsResult = await searchPexelsForClip(scene.keyword, scene.durationSeconds, orientation);
+
+    // Retry with simplified keyword (first word only)
+    if (!pexelsResult) {
+      const simplified = scene.keyword.split(' ')[0];
+      log.info({ original: scene.keyword, simplified }, 'No results, trying simplified keyword');
+      pexelsResult = await searchPexelsForClip(simplified, scene.durationSeconds, orientation);
+    }
+
+    if (pexelsResult) {
+      clips.push({
+        downloadUrl: pexelsResult.downloadUrl,
+        durationSeconds: scene.durationSeconds,
+        actualDuration: pexelsResult.duration,
+        keyword: scene.keyword,
+      });
+    } else {
+      // Final fallback: Gemini AI image for this scene
+      log.warn({ keyword: scene.keyword }, 'No Pexels results, falling back to Gemini image');
+      try {
+        const [imageBuffer] = await generateSceneImages({
+          prompt: scene.keyword,
+          style,
+          count: 1,
+          aspectRatio,
+        });
+        clips.push({
+          downloadUrl: '',
+          durationSeconds: scene.durationSeconds,
+          actualDuration: scene.durationSeconds,
+          keyword: scene.keyword,
+          isFallbackImage: true,
+          imageBuffer,
+        });
+      } catch (imgErr) {
+        log.error({ err: imgErr, keyword: scene.keyword }, 'Gemini image fallback also failed, using solid color');
+        clips.push({
+          downloadUrl: '',
+          durationSeconds: scene.durationSeconds,
+          actualDuration: scene.durationSeconds,
+          keyword: scene.keyword,
+          isFallbackImage: true,
+          imageBuffer: generateSolidColorPlaceholder(),
+        });
+      }
+    }
+
+    // Brief delay between Pexels API calls to respect rate limits
+    await sleep(300);
+  }
+
+  // Step 3: Concatenate with crossfade transitions
+  log.info({ clipCount: clips.length, keywords: clips.map(c => c.keyword) }, 'Step 3: Concatenating scene clips');
+  return concatenateClipsWithCrossfade({
+    clips,
+    totalDurationSeconds: durationSeconds,
+    aspectRatio,
+    crossfadeDurationSeconds: 0.5,
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Solid color placeholder (last resort fallback)
+// ---------------------------------------------------------------------------
+
+function generateSolidColorPlaceholder(): Buffer {
+  // Minimal valid PNG: 1x1 pixel, dark purple (#6366F1)
+  return Buffer.from(
+    'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==',
+    'base64',
+  );
 }

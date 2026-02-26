@@ -277,6 +277,138 @@ function buildGenericSceneDirections(prompt: string, style: string, count: numbe
 }
 
 // ---------------------------------------------------------------------------
+// Script → Pexels Search Keywords (Gemini Text Model)
+// ---------------------------------------------------------------------------
+
+export interface SceneKeyword {
+  keyword: string;          // e.g. "morning coffee", "person stretching"
+  durationSeconds: number;  // how long this scene should last
+}
+
+/**
+ * Use Gemini text model to convert a voiceover script (in any language)
+ * into short English search keywords optimized for Pexels stock video search.
+ *
+ * Example input (Hindi script about energy tips):
+ *   → [{ keyword: "tired person desk", duration: 5 },
+ *      { keyword: "drinking water glass", duration: 5 },
+ *      { keyword: "stretching exercise", duration: 5 }]
+ */
+export async function convertScriptToSearchKeywords(
+  script: string,
+  sceneCount: number,
+  totalDurationSeconds: number,
+): Promise<SceneKeyword[]> {
+  const apiKey = process.env.GEMINI_API_KEY;
+  if (!apiKey) {
+    return buildFallbackKeywords(script, sceneCount, totalDurationSeconds);
+  }
+
+  const model = process.env.GEMINI_MODEL || 'gemini-2.5-flash';
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+
+  const systemPrompt = `You are a stock footage search specialist. Your job is to convert a voiceover script into exactly ${sceneCount} short English search keywords that will be used to find stock video clips on Pexels.
+
+Rules:
+- Output EXACTLY ${sceneCount} lines
+- Each line format: keyword | duration_seconds
+- Each keyword must be 2-3 simple English words that would return good results on a stock video site
+- Use generic, commonly-filmed subjects (e.g. "morning coffee", "city skyline", "person typing", "sunset beach", "healthy food", "running outdoors")
+- AVOID abstract concepts that won't have stock footage (e.g. "motivation", "success mindset", "energy boost")
+- AVOID proper nouns, brand names, or overly specific terms
+- The durations must add up to approximately ${totalDurationSeconds} seconds
+- Each scene should be at least 3 seconds and at most 10 seconds
+
+Example output for a 30-second fitness tips script:
+tired person desk | 6
+drinking water | 6
+morning stretching | 6
+deep breathing | 6
+happy person | 6
+
+Output ONLY the lines. No numbering, no bullets, no extra text.`;
+
+  const userMessage = `Convert this voiceover script into ${sceneCount} stock footage search keywords:\n\n${script}`;
+
+  log.info({ model, sceneCount, totalDurationSeconds }, 'Converting script to Pexels search keywords');
+
+  try {
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        contents: [{
+          role: 'user',
+          parts: [{ text: userMessage }],
+        }],
+        systemInstruction: {
+          role: 'system',
+          parts: [{ text: systemPrompt }],
+        },
+        generationConfig: {
+          temperature: 0.5,
+          maxOutputTokens: 512,
+        },
+      }),
+    });
+
+    if (!response.ok) {
+      throw new Error(`Gemini API returned ${response.status}`);
+    }
+
+    const data: any = await response.json();
+    const text = data?.candidates?.[0]?.content?.parts?.[0]?.text;
+
+    if (!text) {
+      throw new Error('No text returned from Gemini');
+    }
+
+    // Parse "keyword | duration" lines
+    const lines = text
+      .split('\n')
+      .map((line: string) => line.trim())
+      .filter((line: string) => line.includes('|'));
+
+    const perScene = Math.ceil(totalDurationSeconds / sceneCount);
+    const scenes: SceneKeyword[] = lines.slice(0, sceneCount).map((line: string) => {
+      const [kw, dur] = line.split('|').map((s: string) => s.trim());
+      return {
+        keyword: kw.substring(0, 50).replace(/^\d+[\.\)]\s*/, ''), // strip numbering
+        durationSeconds: Math.max(3, Math.min(10, parseInt(dur) || perScene)),
+      };
+    });
+
+    log.info({ parsedScenes: scenes.length, scenes }, 'Search keywords parsed');
+
+    // Ensure we have exactly sceneCount keywords
+    while (scenes.length < sceneCount) {
+      scenes.push({
+        keyword: scenes[scenes.length - 1]?.keyword || 'nature landscape',
+        durationSeconds: perScene,
+      });
+    }
+
+    return scenes;
+  } catch (err) {
+    log.warn({ err: err instanceof Error ? err.message : err }, 'Keyword conversion failed, using fallbacks');
+    return buildFallbackKeywords(script, sceneCount, totalDurationSeconds);
+  }
+}
+
+/**
+ * Fallback when Gemini is unavailable: extract simple keywords from script.
+ */
+function buildFallbackKeywords(script: string, sceneCount: number, totalDuration: number): SceneKeyword[] {
+  const perScene = Math.ceil(totalDuration / sceneCount);
+  // Try to use something from the script, or default to a generic keyword
+  const keyword = 'nature landscape';
+  return Array.from({ length: sceneCount }, () => ({
+    keyword,
+    durationSeconds: perScene,
+  }));
+}
+
+// ---------------------------------------------------------------------------
 // Placeholders (DEV_MODE / fallback)
 // ---------------------------------------------------------------------------
 

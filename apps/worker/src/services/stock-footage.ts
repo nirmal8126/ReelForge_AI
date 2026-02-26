@@ -63,13 +63,106 @@ export async function downloadStockFootage(opts: StockFootageOptions): Promise<s
 }
 
 // ---------------------------------------------------------------------------
-// Result type
+// Result types
 // ---------------------------------------------------------------------------
 
 interface StockResult {
   url: string;
   externalId: string;
   duration: number;
+}
+
+export interface PexelsClipResult {
+  downloadUrl: string;
+  duration: number;
+  width: number;
+  height: number;
+}
+
+// ---------------------------------------------------------------------------
+// Per-scene Pexels clip search (used by per-scene video pipeline)
+// ---------------------------------------------------------------------------
+
+/**
+ * Search Pexels for a single video clip matching a keyword.
+ * Returns the best HD clip with download URL, or null if nothing found.
+ */
+export async function searchPexelsForClip(
+  keyword: string,
+  targetDuration: number,
+  orientation: 'landscape' | 'portrait' | 'square' = 'portrait',
+): Promise<PexelsClipResult | null> {
+  const pexelsKey = process.env.PEXELS_API_KEY;
+  if (!pexelsKey) {
+    log.warn('PEXELS_API_KEY not set, cannot search for clip');
+    return null;
+  }
+
+  // Check cache first
+  const cached = await checkCache(keyword);
+  if (cached) {
+    log.info({ keyword, cachedUrl: cached }, 'Using cached clip for scene');
+    return { downloadUrl: cached, duration: targetDuration, width: 1280, height: 720 };
+  }
+
+  try {
+    const response = await axios.get(PEXELS_API_URL, {
+      params: {
+        query: keyword,
+        per_page: 15,
+        orientation,
+      },
+      headers: {
+        Authorization: pexelsKey,
+      },
+      timeout: 10_000,
+    });
+
+    const videos = response.data.videos || [];
+    if (videos.length === 0) {
+      log.info({ keyword }, 'No Pexels results for keyword');
+      return null;
+    }
+
+    // Filter videos with valid video_files
+    const valid = videos.filter((v: any) => v.video_files && v.video_files.length > 0);
+    if (valid.length === 0) return null;
+
+    // Prefer clips with duration >= target so we can trim (better than looping short clips)
+    const longerClips = valid.filter((v: any) => v.duration >= targetDuration);
+    const pool = longerClips.length > 0 ? longerClips : valid;
+
+    // Sort by closest duration match
+    pool.sort((a: any, b: any) => {
+      const aDiff = Math.abs(a.duration - targetDuration);
+      const bDiff = Math.abs(b.duration - targetDuration);
+      return aDiff - bDiff;
+    });
+
+    const video = pool[0];
+
+    // Pick HD quality file
+    const hdFile = video.video_files.find(
+      (f: any) => f.quality === 'hd' && f.width >= 1280
+    ) || video.video_files.find(
+      (f: any) => f.quality === 'hd'
+    ) || video.video_files[0];
+
+    log.info({ keyword, videoId: video.id, duration: video.duration, quality: hdFile.quality }, 'Pexels clip found for scene');
+
+    // Cache for future use
+    await cacheFootage(keyword, hdFile.link, String(video.id), 'pexels', video.duration);
+
+    return {
+      downloadUrl: hdFile.link,
+      duration: video.duration,
+      width: hdFile.width || 1280,
+      height: hdFile.height || 720,
+    };
+  } catch (err) {
+    log.warn({ keyword, err: err instanceof Error ? err.message : err }, 'Pexels clip search failed');
+    return null;
+  }
 }
 
 // ---------------------------------------------------------------------------
