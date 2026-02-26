@@ -273,3 +273,41 @@ export async function enqueueGameplayJob(data: {
 
   return job.id
 }
+
+// Image Studio queue
+let imageStudioQueue: Queue | null = null
+
+export function getImageStudioQueue() {
+  if (!imageStudioQueue) {
+    imageStudioQueue = new Queue('image-studio-jobs', { connection: getConnection() })
+  }
+  return imageStudioQueue
+}
+
+export async function enqueueImageStudioJob(data: {
+  imageStudioJobId: string
+  userId: string
+  mode: string
+  imageUrls: string[]
+  prompt?: string
+  title?: string
+  language?: string
+  voiceEnabled: boolean
+  voiceId?: string
+  aspectRatio: string
+  transitionStyle: string
+  plan: string
+}) {
+  const queue = getImageStudioQueue()
+  const priority = PLAN_PRIORITY[data.plan] || 5
+
+  const job = await queue.add('generate-image-studio', data, {
+    priority,
+    attempts: 3,
+    backoff: { type: 'exponential', delay: 5000 },
+    removeOnComplete: { count: 1000 },
+    removeOnFail: { count: 500 },
+  })
+
+  return job.id
+}

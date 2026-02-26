@@ -15,6 +15,7 @@ const JOB_TYPE_MODELS: Record<string, string> = {
   gameplay: 'gameplayJob',
   long_form: 'longFormJob',
   cartoon: 'cartoonEpisode',
+  image_studio: 'imageStudioJob',
 }
 
 // ---------------------------------------------------------------------------

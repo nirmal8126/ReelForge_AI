@@ -49,6 +49,7 @@ model User {
   quoteJobs          QuoteJob[]
   challengeJobs      ChallengeJob[]
   gameplayJobs       GameplayJob[]
+  imageStudioJobs    ImageStudioJob[]
   accounts           Account[]
   sessions           Session[]
   notifications      Notification[]
@@ -999,6 +1000,65 @@ model GameplayJob {
   @@index([userId])
   @@index([status])
   @@map("gameplay_jobs")
+}
+
+// ---------------------------------------------------------------------------
+// Image Studio — image upload, enhancement, image-to-video slideshow
+// ---------------------------------------------------------------------------
+
+enum ImageStudioJobStatus {
+  QUEUED
+  ANALYZING
+  SCRIPT_GENERATING
+  VOICE_GENERATING
+  COMPOSING
+  UPLOADING
+  COMPLETED
+  FAILED
+}
+
+model ImageStudioJob {
+  id               String                @id @default(cuid())
+  userId           String                @map("user_id")
+
+  // Content
+  mode             String                @default("video") @db.VarChar(20) // "video" | "enhance"
+  title            String?               @db.VarChar(255)
+  prompt           String?               @db.Text
+  imageUrls        Json                  @map("image_urls")
+  imageCount       Int                   @default(1) @map("image_count")
+
+  // Settings
+  language         String?               @default("hi") @db.VarChar(10)
+  voiceEnabled     Boolean               @default(false) @map("voice_enabled")
+  voiceId          String?               @map("voice_id") @db.VarChar(100)
+  aspectRatio      String                @default("9:16") @map("aspect_ratio") @db.VarChar(10)
+  transitionStyle  String?               @default("fade") @map("transition_style") @db.VarChar(50)
+
+  // Generated
+  script           String?               @db.Text
+
+  // Status & progress
+  status           ImageStudioJobStatus  @default(QUEUED)
+  progress         Int                   @default(0)
+
+  // Output
+  outputUrl        String?               @map("output_url") @db.VarChar(500)
+  thumbnailUrl     String?               @map("thumbnail_url") @db.VarChar(500)
+
+  // Metadata
+  errorMessage     String?               @map("error_message") @db.Text
+  creditsCost      Int                   @default(1) @map("credits_cost")
+  processingTimeMs Int?                  @map("processing_time_ms")
+
+  createdAt        DateTime              @default(now()) @map("created_at")
+  completedAt      DateTime?             @map("completed_at")
+
+  user             User                  @relation(fields: [userId], references: [id], onDelete: NoAction)
+
+  @@index([userId])
+  @@index([status])
+  @@map("image_studio_jobs")
 }
 
 // ---------------------------------------------------------------------------

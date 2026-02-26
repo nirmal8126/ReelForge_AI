@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation'
 import toast from 'react-hot-toast'
 
 interface AdminDeleteButtonProps {
-  jobType: 'reel' | 'quote' | 'challenge' | 'longForm' | 'cartoonSeries'
+  jobType: 'reel' | 'quote' | 'challenge' | 'longForm' | 'cartoonSeries' | 'imageStudio'
   jobId: string
 }
 
@@ -16,6 +16,7 @@ const JOB_TYPE_LABELS: Record<string, string> = {
   challenge: 'Challenge',
   longForm: 'Long-Form Video',
   cartoonSeries: 'Cartoon Series',
+  imageStudio: 'Image Studio Job',
 }
 
 export function AdminDeleteButton({ jobType, jobId }: AdminDeleteButtonProps) {

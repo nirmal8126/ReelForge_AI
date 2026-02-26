@@ -74,3 +74,15 @@ export function getCartoonCreditCost(): number {
 export function getQuoteCreditCost(): number {
   return 1
 }
+
+/**
+ * Image Studio — cost scales with image count + voice narration
+ * 1 image, no voice:       ~$0.10 API cost → 1 credit
+ * 2-3 images OR voice:     ~$0.25 API cost → 2 credits
+ * 4-5 images + voice:      ~$0.40 API cost → 3 credits
+ */
+export function getImageStudioCreditCost(imageCount: number, voiceEnabled: boolean): number {
+  if (imageCount <= 1 && !voiceEnabled) return 1
+  if (imageCount <= 3 || voiceEnabled) return 2
+  return 3
+}

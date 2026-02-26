@@ -12,6 +12,7 @@ import {
   Joystick,
   Video,
   Clapperboard,
+  ImagePlus,
   ToggleLeft,
   ToggleRight,
 } from 'lucide-react'
@@ -46,6 +47,7 @@ const MODULE_ICONS: Record<string, React.ComponentType<{ className?: string }>> 
   long_form: Video,
   cartoon_studio: Clapperboard,
   gameplay: Joystick,
+  image_studio: ImagePlus,
 }
 
 export default function AdminModulesPage() {
