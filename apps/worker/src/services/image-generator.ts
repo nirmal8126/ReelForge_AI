@@ -56,9 +56,14 @@ export async function generateSceneImages(opts: SceneImageOptions): Promise<Buff
   const images: Buffer[] = [];
 
   // Build scene-specific prompts from script or use generic ones
-  const sceneDirections = script
-    ? buildSceneDirectionsFromScript(script, style, count)
-    : buildGenericSceneDirections(prompt, style, count);
+  let sceneDirections: string[];
+
+  if (script) {
+    // Step 1: Use Gemini text model to convert script into English visual descriptions
+    sceneDirections = await convertScriptToVisualPrompts(apiKey, script, style, count);
+  } else {
+    sceneDirections = buildGenericSceneDirections(prompt, style, count);
+  }
 
   log.info({ sceneCount: sceneDirections.length, hasScript: !!script }, 'Scene directions built');
 
@@ -140,86 +145,109 @@ async function generateSingleImage(
 }
 
 // ---------------------------------------------------------------------------
-// Scene direction builder — Script-based (scene-matched)
+// Script → Visual Descriptions (Gemini Text Model)
 // ---------------------------------------------------------------------------
 
 /**
- * Split script into logical scene groups and create visual prompts
- * that match each scene's actual content.
+ * Use Gemini text model to convert a script (in any language) into
+ * detailed English visual/image descriptions for each scene.
  *
- * For a script like:
- *   "ऊर्जा की कमी महसूस हो रही है?"     → image of a tired person
- *   "एक गिलास पानी पिएँ"                → image of drinking water
- *   "कुछ हल्के स्ट्रेच करें"              → image of stretching
+ * Example input (Hindi script):
+ *   "ऊर्जा की कमी महसूस हो रही है?"
+ *   "एक गिलास पानी पिएँ"
+ *   "कुछ हल्के स्ट्रेच करें"
  *
- * Each image will visually represent that part of the narration.
+ * Example output (English visual prompts):
+ *   "A tired person sitting at a desk rubbing their eyes, dim lighting"
+ *   "A person drinking a fresh glass of water, bright kitchen, healthy lifestyle"
+ *   "A person doing gentle stretching exercises in a living room, morning light"
  */
-function buildSceneDirectionsFromScript(script: string, style: string, count: number): string[] {
-  // Split script into individual lines (sentences)
-  const lines = script
-    .split('\n')
-    .map(line => line.trim())
-    .filter(line => line.length > 0);
+async function convertScriptToVisualPrompts(
+  apiKey: string,
+  script: string,
+  style: string,
+  count: number,
+): Promise<string[]> {
+  const model = process.env.GEMINI_MODEL || 'gemini-2.5-flash';
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
 
-  if (lines.length === 0) {
-    return buildGenericSceneDirections(script, style, count);
-  }
+  const systemPrompt = `You are a visual director for short-form video reels. Your job is to convert a voiceover script into exactly ${count} detailed English image descriptions that will be used to generate AI images for each scene of the video.
 
-  // Group lines into `count` scene groups
-  const sceneGroups = groupLinesIntoScenes(lines, count);
+Rules:
+- Output EXACTLY ${count} image descriptions, one per line
+- Each description must be a detailed visual/cinematic scene description in English
+- Describe what should be SHOWN visually (people, objects, settings, actions, mood, lighting)
+- Use "${style}" visual style throughout
+- Do NOT include any dialogue, text, or words in the descriptions — only visual elements
+- Each description should be 1-2 sentences, very specific and vivid
+- The scenes should flow naturally as a visual story matching the script narration
+- Include camera angle suggestions (wide shot, close-up, etc.)
 
-  log.info({ totalLines: lines.length, sceneGroups: sceneGroups.length }, 'Script split into scene groups');
+Output format: Return ONLY the ${count} descriptions, one per line. No numbering, no bullets, no extra text.`;
 
-  const directions: string[] = [];
-  const angles = [
-    'establishing wide shot',
-    'medium close-up',
-    'dramatic angle',
-    'detail close-up',
-    'dynamic action shot',
-  ];
+  const userMessage = `Convert this voiceover script into ${count} visual scene descriptions:\n\n${script}`;
 
-  for (let i = 0; i < sceneGroups.length; i++) {
-    const sceneText = sceneGroups[i].join(' ');
-    const angle = angles[i % angles.length];
+  log.info({ model, sceneCount: count }, 'Converting script to visual descriptions via Gemini text');
 
-    // Create a visual description prompt from the scene text
-    const visualPrompt = [
-      `${style} style, ${angle}.`,
-      `Visually illustrate this scene: "${sceneText}".`,
-      `High quality, cinematic lighting, vibrant colors, photorealistic.`,
-      `No text, no words, no letters, no subtitles in the image.`,
-    ].join(' ');
+  try {
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        contents: [{
+          role: 'user',
+          parts: [{ text: userMessage }],
+        }],
+        systemInstruction: {
+          role: 'system',
+          parts: [{ text: systemPrompt }],
+        },
+        generationConfig: {
+          temperature: 0.7,
+          maxOutputTokens: 1024,
+        },
+      }),
+    });
 
-    directions.push(visualPrompt);
-  }
-
-  return directions;
-}
-
-/**
- * Distribute script lines evenly across N scene groups.
- *
- * Example: 10 lines, 4 groups → [3, 3, 2, 2] lines per group
- */
-function groupLinesIntoScenes(lines: string[], count: number): string[][] {
-  const groups: string[][] = [];
-  const linesPerGroup = Math.max(1, Math.ceil(lines.length / count));
-
-  for (let i = 0; i < count; i++) {
-    const start = i * linesPerGroup;
-    const end = Math.min(start + linesPerGroup, lines.length);
-    if (start < lines.length) {
-      groups.push(lines.slice(start, end));
+    if (!response.ok) {
+      const errData = await response.json().catch(() => ({}));
+      log.warn({ status: response.status, errData }, 'Gemini text API failed for scene conversion');
+      throw new Error(`Gemini text API returned ${response.status}`);
     }
-  }
 
-  // If we got fewer groups than requested (very short script), fill with last group repeated
-  while (groups.length < count && groups.length > 0) {
-    groups.push(groups[groups.length - 1]);
-  }
+    const data: any = await response.json();
+    const text = data?.candidates?.[0]?.content?.parts?.[0]?.text;
 
-  return groups;
+    if (!text) {
+      throw new Error('No text returned from Gemini for scene conversion');
+    }
+
+    // Parse the response into individual scene descriptions
+    const descriptions = text
+      .split('\n')
+      .map((line: string) => line.trim())
+      .filter((line: string) => line.length > 10); // filter out empty/very short lines
+
+    log.info({ requestedCount: count, parsedCount: descriptions.length }, 'Visual descriptions parsed');
+
+    // Ensure we have exactly `count` descriptions
+    const result: string[] = [];
+    for (let i = 0; i < count; i++) {
+      if (i < descriptions.length) {
+        result.push(`${style} style. ${descriptions[i]} High quality, cinematic lighting, photorealistic. No text or letters in the image.`);
+      } else {
+        // Repeat last description if we got fewer than needed
+        const lastDesc = descriptions[descriptions.length - 1] || `${style} scene`;
+        result.push(`${style} style. ${lastDesc} High quality, cinematic lighting, photorealistic. No text or letters in the image.`);
+      }
+    }
+
+    return result;
+  } catch (err) {
+    log.warn({ err: err instanceof Error ? err.message : err }, 'Scene conversion failed, using fallback prompts');
+    // Fallback: use generic prompts based on the original script topic
+    return buildGenericSceneDirections(script.substring(0, 200), style, count);
+  }
 }
 
 // ---------------------------------------------------------------------------
