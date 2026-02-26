@@ -147,6 +147,10 @@ export default function CreateReelPage() {
         }),
       })
       const data = await res.json()
+      if (!res.ok) {
+        toast.error(data.error || `Request failed with status ${res.status}`)
+        return
+      }
       if (data.variations && data.variations.length > 0) {
         setScriptVariations(data.variations)
         setStep(3)
@@ -371,7 +375,7 @@ export default function CreateReelPage() {
                   className="w-full flex-1 min-h-[200px] rounded-lg bg-white/10 border border-white/10 px-4 py-2.5 text-sm text-white placeholder-gray-500 focus:border-brand-500 focus:ring-1 focus:ring-brand-500 outline-none resize-none"
                   placeholder="Describe your reel topic in detail. The more context you provide, the better the AI can generate a script.&#10;&#10;Example: Create a 30-second reel about the top 5 AI tools that every content creator should be using in 2025, with emphasis on free tools that save time."
                 />
-                <p className="text-xs text-gray-500 mt-1.5">{form.prompt.length}/2000 characters</p>
+                <p className="text-xs text-gray-500 mt-1.5">{form.prompt.length}/10000 characters</p>
               </div>
             </div>
           </div>
@@ -407,33 +411,6 @@ export default function CreateReelPage() {
                   <div className="h-8 w-8 rounded-lg mb-3" style={{ backgroundColor: style.color }} />
                   <p className="text-sm font-medium text-white">{style.name}</p>
                   <p className="text-xs text-gray-400">{style.desc}</p>
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* Language Selection */}
-          <div>
-            <label className="block text-sm font-medium text-gray-300 mb-4">Language</label>
-            <p className="text-xs text-gray-400 mb-3">
-              Script and voiceover will be generated in this language
-            </p>
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
-              {SUPPORTED_LANGUAGES.map((lang) => (
-                <button
-                  key={lang.code}
-                  type="button"
-                  onClick={() => setForm({ ...form, language: lang.code })}
-                  className={`rounded-lg border p-3 text-left transition ${
-                    form.language === lang.code
-                      ? 'border-brand-500 bg-brand-500/10 ring-1 ring-brand-500'
-                      : 'border-white/10 bg-white/5 hover:bg-white/10'
-                  }`}
-                >
-                  <div className="flex items-center gap-2">
-                    <span className="text-2xl">{lang.flag}</span>
-                    <span className="text-sm font-medium text-white">{lang.name}</span>
-                  </div>
                 </button>
               ))}
             </div>
@@ -488,9 +465,22 @@ export default function CreateReelPage() {
             <button onClick={() => setStep(2)} className="inline-flex items-center gap-2 rounded-lg bg-white/10 px-6 py-2.5 text-sm font-medium text-white hover:bg-white/20 transition">
               <ArrowLeft className="h-4 w-4" /> Back
             </button>
-            <button onClick={() => setStep(4)} className="inline-flex items-center gap-2 rounded-lg bg-brand-600 px-6 py-2.5 text-sm font-medium text-white hover:bg-brand-500 transition">
-              Next: Voice & Duration <ArrowRight className="h-4 w-4" />
-            </button>
+            <div className="flex items-center gap-3">
+              <button
+                onClick={handleGenerateScripts}
+                disabled={generatingScript}
+                className="inline-flex items-center gap-2 rounded-lg bg-white/10 px-5 py-2.5 text-sm font-medium text-white hover:bg-white/20 transition disabled:opacity-50"
+              >
+                {generatingScript ? (
+                  <><Loader2 className="h-4 w-4 animate-spin" /> Regenerating...</>
+                ) : (
+                  <><Wand2 className="h-4 w-4" /> Regenerate</>
+                )}
+              </button>
+              <button onClick={() => setStep(4)} className="inline-flex items-center gap-2 rounded-lg bg-brand-600 px-6 py-2.5 text-sm font-medium text-white hover:bg-brand-500 transition">
+                Next: Voice & Duration <ArrowRight className="h-4 w-4" />
+              </button>
+            </div>
           </div>
         </div>
       )}

@@ -69,6 +69,7 @@ export async function composeReel(opts: ComposeOptions): Promise<Buffer> {
     await new Promise<void>((resolve, reject) => {
       ffmpeg()
         .input(videoPath)
+        .inputOptions(['-stream_loop', '-1']) // loop video to match audio length
         .input(audioPath)
         .outputOptions([
           '-map', '0:v:0',
@@ -78,7 +79,7 @@ export async function composeReel(opts: ComposeOptions): Promise<Buffer> {
           '-crf', '23',
           '-c:a', 'aac',
           '-b:a', '192k',
-          '-shortest',
+          '-shortest',           // stops when audio ends (video loops until then)
           '-movflags', '+faststart',
           '-vf', subtitleFilter,
         ])

@@ -45,9 +45,13 @@ export async function generateVoiceover(opts: VoiceoverOptions): Promise<Buffer>
 
   log.info({ voiceId, language, scriptLength: script.length }, 'Generating voiceover via ElevenLabs');
 
+  // Use multilingual model for non-English languages
+  const isEnglish = !language || language === 'en';
+  const modelId = isEnglish ? 'eleven_turbo_v2' : 'eleven_multilingual_v2';
+
   const requestBody: Record<string, unknown> = {
     text: script,
-    model_id: 'eleven_turbo_v2',
+    model_id: modelId,
     voice_settings: {
       stability: 0.5,
       similarity_boost: 0.8,
@@ -56,24 +60,34 @@ export async function generateVoiceover(opts: VoiceoverOptions): Promise<Buffer>
     },
   };
 
-  // Add language parameter if not English
-  if (language && language !== 'en') {
+  // Add language_code for multilingual model
+  if (!isEnglish) {
     requestBody.language_code = language;
   }
 
-  const response = await axios.post(
-    `${ELEVENLABS_API_URL}/text-to-speech/${voiceId}`,
-    requestBody,
-    {
-      headers: {
-        'xi-api-key': apiKey,
-        'Content-Type': 'application/json',
-        Accept: 'audio/mpeg',
+  let response;
+  try {
+    response = await axios.post(
+      `${ELEVENLABS_API_URL}/text-to-speech/${voiceId}`,
+      requestBody,
+      {
+        headers: {
+          'xi-api-key': apiKey,
+          'Content-Type': 'application/json',
+          Accept: 'audio/mpeg',
+        },
+        responseType: 'arraybuffer',
+        timeout: 180_000, // 3 min timeout for long-form scripts
       },
-      responseType: 'arraybuffer',
-      timeout: 180_000, // 3 min timeout for long-form scripts
-    },
-  );
+    );
+  } catch (err: unknown) {
+    if (axios.isAxiosError(err) && err.response) {
+      const errorText = Buffer.from(err.response.data).toString('utf-8');
+      log.error({ status: err.response.status, body: errorText, voiceId, modelId, language }, 'ElevenLabs API error');
+      throw new Error(`ElevenLabs API error ${err.response.status}: ${errorText}`);
+    }
+    throw err;
+  }
 
   const audioBuffer = Buffer.from(response.data);
 

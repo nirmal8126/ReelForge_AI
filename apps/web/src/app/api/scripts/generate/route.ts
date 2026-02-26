@@ -4,7 +4,7 @@ import { z } from 'zod'
 import Anthropic from '@anthropic-ai/sdk'
 
 const scriptSchema = z.object({
-  prompt: z.string().min(10).max(2000),
+  prompt: z.string().min(10).max(10000),
   duration: z.number().min(5).max(60),
   language: z.string().regex(/^[a-z]{2}$/).default('hi'),
   tone: z.string().optional(),
@@ -48,6 +48,82 @@ function resolveProviderOrder(): Array<'gemini' | 'anthropic'> {
   return ['gemini', 'anthropic']
 }
 
+// ---------------------------------------------------------------------------
+// Detect if the user provided a full script vs a topic/idea
+// ---------------------------------------------------------------------------
+
+function isDetailedScript(prompt: string): boolean {
+  // A detailed script typically has: 100+ chars, multiple lines, timestamps/stage directions
+  if (prompt.length < 150) return false
+  const lines = prompt.split('\n').filter(l => l.trim().length > 0)
+  if (lines.length < 5) return false
+  // Check for script-like patterns: timestamps, character names, stage directions
+  const scriptPatterns = /\[\d|sec\]|NARRATOR|HOOK|CTA|CLIFFHANGER|:\s*$|^\s*[A-Z]{2,}[\s:]/m
+  return scriptPatterns.test(prompt) || lines.length >= 10
+}
+
+// ---------------------------------------------------------------------------
+// Build system + user prompts based on whether input is a script or topic
+// ---------------------------------------------------------------------------
+
+function buildPrompts(
+  prompt: string,
+  duration: number,
+  language: string,
+  tone?: string,
+  niche?: string,
+): { system: string; user: string } {
+  const wordsTarget = Math.round(duration * 2.5)
+  const languageName = getLanguageName(language)
+  const detailed = isDetailedScript(prompt)
+
+  if (detailed) {
+    return {
+      system: `You are an expert short-form video scriptwriter and script polisher.
+
+The user has provided a DETAILED SCRIPT with dialogue, character names, timestamps, and stage directions.
+
+Your job:
+1. Take the user's script and create 3 polished variations ready for voiceover narration in ${languageName}
+2. PRESERVE all dialogue, character names, story beats, and creative direction EXACTLY
+3. REMOVE formatting markers like [0-3 sec], timestamps, emoji, stage directions (e.g. [Fast glitch visuals])
+4. Keep the FULL LENGTH of the script — do NOT shorten, summarize, or truncate
+5. Each variation should be the COMPLETE script from start to finish
+6. Variation 1: Faithful polish (closest to original)
+7. Variation 2: Slightly more dramatic/intense delivery
+8. Variation 3: Slightly different pacing or word choices while keeping all content
+
+CRITICAL RULES:
+- Write EVERY variation in ${languageName}
+- Keep ALL character dialogue and story beats intact
+- Output ONLY spoken narration text — ready for text-to-speech
+- Do NOT cut off mid-sentence. Each variation must be COMPLETE
+- Separate variations with ---`,
+      user: `Here is my full script to polish into 3 narration-ready variations:\n\n${prompt}\n\nSeparate each variation with ---`,
+    }
+  }
+
+  return {
+    system: `You are an expert short-form video scriptwriter. Write engaging, viral-worthy scripts in ${languageName}.
+CRITICAL: Write the ENTIRE script in ${languageName} language. Every word must be in ${languageName}.
+Rules:
+- Language: ${languageName} (ISO code: ${language})
+- Write ~${wordsTarget} words for a ${duration}-second video
+- Tone: ${tone || 'professional'}
+- Niche: ${niche || 'general'}
+- Start with a strong hook in the first 3 seconds
+- End with a call-to-action in ${languageName}
+- One sentence per line for caption timing
+- Write COMPLETE scripts — do NOT cut off or truncate
+- Return ONLY the script text, no titles or labels`,
+    user: `Write 3 different script variations in ${languageName} about: ${prompt}\n\nSeparate each variation with ---`,
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Anthropic (Claude)
+// ---------------------------------------------------------------------------
+
 async function generateWithAnthropic(
   prompt: string,
   duration: number,
@@ -60,28 +136,21 @@ async function generateWithAnthropic(
     throw new Error('ANTHROPIC_API_KEY is not set')
   }
 
-  const wordsTarget = Math.round(duration * 2.5)
-  const languageName = getLanguageName(language)
+  const { system, user } = buildPrompts(prompt, duration, language, tone, niche)
   const anthropic = new Anthropic({ apiKey })
   const response = await anthropic.messages.create({
     model: 'claude-sonnet-4-5-20250929',
-    max_tokens: 1024,
-    system: `You are an expert short-form video scriptwriter. Write engaging, viral-worthy scripts in ${languageName}.
-CRITICAL: Write the ENTIRE script in ${languageName} language. Every word must be in ${languageName}.
-Rules:
-- Language: ${languageName} (ISO code: ${language})
-- Write ~${wordsTarget} words for a ${duration}-second video
-- Tone: ${tone || 'professional'}
-- Niche: ${niche || 'general'}
-- Start with a strong hook in the first 3 seconds
-- End with a call-to-action in ${languageName}
-- One sentence per line for caption timing
-- Return ONLY the script text, no titles or labels`,
-    messages: [{ role: 'user', content: `Write 3 different script variations in ${languageName} about: ${prompt}\n\nSeparate each variation with ---` }],
+    max_tokens: 4096,
+    system,
+    messages: [{ role: 'user', content: user }],
   })
 
   return response.content[0].type === 'text' ? response.content[0].text : ''
 }
+
+// ---------------------------------------------------------------------------
+// Gemini
+// ---------------------------------------------------------------------------
 
 async function generateWithGemini(
   prompt: string,
@@ -96,8 +165,7 @@ async function generateWithGemini(
   }
 
   const model = process.env.GEMINI_MODEL || 'gemini-2.5-flash'
-  const wordsTarget = Math.round(duration * 2.5)
-  const languageName = getLanguageName(language)
+  const { system, user } = buildPrompts(prompt, duration, language, tone, niche)
 
   const response = await fetch(
     `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
@@ -108,30 +176,16 @@ async function generateWithGemini(
         contents: [
           {
             role: 'user',
-            parts: [{ text: `Write 3 different script variations in ${languageName} about: ${prompt}\n\nSeparate each variation with ---` }],
+            parts: [{ text: user }],
           },
         ],
         systemInstruction: {
           role: 'system',
-          parts: [
-            {
-              text: `You are an expert short-form video scriptwriter. Write engaging, viral-worthy scripts in ${languageName}.
-CRITICAL: Write the ENTIRE script in ${languageName} language. Every word must be in ${languageName}.
-Rules:
-- Language: ${languageName} (ISO code: ${language})
-- Write ~${wordsTarget} words for a ${duration}-second video
-- Tone: ${tone || 'professional'}
-- Niche: ${niche || 'general'}
-- Start with a strong hook in the first 3 seconds
-- End with a call-to-action in ${languageName}
-- One sentence per line for caption timing
-- Return ONLY the script text, no titles or labels`,
-            },
-          ],
+          parts: [{ text: system }],
         },
         generationConfig: {
           temperature: 0.8,
-          maxOutputTokens: 1024,
+          maxOutputTokens: 4096,
         },
       }),
     }

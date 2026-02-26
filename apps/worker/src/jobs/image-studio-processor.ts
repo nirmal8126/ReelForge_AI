@@ -327,7 +327,7 @@ async function analyzeImages(
 }
 
 // ---------------------------------------------------------------------------
-// Narration script generation
+// Narration script generation — dedicated Image Studio pipeline
 // ---------------------------------------------------------------------------
 
 async function generateNarrationScript(
@@ -337,56 +337,149 @@ async function generateNarrationScript(
   imageCount: number,
   log: typeof logger,
 ): Promise<string> {
-  const apiKey = process.env.GEMINI_API_KEY;
   const languageName = getLanguageName(language);
 
-  if (!apiKey || process.env.DEV_MODE === 'true') {
-    log.info('DEV_MODE or no GEMINI_API_KEY: Using placeholder narration');
-    return imageDescriptions.map((d, i) => `Slide ${i + 1}: ${d}`).join('\n\n');
+  // If user provided a detailed prompt (>100 chars), treat it as a script outline
+  // and polish it rather than generating from scratch
+  const isDetailedPrompt = userPrompt && userPrompt.length > 100;
+
+  const imageContext = imageDescriptions
+    .map((d, i) => `Image ${i + 1}: ${d}`)
+    .join('\n');
+
+  const systemPrompt = isDetailedPrompt
+    ? `You are a professional video script writer and narrator.
+
+The user has provided a detailed script/prompt below. Your job is to:
+1. Take the user's script EXACTLY as provided — preserve ALL dialogue, character names, story beats, timestamps, and creative direction
+2. Polish it into a clean, ready-to-narrate script in ${languageName}
+3. Remove any stage directions, timestamps, emoji, formatting markers (like [0-3 sec], HOOK, etc.) — output ONLY the spoken narration text
+4. Keep the FULL length — do NOT shorten, summarize, or cut any part
+5. Maintain the exact tone, energy, and pacing the user intended
+6. If the script includes character dialogue, include it naturally as the narrator would read it
+
+CRITICAL RULES:
+- Write the COMPLETE script from start to finish — every single line
+- Do NOT truncate or cut off mid-sentence
+- Do NOT add your own content or change the story
+- Output ONLY the final narration text in ${languageName}, nothing else
+- The output should be the full script ready for text-to-speech voiceover`
+    : `You are a professional video narrator and scriptwriter.
+
+Create an engaging narration script in ${languageName} for a slideshow video.
+
+REQUIREMENTS:
+- Language: ${languageName} (every word must be in ${languageName})
+- The video has ${imageCount} image(s) as visual slides
+- Write a compelling, complete narration that matches the visuals
+- Include a strong hook at the start, engaging body, and memorable ending
+- Write ONLY the spoken narration — no stage directions, no timestamps, no labels
+- Write the COMPLETE script — do NOT cut off or truncate
+- Output the raw narration text only`;
+
+  const userMessage = isDetailedPrompt
+    ? `Here is my script/prompt to polish into a narration:\n\n${userPrompt}\n\n${imageContext ? `Visual context from uploaded images:\n${imageContext}` : ''}`
+    : `${userPrompt ? `Topic/context: ${userPrompt}\n\n` : ''}Visual context from uploaded images:\n${imageContext}\n\nWrite a complete narration script for this slideshow video.`;
+
+  log.info(
+    { imageCount, isDetailedPrompt, promptLength: userPrompt?.length, language },
+    'Generating narration script',
+  );
+
+  // Try providers in order: Gemini → Claude → OpenAI
+  const providers = [
+    { name: 'gemini', fn: () => callGeminiForScript(systemPrompt, userMessage, log) },
+    { name: 'claude', fn: () => callClaudeForScript(systemPrompt, userMessage, log) },
+  ];
+
+  let lastError: unknown;
+  for (const provider of providers) {
+    try {
+      const script = await provider.fn();
+      if (script && script.length > 20) {
+        log.info({ provider: provider.name, scriptLength: script.length, wordCount: script.split(/\s+/).length }, 'Narration script generated');
+        return script;
+      }
+    } catch (err) {
+      lastError = err;
+      log.warn({ provider: provider.name, err }, 'Script provider failed, trying next');
+    }
   }
+
+  log.warn({ lastError }, 'All script providers failed, using fallback');
+  // Fallback: return user prompt as-is if detailed, otherwise image descriptions
+  if (userPrompt && userPrompt.length > 50) {
+    return userPrompt;
+  }
+  return imageDescriptions.map((d, i) => `Slide ${i + 1}: ${d}`).join('\n\n');
+}
+
+// ---------------------------------------------------------------------------
+// Gemini script call (dedicated for Image Studio)
+// ---------------------------------------------------------------------------
+
+async function callGeminiForScript(
+  systemPrompt: string,
+  userMessage: string,
+  log: typeof logger,
+): Promise<string> {
+  const apiKey = process.env.GEMINI_API_KEY;
+  if (!apiKey) throw new Error('GEMINI_API_KEY not set');
 
   const model = process.env.GEMINI_MODEL || 'gemini-2.5-flash';
-  const durationPerImage = 5;
-  const wordsPerImage = durationPerImage * 2.5;
 
-  const prompt = `You are a professional video narrator. Create a narration script in ${languageName} for a slideshow video with ${imageCount} images.
+  const response = await fetch(
+    `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        contents: [{ role: 'user', parts: [{ text: userMessage }] }],
+        systemInstruction: { role: 'system', parts: [{ text: systemPrompt }] },
+        generationConfig: { temperature: 0.7, maxOutputTokens: 4096 },
+      }),
+    },
+  );
 
-Each image will be shown for about ${durationPerImage} seconds. Write approximately ${Math.round(wordsPerImage)} words per image slide.
-
-${userPrompt ? `Context from the creator: ${userPrompt}\n` : ''}
-Image descriptions:
-${imageDescriptions.map((d, i) => `Image ${i + 1}: ${d}`).join('\n')}
-
-Write a cohesive, engaging narration that flows between the images. Output ONLY the narration text, separated by double newlines for each slide. Do not include any stage directions or labels.`;
-
-  try {
-    const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          contents: [{ role: 'user', parts: [{ text: prompt }] }],
-          generationConfig: { temperature: 0.7, maxOutputTokens: 1024 },
-        }),
-      },
-    );
-
-    if (!response.ok) {
-      throw new Error(`Gemini API error: ${response.status}`);
-    }
-
-    const data = await response.json() as {
-      candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }>;
-    };
-    const content = data.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
-
-    if (!content) throw new Error('No content in Gemini response');
-    return content;
-  } catch (err) {
-    log.warn({ err }, 'Gemini narration failed, using fallback');
-    return imageDescriptions.map((d, i) => `Slide ${i + 1}: ${d}`).join('\n\n');
+  if (!response.ok) {
+    const errorBody = await response.text();
+    throw new Error(`Gemini API error: ${response.status} ${errorBody}`);
   }
+
+  const data = (await response.json()) as {
+    candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }>;
+  };
+
+  const content = data.candidates?.[0]?.content?.parts?.map((p) => p.text || '').join('\n').trim();
+  if (!content) throw new Error('No content in Gemini response');
+  return content;
+}
+
+// ---------------------------------------------------------------------------
+// Claude script call (fallback for Image Studio)
+// ---------------------------------------------------------------------------
+
+async function callClaudeForScript(
+  systemPrompt: string,
+  userMessage: string,
+  log: typeof logger,
+): Promise<string> {
+  const apiKey = process.env.ANTHROPIC_API_KEY;
+  if (!apiKey) throw new Error('ANTHROPIC_API_KEY not set');
+
+  const Anthropic = (await import('@anthropic-ai/sdk')).default;
+  const client = new Anthropic({ apiKey });
+
+  const response = await client.messages.create({
+    model: 'claude-sonnet-4-5-20250929',
+    max_tokens: 4096,
+    system: systemPrompt,
+    messages: [{ role: 'user', content: userMessage }],
+  });
+
+  const textBlock = response.content.find((block) => block.type === 'text');
+  if (!textBlock || textBlock.type !== 'text') throw new Error('No text in Claude response');
+  return textBlock.text.trim();
 }
 
 // ---------------------------------------------------------------------------

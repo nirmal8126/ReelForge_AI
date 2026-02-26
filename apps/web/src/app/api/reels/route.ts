@@ -8,7 +8,7 @@ import { z } from 'zod'
 import { REEL_DURATIONS, ASPECT_RATIOS } from '@/lib/constants'
 
 const createReelSchema = z.object({
-  prompt: z.string().min(10, 'Prompt must be at least 10 characters').max(2000),
+  prompt: z.string().min(10, 'Prompt must be at least 10 characters').max(10000),
   title: z.string().min(1).max(255).optional(),
   script: z.string().optional(),
   style: z.string().max(100).optional(),

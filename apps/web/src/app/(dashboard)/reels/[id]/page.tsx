@@ -23,6 +23,7 @@ import {
 import { PublishDialog } from '@/components/publish/publish-dialog'
 import { getJobStatusLabel, getJobStatusColor } from '@/lib/utils'
 import { DeleteReelButton } from './delete-button'
+import { RetryButton } from './retry-button'
 import { AutoRefresh } from './auto-refresh'
 
 interface ReelDetailPageProps {
@@ -150,6 +151,7 @@ export default async function ReelDetailPage({ params }: ReelDetailPageProps) {
               </a>
             </>
           )}
+          {isFailed && <RetryButton reelId={reel.id} />}
           <DeleteReelButton reelId={reel.id} isProcessing={isProcessing} />
         </div>
       </div>
@@ -179,6 +181,9 @@ export default async function ReelDetailPage({ params }: ReelDetailPageProps) {
                         {reel.errorMessage}
                       </p>
                     )}
+                    <div className="mt-4">
+                      <RetryButton reelId={reel.id} />
+                    </div>
                   </>
                 ) : (
                   <>

@@ -26,6 +26,7 @@ import {
 import { PublishDialog } from '@/components/publish/publish-dialog'
 import { getJobStatusLabel, getJobStatusColor } from '@/lib/utils'
 import { DeleteImageStudioButton } from './delete-button'
+import { RetryButton } from './retry-button'
 import { AutoRefresh } from './auto-refresh'
 
 interface ImageStudioDetailPageProps {
@@ -186,6 +187,7 @@ export default async function ImageStudioDetailPage({ params }: ImageStudioDetai
               </a>
             </>
           )}
+          {isFailed && <RetryButton jobId={job.id} />}
           <DeleteImageStudioButton jobId={job.id} isProcessing={isProcessing} />
         </div>
       </div>
@@ -225,6 +227,9 @@ export default async function ImageStudioDetailPage({ params }: ImageStudioDetai
                         {job.errorMessage}
                       </p>
                     )}
+                    <div className="mt-4">
+                      <RetryButton jobId={job.id} />
+                    </div>
                   </>
                 ) : (
                   <>
