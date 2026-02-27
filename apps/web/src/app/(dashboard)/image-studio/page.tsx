@@ -14,6 +14,7 @@ import {
   Sparkles,
 } from 'lucide-react'
 import { getJobStatusLabel } from '@/lib/utils'
+import { Pagination } from '@/components/pagination'
 import { AdminUserBadge } from '@/components/admin-user-badge'
 import { AdminDeleteButton } from '@/components/admin-delete-button'
 
@@ -285,51 +286,13 @@ export default async function ImageStudioPage({ searchParams }: ImageStudioPageP
             })}
           </div>
 
-          {/* Pagination */}
-          {totalPages > 1 && (
-            <div className="flex items-center justify-center gap-2 mt-8">
-              {page > 1 && (
-                <Link
-                  href={`/image-studio?${statusFilter !== 'all' ? `status=${statusFilter}&` : ''}page=${page - 1}`}
-                  className="rounded-lg border border-white/10 bg-white/5 px-4 py-2 text-sm text-gray-400 hover:bg-white/10 hover:text-white transition"
-                >
-                  Previous
-                </Link>
-              )}
-              <div className="flex items-center gap-1">
-                {Array.from({ length: totalPages }, (_, i) => i + 1)
-                  .filter((p) => p === 1 || p === totalPages || Math.abs(p - page) <= 1)
-                  .map((p, idx, arr) => {
-                    const showEllipsis = idx > 0 && p - arr[idx - 1] > 1
-                    return (
-                      <span key={p} className="flex items-center gap-1">
-                        {showEllipsis && (
-                          <span className="px-2 text-gray-600">...</span>
-                        )}
-                        <Link
-                          href={`/image-studio?${statusFilter !== 'all' ? `status=${statusFilter}&` : ''}page=${p}`}
-                          className={`min-w-[36px] h-9 flex items-center justify-center rounded-lg text-sm transition ${
-                            p === page
-                              ? 'bg-brand-600 text-white font-medium'
-                              : 'bg-white/5 text-gray-400 hover:bg-white/10 hover:text-white'
-                          }`}
-                        >
-                          {p}
-                        </Link>
-                      </span>
-                    )
-                  })}
-              </div>
-              {page < totalPages && (
-                <Link
-                  href={`/image-studio?${statusFilter !== 'all' ? `status=${statusFilter}&` : ''}page=${page + 1}`}
-                  className="rounded-lg border border-white/10 bg-white/5 px-4 py-2 text-sm text-gray-400 hover:bg-white/10 hover:text-white transition"
-                >
-                  Next
-                </Link>
-              )}
-            </div>
-          )}
+          <Pagination
+            currentPage={page}
+            totalPages={totalPages}
+            totalItems={total}
+            basePath="/image-studio"
+            searchParams={statusFilter !== 'all' ? { status: statusFilter } : {}}
+          />
         </>
       )}
     </div>

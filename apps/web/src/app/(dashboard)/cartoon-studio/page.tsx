@@ -5,22 +5,37 @@ import Link from 'next/link'
 import { PlusCircle, Clapperboard, Users, Film } from 'lucide-react'
 import { AdminUserBadge } from '@/components/admin-user-badge'
 import { AdminDeleteButton } from '@/components/admin-delete-button'
+import { Pagination } from '@/components/pagination'
 
-export default async function CartoonStudioPage() {
+interface CartoonStudioPageProps {
+  searchParams: { page?: string }
+}
+
+export default async function CartoonStudioPage({ searchParams }: CartoonStudioPageProps) {
   const session = await auth()
   if (!session) redirect('/login')
 
   const isAdmin = session.user.role === 'ADMIN'
+  const page = Math.max(1, parseInt(searchParams.page || '1', 10))
+  const limit = 12
+  const where = isAdmin ? {} : { userId: session.user.id }
 
-  const series = await prisma.cartoonSeries.findMany({
-    where: isAdmin ? {} : { userId: session.user.id },
-    include: {
-      _count: { select: { characters: true, episodes: true } },
-      characters: { take: 4, select: { name: true, color: true } },
-      user: isAdmin ? { select: { id: true, name: true, email: true } } : false,
-    },
-    orderBy: { updatedAt: 'desc' },
-  })
+  const [series, total] = await Promise.all([
+    prisma.cartoonSeries.findMany({
+      where,
+      include: {
+        _count: { select: { characters: true, episodes: true } },
+        characters: { take: 4, select: { name: true, color: true } },
+        user: isAdmin ? { select: { id: true, name: true, email: true } } : false,
+      },
+      orderBy: { updatedAt: 'desc' },
+      skip: (page - 1) * limit,
+      take: limit,
+    }),
+    prisma.cartoonSeries.count({ where }),
+  ])
+
+  const totalPages = Math.ceil(total / limit)
 
   return (
     <div>
@@ -28,7 +43,7 @@ export default async function CartoonStudioPage() {
         <div>
           <h1 className="text-2xl font-bold text-white tracking-tight">{isAdmin ? 'All Cartoon Series' : 'Cartoon Studio'}</h1>
           <p className="text-sm text-gray-500 mt-1">
-            Create animated cartoon series with recurring characters
+            {total} series created
           </p>
         </div>
         {!isAdmin && (
@@ -134,6 +149,13 @@ export default async function CartoonStudioPage() {
           ))}
         </div>
       )}
+
+      <Pagination
+        currentPage={page}
+        totalPages={totalPages}
+        totalItems={total}
+        basePath="/cartoon-studio"
+      />
     </div>
   )
 }
