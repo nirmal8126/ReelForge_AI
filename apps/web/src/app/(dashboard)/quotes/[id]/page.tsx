@@ -15,6 +15,7 @@ import {
   Download,
 } from 'lucide-react'
 import { getJobStatusLabel, getJobStatusColor } from '@/lib/utils'
+import { QUOTE_CATEGORIES } from '@/lib/constants'
 import { DeleteQuoteButton } from './delete-button'
 import { AutoRefresh } from './auto-refresh'
 import { RetryButton } from './retry-button'
@@ -62,19 +63,7 @@ export default async function QuoteDetailPage({ params }: QuoteDetailPageProps) 
   }
 
   function getCategoryColor(category: string): string {
-    const colors: Record<string, string> = {
-      motivational: '#F59E0B',
-      love: '#EC4899',
-      funny: '#F97316',
-      wisdom: '#8B5CF6',
-      success: '#10B981',
-      life: '#22C55E',
-      friendship: '#3B82F6',
-      islamic: '#059669',
-      shayari: '#E11D48',
-      custom: '#6366F1',
-    }
-    return colors[category] || '#6366F1'
+    return QUOTE_CATEGORIES.find((c) => c.id === category)?.color || '#6366F1'
   }
 
   return (
