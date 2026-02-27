@@ -52,6 +52,13 @@ export default async function ChallengeDetailPage({ params }: ChallengeDetailPag
   const isFailed = challenge.status === 'FAILED'
   const isProcessing = !isCompleted && !isFailed
 
+  // Resolve video URL: file:// → API proxy, cloud → direct
+  const videoUrl = challenge.outputUrl
+    ? challenge.outputUrl.startsWith('file://')
+      ? `/api/challenges/${challenge.id}/video`
+      : challenge.outputUrl
+    : null
+
   // Parse questions
   let questions: Array<{
     hookText: string
@@ -148,43 +155,33 @@ export default async function ChallengeDetailPage({ params }: ChallengeDetailPag
         {/* Main content */}
         <div className="lg:col-span-2 space-y-6">
           {/* Video Player or Processing State */}
-          {isCompleted && challenge.outputUrl ? (
+          {isCompleted && videoUrl ? (
             <div className="rounded-xl border border-white/10 bg-white/5 overflow-hidden">
               <div className="aspect-[9/16] max-h-[600px] bg-black flex items-center justify-center">
-                {challenge.outputUrl.startsWith('file://') ? (
-                  <div className="text-center p-6">
-                    <Gamepad2 className="h-12 w-12 text-brand-400 mx-auto mb-3" />
-                    <p className="text-sm text-gray-300 mb-1">Video saved locally (DEV MODE)</p>
-                    <p className="text-xs text-gray-500 break-all">{challenge.outputUrl}</p>
-                  </div>
-                ) : (
-                  <video
-                    src={challenge.outputUrl}
-                    controls
-                    className="w-full h-full object-contain"
-                    poster={challenge.thumbnailUrl || undefined}
-                  />
-                )}
+                <video
+                  src={videoUrl}
+                  controls
+                  className="w-full h-full object-contain"
+                  poster={challenge.thumbnailUrl || undefined}
+                />
               </div>
-              {!challenge.outputUrl.startsWith('file://') && (
-                <div className="p-4 border-t border-white/10 flex items-center gap-3">
-                  <PublishDialog
-                    jobType="challenge"
-                    jobId={challenge.id}
-                    videoUrl={challenge.outputUrl}
-                    thumbnailUrl={challenge.thumbnailUrl}
-                    defaultTitle={CHALLENGE_TYPE_LABELS[challenge.challengeType] || challenge.challengeType}
-                  />
-                  <a
-                    href={challenge.outputUrl}
-                    download
-                    className="inline-flex items-center gap-2 rounded-lg bg-brand-600 px-4 py-2 text-sm font-medium text-white hover:bg-brand-500 transition"
-                  >
-                    <Download className="h-4 w-4" />
-                    Download Video
-                  </a>
-                </div>
-              )}
+              <div className="p-4 border-t border-white/10 flex items-center gap-3">
+                <PublishDialog
+                  jobType="challenge"
+                  jobId={challenge.id}
+                  videoUrl={videoUrl}
+                  thumbnailUrl={challenge.thumbnailUrl}
+                  defaultTitle={CHALLENGE_TYPE_LABELS[challenge.challengeType] || challenge.challengeType}
+                />
+                <a
+                  href={videoUrl}
+                  download
+                  className="inline-flex items-center gap-2 rounded-lg bg-brand-600 px-4 py-2 text-sm font-medium text-white hover:bg-brand-500 transition"
+                >
+                  <Download className="h-4 w-4" />
+                  Download Video
+                </a>
+              </div>
             </div>
           ) : !isCompleted && (
             <div className="rounded-xl border border-white/10 bg-white/5 overflow-hidden">

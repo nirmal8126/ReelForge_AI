@@ -53,6 +53,13 @@ export default async function GameplayDetailPage({ params }: GameplayDetailPageP
   const isFailed = job.status === 'FAILED'
   const isProcessing = !isCompleted && !isFailed
 
+  // Resolve video URL: file:// → API proxy, cloud → direct
+  const videoUrl = job.outputUrl
+    ? job.outputUrl.startsWith('file://')
+      ? `/api/gameplay/${job.id}/video`
+      : job.outputUrl
+    : null
+
   function formatDateTime(date: Date) {
     return new Intl.DateTimeFormat('en-US', {
       month: 'short',
@@ -133,43 +140,33 @@ export default async function GameplayDetailPage({ params }: GameplayDetailPageP
         {/* Main content */}
         <div className="lg:col-span-2 space-y-6">
           {/* Video Player or Processing State */}
-          {isCompleted && job.outputUrl ? (
+          {isCompleted && videoUrl ? (
             <div className="rounded-xl border border-white/10 bg-white/5 overflow-hidden">
               <div className="aspect-[9/16] max-h-[600px] bg-black flex items-center justify-center">
-                {job.outputUrl.startsWith('file://') ? (
-                  <div className="text-center p-6">
-                    <Joystick className="h-12 w-12 text-brand-400 mx-auto mb-3" />
-                    <p className="text-sm text-gray-300 mb-1">Video saved locally (DEV MODE)</p>
-                    <p className="text-xs text-gray-500 break-all">{job.outputUrl}</p>
-                  </div>
-                ) : (
-                  <video
-                    src={job.outputUrl}
-                    controls
-                    className="w-full h-full object-contain"
-                    poster={job.thumbnailUrl || undefined}
-                  />
-                )}
+                <video
+                  src={videoUrl}
+                  controls
+                  className="w-full h-full object-contain"
+                  poster={job.thumbnailUrl || undefined}
+                />
               </div>
-              {!job.outputUrl.startsWith('file://') && (
-                <div className="p-4 border-t border-white/10 flex items-center gap-3">
-                  <PublishDialog
-                    jobType="gameplay"
-                    jobId={job.id}
-                    videoUrl={job.outputUrl}
-                    thumbnailUrl={job.thumbnailUrl}
-                    defaultTitle={job.gameTitle || TEMPLATE_LABELS[job.template] || 'Gameplay Video'}
-                  />
-                  <a
-                    href={job.outputUrl}
-                    download
-                    className="inline-flex items-center gap-2 rounded-lg bg-brand-600 px-4 py-2 text-sm font-medium text-white hover:bg-brand-500 transition"
-                  >
-                    <Download className="h-4 w-4" />
-                    Download Video
-                  </a>
-                </div>
-              )}
+              <div className="p-4 border-t border-white/10 flex items-center gap-3">
+                <PublishDialog
+                  jobType="gameplay"
+                  jobId={job.id}
+                  videoUrl={videoUrl}
+                  thumbnailUrl={job.thumbnailUrl}
+                  defaultTitle={job.gameTitle || TEMPLATE_LABELS[job.template] || 'Gameplay Video'}
+                />
+                <a
+                  href={videoUrl}
+                  download
+                  className="inline-flex items-center gap-2 rounded-lg bg-brand-600 px-4 py-2 text-sm font-medium text-white hover:bg-brand-500 transition"
+                >
+                  <Download className="h-4 w-4" />
+                  Download Video
+                </a>
+              </div>
             </div>
           ) : !isCompleted && (
             <div className="rounded-xl border border-white/10 bg-white/5 overflow-hidden">
