@@ -8,6 +8,7 @@ import { generateGameConfig } from '../services/gameplay-config-generator';
 import { renderGameplayFrames } from '../services/gameplay-renderer';
 import { encodeGameplay, generateThumbnail } from '../services/gameplay-encoder';
 import { uploadGameplayToStorage } from '../services/gameplay-storage';
+import { generateBackgroundMusic } from '../services/music-generator';
 import { generateHashtags } from '../services/hashtag-generator';
 
 // ---------------------------------------------------------------------------
@@ -74,6 +75,22 @@ export async function processGameplayJob(job: Job<GameplayJobData>): Promise<Gam
     });
 
     log.info({ eventCount: gameConfig.events.length, totalFrames: gameConfig.totalFrames }, 'Game config generated');
+    await job.updateProgress(12);
+
+    // Generate background music (if not 'none')
+    let musicFilePath: string | null = null;
+    try {
+      musicFilePath = await generateBackgroundMusic({
+        musicStyle,
+        durationSeconds: duration,
+      });
+      if (musicFilePath) {
+        log.info({ musicStyle, musicFilePath }, 'Background music generated');
+      }
+    } catch (err) {
+      log.warn({ err, musicStyle }, 'Music generation failed, continuing without music');
+    }
+
     await job.updateProgress(15);
 
     // ------------------------------------------------------------------
@@ -109,6 +126,7 @@ export async function processGameplayJob(job: Job<GameplayJobData>): Promise<Gam
       framesDir: tmpDir,
       fps: gameConfig.fps,
       outputPath,
+      musicPath: musicFilePath || undefined,
     });
 
     // Generate thumbnail
@@ -187,6 +205,10 @@ export async function processGameplayJob(job: Job<GameplayJobData>): Promise<Gam
       log.debug({ tmpDir }, 'Cleaned up temp directory');
     } catch (cleanupErr) {
       log.warn({ tmpDir, err: cleanupErr }, 'Failed to clean up temp directory');
+    }
+    // Cleanup music temp file (stored outside tmpDir)
+    if (musicFilePath) {
+      try { fs.unlinkSync(musicFilePath); } catch { /* ignore */ }
     }
   }
 }

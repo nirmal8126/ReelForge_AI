@@ -46,6 +46,7 @@ function getS3Client(): S3Client {
 
 function uploadToLocalStorage(
   videoBuffer: Buffer,
+  thumbnailBuffer: Buffer | null,
   userId: string,
   challengeJobId: string,
 ): ChallengeUploadResult {
@@ -55,6 +56,13 @@ function uploadToLocalStorage(
   const videoPath = join(outputDir, `${challengeJobId}.mp4`);
   writeFileSync(videoPath, videoBuffer);
 
+  let thumbnailUrl: string | null = null;
+  if (thumbnailBuffer) {
+    const thumbPath = join(outputDir, `${challengeJobId}_thumb.jpg`);
+    writeFileSync(thumbPath, thumbnailBuffer);
+    thumbnailUrl = `file://${thumbPath}`;
+  }
+
   log.warn(
     { videoPath, sizeBytes: videoBuffer.length },
     'DEMO MODE: Saved challenge video to local filesystem (configure R2_ACCOUNT_ID for cloud storage)',
@@ -62,7 +70,7 @@ function uploadToLocalStorage(
 
   return {
     outputUrl: `file://${videoPath}`,
-    thumbnailUrl: null,
+    thumbnailUrl,
   };
 }
 
@@ -72,6 +80,7 @@ function uploadToLocalStorage(
 
 export async function uploadChallengeToStorage(
   videoBuffer: Buffer,
+  thumbnailBuffer: Buffer | null,
   userId: string,
   challengeJobId: string,
 ): Promise<ChallengeUploadResult> {
@@ -80,13 +89,14 @@ export async function uploadChallengeToStorage(
 
   if (!hasR2Config) {
     log.warn('R2 credentials not configured - using local storage demo mode');
-    return uploadToLocalStorage(videoBuffer, userId, challengeJobId);
+    return uploadToLocalStorage(videoBuffer, thumbnailBuffer, userId, challengeJobId);
   }
 
   const bucket = process.env.R2_BUCKET_NAME || 'reelforge-media';
   const cdnUrl = process.env.CDN_URL || `https://${process.env.R2_ACCOUNT_ID}.r2.dev`;
   const client = getS3Client();
 
+  // Upload video
   const videoKey = `challenges/${userId}/${challengeJobId}.mp4`;
   log.info({ bucket, key: videoKey, sizeBytes: videoBuffer.length }, 'Uploading challenge video to R2');
 
@@ -106,9 +116,24 @@ export async function uploadChallengeToStorage(
   );
 
   const outputUrl = `${cdnUrl}/${videoKey}`;
-  const thumbnailUrl = `${cdnUrl}/thumbnails/challenges/${userId}/${challengeJobId}.jpg`;
+  let thumbnailUrl: string | null = null;
 
-  log.info({ outputUrl }, 'Challenge video uploaded to R2 successfully');
+  // Upload thumbnail
+  if (thumbnailBuffer) {
+    const thumbKey = `challenges/${userId}/${challengeJobId}_thumb.jpg`;
+    await client.send(
+      new PutObjectCommand({
+        Bucket: bucket,
+        Key: thumbKey,
+        Body: thumbnailBuffer,
+        ContentType: 'image/jpeg',
+        CacheControl: 'public, max-age=31536000, immutable',
+      }),
+    );
+    thumbnailUrl = `${cdnUrl}/${thumbKey}`;
+  }
+
+  log.info({ outputUrl, thumbnailUrl }, 'Challenge video uploaded to R2 successfully');
 
   return { outputUrl, thumbnailUrl };
 }
