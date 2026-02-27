@@ -117,6 +117,8 @@ function buildSystemPrompt(
 
   return `You are an expert cartoon series content planner. You generate creative, engaging episode ideas for animated series.
 
+CRITICAL LANGUAGE REQUIREMENT: You MUST write EVERYTHING in ${languageName}. All titles, prompts, and synopses MUST be in ${languageName}. Do NOT write in English or any other language. Only ${languageName} is acceptable.
+
 Series: "${series.name}"
 ${series.description ? `Description: ${series.description}` : ''}
 ${series.targetAudience ? `Target Audience: ${series.targetAudience}` : ''}
@@ -136,8 +138,9 @@ RULES:
 4. Each episode should teach a lesson or have a moral appropriate for the audience
 5. Avoid repeating themes from existing episodes
 6. Vary the tone — mix adventure, comedy, heartwarming, and mystery
-7. LANGUAGE: You MUST write ALL content (titles, prompts, synopses) in ${languageName}. Every piece of text must be in ${languageName}.
-${hint ? `8. User hint: "${hint}" — incorporate this theme/idea into the episodes` : ''}
+${hint ? `7. User hint: "${hint}" — incorporate this theme/idea into the episodes` : ''}
+
+REMINDER: Every single piece of text you output (title, prompt, synopsis) MUST be written in ${languageName}. Not English. Not any other language. Only ${languageName}.
 
 OUTPUT FORMAT: Return ONLY valid JSON (no markdown, no code blocks):
 {
@@ -204,7 +207,8 @@ async function generateIdeasWithGemini(
 ): Promise<{ title: string; prompt: string; synopsis: string }[]> {
   const model = process.env.GEMINI_MODEL || 'gemini-2.5-flash'
   const systemPrompt = buildSystemPrompt(series, count, hint)
-  const userMessage = `Generate ${count} episode idea${count > 1 ? 's' : ''} for this series.${hint ? ` Theme hint: ${hint}` : ''}`
+  const languageName = getLanguageName(series.language)
+  const userMessage = `Generate ${count} episode idea${count > 1 ? 's' : ''} for this series.${hint ? ` Theme hint: ${hint}` : ''}\n\nIMPORTANT: Write ALL text (titles, prompts, synopses) in ${languageName}. Every word must be in ${languageName}.`
 
   const response = await fetch(
     `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
@@ -215,7 +219,7 @@ async function generateIdeasWithGemini(
         system_instruction: { parts: [{ text: systemPrompt }] },
         contents: [{ role: 'user', parts: [{ text: userMessage }] }],
         generationConfig: {
-          temperature: 0.9,
+          temperature: 0.75,
           maxOutputTokens: 8192,
           responseMimeType: 'application/json',
         },
@@ -247,12 +251,13 @@ async function generateIdeasWithAnthropic(
 ): Promise<{ title: string; prompt: string; synopsis: string }[]> {
   const systemPrompt = buildSystemPrompt(series, count, hint)
 
+  const languageName = getLanguageName(series.language)
   const response = await client.messages.create({
     model: 'claude-sonnet-4-5-20250929',
     max_tokens: 8192,
     system: systemPrompt,
     messages: [
-      { role: 'user', content: `Generate ${count} episode idea${count > 1 ? 's' : ''} for this series.${hint ? ` Theme hint: ${hint}` : ''}` },
+      { role: 'user', content: `Generate ${count} episode idea${count > 1 ? 's' : ''} for this series.${hint ? ` Theme hint: ${hint}` : ''}\n\nIMPORTANT: Write ALL text (titles, prompts, synopses) in ${languageName}. Every word must be in ${languageName}.` },
     ],
   })
 

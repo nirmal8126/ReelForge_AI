@@ -137,6 +137,8 @@ async function generateWithAnthropic(opts: {
   const systemPrompt = `You are an expert cartoon story writer for animated episodic content.
 You write engaging, age-appropriate stories with vivid scene descriptions and natural dialogue.
 
+CRITICAL LANGUAGE REQUIREMENT: You MUST write ALL story content in ${languageName}. All narration, dialogue, and descriptions MUST be in ${languageName}. Do NOT write in English (except visualPrompt). Only ${languageName} is acceptable for narration, dialogue, and description fields.
+
 Series: "${opts.seriesName}"
 ${opts.seriesDescription ? `Series Description: ${opts.seriesDescription}` : ''}
 ${opts.targetAudience ? `Target Audience: ${opts.targetAudience}` : ''}
@@ -152,7 +154,8 @@ IMPORTANT RULES:
 4. Make dialogue natural and match each character's personality
 5. Include a moral or lesson appropriate for the target audience
 6. The visual prompt should describe the scene in detail for image generation (art style: ${opts.artStyle || 'cartoon'})
-7. LANGUAGE: You MUST write ALL narration, dialogue, and scene descriptions in ${languageName}. The entire story content (narration text, character dialogue, scene descriptions) must be in ${languageName}. Only the visualPrompt field should remain in English (for image generation).
+
+REMINDER: description, narration, and dialogue text MUST be in ${languageName}. Only visualPrompt should be in English.
 
 OUTPUT FORMAT: Return ONLY valid JSON (no markdown, no code blocks) with this structure:
 {
@@ -173,7 +176,7 @@ OUTPUT FORMAT: Return ONLY valid JSON (no markdown, no code blocks) with this st
     max_tokens: 4096,
     system: systemPrompt,
     messages: [
-      { role: 'user', content: `Write an episode about: ${opts.episodePrompt}` },
+      { role: 'user', content: `Write an episode about: ${opts.episodePrompt}\n\nIMPORTANT: Write all narration, dialogue, and descriptions in ${languageName}. Only visualPrompt should be in English.` },
     ],
   });
 
@@ -235,6 +238,8 @@ async function generateWithGemini(opts: {
   const systemPrompt = `You are an expert cartoon story writer for animated episodic content.
 You write engaging, age-appropriate stories with vivid scene descriptions and natural dialogue.
 
+CRITICAL LANGUAGE REQUIREMENT: You MUST write ALL story content in ${languageName}. All narration, dialogue, and descriptions MUST be in ${languageName}. Do NOT write in English (except visualPrompt). Only ${languageName} is acceptable for narration, dialogue, and description fields.
+
 Series: "${opts.seriesName}"
 ${opts.seriesDescription ? `Series Description: ${opts.seriesDescription}` : ''}
 ${opts.targetAudience ? `Target Audience: ${opts.targetAudience}` : ''}
@@ -250,7 +255,8 @@ IMPORTANT RULES:
 4. Make dialogue natural and match each character's personality
 5. Include a moral or lesson appropriate for the target audience
 6. The visual prompt should describe the scene in detail for image generation (art style: ${opts.artStyle || 'cartoon'})
-7. LANGUAGE: You MUST write ALL narration, dialogue, and scene descriptions in ${languageName}. The entire story content (narration text, character dialogue, scene descriptions) must be in ${languageName}. Only the visualPrompt field should remain in English (for image generation).
+
+REMINDER: description, narration, and dialogue text MUST be in ${languageName}. Only visualPrompt should be in English.
 
 OUTPUT FORMAT: Return ONLY valid JSON with this structure:
 {
@@ -273,9 +279,9 @@ OUTPUT FORMAT: Return ONLY valid JSON with this structure:
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         system_instruction: { parts: [{ text: systemPrompt }] },
-        contents: [{ role: 'user', parts: [{ text: `Write an episode about: ${opts.episodePrompt}` }] }],
+        contents: [{ role: 'user', parts: [{ text: `Write an episode about: ${opts.episodePrompt}\n\nIMPORTANT: Write all narration, dialogue, and descriptions in ${languageName}. Only visualPrompt should be in English.` }] }],
         generationConfig: {
-          temperature: 0.9,
+          temperature: 0.75,
           maxOutputTokens: 4096,
           responseMimeType: 'application/json',
         },
