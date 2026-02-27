@@ -21,6 +21,7 @@ import { AutoRefresh } from './auto-refresh'
 import { RetryButton } from './retry-button'
 import { CopyButton } from './copy-button'
 import { PublishQuoteButton } from './publish-quote-button'
+import { CopyHashtags } from '@/components/copy-hashtags'
 
 interface QuoteDetailPageProps {
   params: { id: string }
@@ -225,6 +226,9 @@ export default async function QuoteDetailPage({ params }: QuoteDetailPageProps) 
               </div>
             </div>
           )}
+
+          {/* Hashtags */}
+          {quote.hashtags && <CopyHashtags hashtags={quote.hashtags} />}
         </div>
 
         {/* Sidebar — Details only */}

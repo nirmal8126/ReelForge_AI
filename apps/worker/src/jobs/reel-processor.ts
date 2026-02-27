@@ -6,6 +6,7 @@ import { generateVoiceover } from '../services/voiceover-generator';
 import { generateVideo } from '../services/video-generator';
 import { composeReel } from '../services/composer';
 import { uploadToStorage } from '../services/storage';
+import { generateHashtags } from '../services/hashtag-generator';
 
 export interface ReelJobData {
   reelJobId: string;
@@ -151,6 +152,15 @@ export async function processReelJob(job: Job<ReelJobData>): Promise<ReelJobResu
     const processingTimeMs = Date.now() - startTime;
     log.info('Stage 6/6 — Marking job as complete');
 
+    // Generate hashtags (non-blocking — fallback on failure)
+    const hashtags = await generateHashtags({
+      title: job.data.title,
+      prompt: job.data.prompt,
+      style: job.data.style,
+      language: job.data.language,
+      module: 'reel',
+    });
+
     await prisma.reelJob.update({
       where: { id: reelJobId },
       data: {
@@ -159,6 +169,7 @@ export async function processReelJob(job: Job<ReelJobData>): Promise<ReelJobResu
         thumbnailUrl,
         processingTimeMs,
         completedAt: new Date(),
+        hashtags,
       },
     });
 

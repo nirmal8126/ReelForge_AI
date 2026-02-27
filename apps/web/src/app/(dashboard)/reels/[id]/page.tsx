@@ -25,6 +25,7 @@ import { getJobStatusLabel, getJobStatusColor } from '@/lib/utils'
 import { DeleteReelButton } from './delete-button'
 import { RetryButton } from './retry-button'
 import { AutoRefresh } from './auto-refresh'
+import { CopyHashtags } from '@/components/copy-hashtags'
 
 interface ReelDetailPageProps {
   params: { id: string }
@@ -221,6 +222,9 @@ export default async function ReelDetailPage({ params }: ReelDetailPageProps) {
             </h2>
             <p className="text-sm text-gray-300 leading-relaxed">{reel.prompt}</p>
           </div>
+
+          {/* Hashtags */}
+          {reel.hashtags && <CopyHashtags hashtags={reel.hashtags} />}
         </div>
 
         {/* Sidebar */}

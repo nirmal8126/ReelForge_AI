@@ -4,6 +4,7 @@ import { logger } from '../utils/logger';
 import { generateChallengeContent } from '../services/challenge-content-generator';
 import { composeChallengeVideo } from '../services/challenge-video-composer';
 import { uploadChallengeToStorage } from '../services/challenge-storage';
+import { generateHashtags } from '../services/hashtag-generator';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -105,6 +106,13 @@ export async function processChallengeJob(job: Job<ChallengeJobData>): Promise<C
     // ------------------------------------------------------------------
     const processingTimeMs = Date.now() - startTime;
 
+    const hashtags = await generateHashtags({
+      title: challengeType.replace(/_/g, ' ') + ' challenge',
+      category,
+      language,
+      module: 'challenge',
+    });
+
     await prisma.challengeJob.update({
       where: { id: challengeJobId },
       data: {
@@ -115,6 +123,7 @@ export async function processChallengeJob(job: Job<ChallengeJobData>): Promise<C
         thumbnailUrl,
         processingTimeMs,
         completedAt: new Date(),
+        hashtags,
       },
     });
 

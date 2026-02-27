@@ -5,6 +5,7 @@ import { generateCartoonStory } from '../services/cartoon-story-generator';
 import { generateVoiceover } from '../services/voiceover-generator';
 import { composeCartoonEpisode, type CartoonSceneInput } from '../services/cartoon-composer';
 import { uploadToStorage } from '../services/storage';
+import { generateHashtags } from '../services/hashtag-generator';
 import fs from 'fs/promises';
 import { existsSync, writeFileSync, readFileSync, mkdirSync } from 'fs';
 import path from 'path';
@@ -352,6 +353,11 @@ export async function processCartoonEpisode(
 
     const processingTimeMs = Date.now() - startTime;
 
+    const hashtags = await generateHashtags({
+      title: job.data.episodePrompt || 'Cartoon episode',
+      module: 'cartoon',
+    });
+
     await prisma.cartoonEpisode.update({
       where: { id: episodeId },
       data: {
@@ -361,6 +367,7 @@ export async function processCartoonEpisode(
         outputUrl,
         thumbnailUrl,
         processingTimeMs,
+        hashtags,
       },
     });
 

@@ -16,6 +16,7 @@ import {
   Image as ImageIcon,
 } from 'lucide-react'
 import { PublishDialog } from '@/components/publish/publish-dialog'
+import { CopyHashtags } from '@/components/copy-hashtags'
 
 interface Scene {
   id: string
@@ -43,6 +44,7 @@ interface Episode {
   outputUrl: string | null
   errorMessage: string | null
   durationSeconds: number | null
+  hashtags: string | null
   scenes: Scene[]
   series: {
     name: string
@@ -276,6 +278,9 @@ export default function EpisodeDetailPage() {
               </div>
             </div>
           )}
+
+          {/* Hashtags */}
+          {episode.hashtags && <CopyHashtags hashtags={episode.hashtags} />}
         </div>
 
         {/* RIGHT — Pipeline + Preview */}

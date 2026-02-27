@@ -8,6 +8,7 @@ import { generateGameConfig } from '../services/gameplay-config-generator';
 import { renderGameplayFrames } from '../services/gameplay-renderer';
 import { encodeGameplay, generateThumbnail } from '../services/gameplay-encoder';
 import { uploadGameplayToStorage } from '../services/gameplay-storage';
+import { generateHashtags } from '../services/hashtag-generator';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -140,6 +141,12 @@ export async function processGameplayJob(job: Job<GameplayJobData>): Promise<Gam
     // ------------------------------------------------------------------
     const processingTimeMs = Date.now() - startTime;
 
+    const hashtags = await generateHashtags({
+      title: job.data.gameTitle || job.data.template,
+      style: job.data.theme,
+      module: 'gameplay',
+    });
+
     await prisma.gameplayJob.update({
       where: { id: gameplayJobId },
       data: {
@@ -150,6 +157,7 @@ export async function processGameplayJob(job: Job<GameplayJobData>): Promise<Gam
         thumbnailUrl,
         processingTimeMs,
         completedAt: new Date(),
+        hashtags,
       },
     });
 

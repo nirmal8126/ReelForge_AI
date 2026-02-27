@@ -24,6 +24,7 @@ import {
 import { PublishDialog } from '@/components/publish/publish-dialog'
 import { getJobStatusLabel, getJobStatusColor } from '@/lib/utils'
 import { RetryButton } from './retry-button'
+import { CopyHashtags } from '@/components/copy-hashtags'
 
 interface LongFormDetailPageProps {
   params: { id: string }
@@ -366,6 +367,9 @@ export default async function LongFormDetailPage({ params }: LongFormDetailPageP
               </div>
             </div>
           )}
+
+          {/* Hashtags */}
+          {job.hashtags && <CopyHashtags hashtags={job.hashtags} />}
         </div>
 
         {/* Sidebar */}

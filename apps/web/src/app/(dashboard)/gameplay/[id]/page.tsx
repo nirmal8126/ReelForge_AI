@@ -23,6 +23,7 @@ import { PublishDialog } from '@/components/publish/publish-dialog'
 import { getJobStatusLabel, getJobStatusColor } from '@/lib/utils'
 import { DeleteGameplayButton } from './delete-button'
 import { AutoRefresh } from './auto-refresh'
+import { CopyHashtags } from '@/components/copy-hashtags'
 
 interface GameplayDetailPageProps {
   params: { id: string }
@@ -220,6 +221,9 @@ export default async function GameplayDetailPage({ params }: GameplayDetailPageP
               </div>
             </div>
           )}
+
+          {/* Hashtags */}
+          {job.hashtags && <CopyHashtags hashtags={job.hashtags} />}
         </div>
 
         {/* Sidebar — Details */}

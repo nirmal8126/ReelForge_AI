@@ -7,6 +7,7 @@ import path from 'path';
 import os from 'os';
 import { execSync } from 'child_process';
 import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
+import { generateHashtags } from '../services/hashtag-generator';
 
 export interface ImageStudioJobData {
   imageStudioJobId: string;
@@ -181,6 +182,13 @@ async function processVideoMode(
   const processingTimeMs = Date.now() - startTime;
   log.info('Stage 6/6 — Marking job as complete');
 
+  const hashtags = await generateHashtags({
+    title: job.data.title || 'AI video',
+    prompt: job.data.prompt,
+    language: job.data.language,
+    module: 'image_studio',
+  });
+
   await prisma.imageStudioJob.update({
     where: { id: imageStudioJobId },
     data: {
@@ -189,6 +197,7 @@ async function processVideoMode(
       thumbnailUrl,
       processingTimeMs,
       completedAt: new Date(),
+      hashtags,
     },
   });
 
@@ -245,6 +254,12 @@ async function processEnhanceMode(
 
   const processingTimeMs = Date.now() - startTime;
 
+  const enhanceHashtags = await generateHashtags({
+    title: job.data.title || 'AI enhanced image',
+    prompt: job.data.prompt,
+    module: 'image_studio',
+  });
+
   await prisma.imageStudioJob.update({
     where: { id: imageStudioJobId },
     data: {
@@ -253,6 +268,7 @@ async function processEnhanceMode(
       thumbnailUrl,
       processingTimeMs,
       completedAt: new Date(),
+      hashtags: enhanceHashtags,
     },
   });
 

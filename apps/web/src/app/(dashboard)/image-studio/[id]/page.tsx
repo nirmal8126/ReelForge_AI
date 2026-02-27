@@ -28,6 +28,7 @@ import { getJobStatusLabel, getJobStatusColor } from '@/lib/utils'
 import { DeleteImageStudioButton } from './delete-button'
 import { RetryButton } from './retry-button'
 import { AutoRefresh } from './auto-refresh'
+import { CopyHashtags } from '@/components/copy-hashtags'
 
 interface ImageStudioDetailPageProps {
   params: { id: string }
@@ -304,6 +305,9 @@ export default async function ImageStudioDetailPage({ params }: ImageStudioDetai
               <p className="text-sm text-gray-300 leading-relaxed">{job.prompt}</p>
             </div>
           )}
+
+          {/* Hashtags */}
+          {job.hashtags && <CopyHashtags hashtags={job.hashtags} />}
         </div>
 
         {/* Sidebar */}

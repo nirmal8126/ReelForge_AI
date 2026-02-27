@@ -21,6 +21,7 @@ import { getJobStatusLabel, getJobStatusColor } from '@/lib/utils'
 import { DeleteChallengeButton } from './delete-button'
 import { AutoRefresh } from './auto-refresh'
 import { RetryButton } from './retry-button'
+import { CopyHashtags } from '@/components/copy-hashtags'
 
 interface ChallengeDetailPageProps {
   params: { id: string }
@@ -288,6 +289,9 @@ export default async function ChallengeDetailPage({ params }: ChallengeDetailPag
               )}
             </div>
           )}
+
+          {/* Hashtags */}
+          {challenge.hashtags && <CopyHashtags hashtags={challenge.hashtags} />}
         </div>
 
         {/* Sidebar — Details */}

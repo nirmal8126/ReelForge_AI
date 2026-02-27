@@ -5,6 +5,7 @@ import { generateVoiceover } from '../services/voiceover-generator';
 import { processSegments } from '../services/segment-processor';
 import { composeLongForm } from '../services/long-form-composer';
 import { uploadToStorage } from '../services/storage';
+import { generateHashtags } from '../services/hashtag-generator';
 import fs from 'fs/promises';
 import path from 'path';
 import os from 'os';
@@ -138,6 +139,15 @@ export async function processLongFormJob(job: Job<LongFormJobData>): Promise<Lon
 
       // Complete
       const processingTimeMs = Date.now() - startTime;
+
+      const recomposeHashtags = await generateHashtags({
+        title: job.data.title,
+        prompt: job.data.prompt,
+        style: job.data.style,
+        language: job.data.language,
+        module: 'long_form',
+      });
+
       await prisma.longFormJob.update({
         where: { id: longFormJobId },
         data: {
@@ -147,6 +157,7 @@ export async function processLongFormJob(job: Job<LongFormJobData>): Promise<Lon
           processingTimeMs,
           progress: 100,
           completedAt: new Date(),
+          hashtags: recomposeHashtags,
         },
       });
 
@@ -398,6 +409,14 @@ export async function processLongFormJob(job: Job<LongFormJobData>): Promise<Lon
     const processingTimeMs = Date.now() - startTime;
     log.info('Stage 7 — Marking job as complete');
 
+    const hashtags = await generateHashtags({
+      title: job.data.title,
+      prompt: job.data.prompt,
+      style: job.data.style,
+      language: job.data.language,
+      module: 'long_form',
+    });
+
     await prisma.longFormJob.update({
       where: { id: longFormJobId },
       data: {
@@ -407,6 +426,7 @@ export async function processLongFormJob(job: Job<LongFormJobData>): Promise<Lon
         processingTimeMs,
         progress: 100,
         completedAt: new Date(),
+        hashtags,
       },
     });
 

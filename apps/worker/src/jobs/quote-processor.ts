@@ -2,6 +2,7 @@ import { Job } from 'bullmq';
 import { prisma } from '@reelforge/db';
 import { logger } from '../utils/logger';
 import { generateQuoteVariations } from '../services/quote-text-generator';
+import { generateHashtags } from '../services/hashtag-generator';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -64,6 +65,14 @@ export async function processQuoteJob(job: Job<QuoteJobData>): Promise<QuoteJobR
     // ------------------------------------------------------------------
     const processingTimeMs = Date.now() - startTime;
 
+    const hashtags = await generateHashtags({
+      title: selected.quote.substring(0, 80),
+      prompt,
+      category,
+      language,
+      module: 'quote',
+    });
+
     await prisma.quoteJob.update({
       where: { id: quoteJobId },
       data: {
@@ -72,6 +81,7 @@ export async function processQuoteJob(job: Job<QuoteJobData>): Promise<QuoteJobR
         currentStage: null,
         processingTimeMs,
         completedAt: new Date(),
+        hashtags,
       },
     });
 
