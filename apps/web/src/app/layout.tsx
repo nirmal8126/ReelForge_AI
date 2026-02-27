@@ -23,7 +23,7 @@ export default function RootLayout({
         <AuthProvider>
           {children}
         </AuthProvider>
-        <Toaster position="bottom-right" />
+        <Toaster position="top-right" />
       </body>
     </html>
   )
