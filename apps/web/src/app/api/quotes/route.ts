@@ -9,6 +9,7 @@ const createQuoteSchema = z.object({
   prompt: z.string().min(3, 'Prompt must be at least 3 characters').max(500),
   category: z.string().min(1).max(50),
   language: z.string().regex(/^[a-z]{2}$/).default('hi'),
+  quoteLength: z.enum(['short', 'medium', 'long']).default('medium'),
 })
 
 export async function GET(req: NextRequest) {
@@ -107,6 +108,7 @@ export async function POST(req: NextRequest) {
       prompt: data.prompt,
       category: data.category,
       language: data.language,
+      quoteLength: data.quoteLength,
       plan: creditCheck.subscription.plan,
     })
 

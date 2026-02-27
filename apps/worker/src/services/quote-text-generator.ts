@@ -35,6 +35,41 @@ function getPreferredProvider(): 'gemini' | 'anthropic' | 'openai' | 'auto' {
   return 'auto';
 }
 
+async function callGemini(prompt: string, maxTokens: number, temperature: number): Promise<string> {
+  const apiKey = process.env.GEMINI_API_KEY;
+  if (!apiKey) throw new Error('GEMINI_API_KEY is not set');
+
+  const model = process.env.GEMINI_MODEL || 'gemini-2.5-flash';
+  const response = await fetch(
+    `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        contents: [{ role: 'user', parts: [{ text: prompt }] }],
+        generationConfig: {
+          temperature,
+          maxOutputTokens: maxTokens,
+        },
+      }),
+    },
+  );
+
+  if (!response.ok) {
+    const errorBody = await response.text();
+    throw new Error(`Gemini API error: ${response.status} ${errorBody.substring(0, 200)}`);
+  }
+
+  const data = (await response.json()) as {
+    candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }>;
+  };
+
+  const content = data.candidates?.[0]?.content?.parts?.map((part) => part.text || '').join('\n').trim();
+  if (!content) throw new Error('No content in Gemini response');
+
+  return content;
+}
+
 // ---------------------------------------------------------------------------
 // Types
 // ---------------------------------------------------------------------------
@@ -81,24 +116,106 @@ function getLanguageScript(code: string): string {
 // Prompt builder — generates 5 variations
 // ---------------------------------------------------------------------------
 
-function buildQuotePrompt(category: string, language: string, userPrompt?: string): string {
+function getQuoteLengthInstruction(quoteLength: string): string {
+  switch (quoteLength) {
+    case 'short':
+      return `LENGTH REQUIREMENT — SHORT (STRICT):
+- Each quote MUST be exactly 1-2 sentences, between 10-30 words.
+- Punchy, impactful, and memorable. Think: bumper sticker wisdom.
+- If any quote exceeds 30 words, it is WRONG. Rewrite it shorter.`;
+    case 'long':
+      return `LENGTH REQUIREMENT — LONG (STRICT):
+- Each quote MUST be a FULL PARAGRAPH of 5-10 sentences, between 80-150 words.
+- This is the MOST IMPORTANT rule. Every quote must be LONG and elaborate.
+- Weave multiple ideas together. Explore the theme deeply. Use metaphors, examples, and reflections.
+- Think: a mini-essay or a heartfelt letter, NOT a one-liner.
+- If any quote is under 80 words, it is TOO SHORT. You MUST make it longer with more depth and detail.
+- COUNT YOUR WORDS. Each quote should fill an entire paragraph.`;
+    case 'medium':
+    default:
+      return `LENGTH REQUIREMENT — MEDIUM (STRICT):
+- Each quote MUST be 3-5 sentences, between 30-80 words.
+- Meaningful, complete, and with emotional depth. More than a one-liner, but not a full paragraph.
+- If any quote is under 30 words, it is TOO SHORT. Add more substance.`;
+  }
+}
+
+// Random creative directions to ensure unique output every generation
+const CREATIVE_TONES = [
+  'poetic and metaphorical', 'philosophical and reflective', 'warm and heartfelt',
+  'bold and powerful', 'gentle and soothing', 'passionate and fiery',
+  'nostalgic and tender', 'wise and contemplative', 'hopeful and uplifting',
+  'raw and honest', 'lyrical and flowing', 'elegant and graceful',
+  'spiritual and deep', 'earthy and grounded', 'vivid and expressive',
+];
+
+const CREATIVE_ANGLES = [
+  'through the lens of nature and seasons',
+  'using metaphors of light, stars, and sky',
+  'from the perspective of time and memory',
+  'with imagery of journeys and paths',
+  'through everyday moments and small gestures',
+  'using metaphors of water, rivers, and ocean',
+  'from the heart of a storyteller sharing wisdom',
+  'with imagery of gardens, roots, and growth',
+  'through the eyes of someone looking back on life',
+  'using fire, warmth, and home as metaphors',
+  'from the perspective of dreams and aspirations',
+  'through the beauty of silence and unspoken feelings',
+];
+
+function pickRandom<T>(arr: T[]): T {
+  return arr[Math.floor(Math.random() * arr.length)];
+}
+
+function getMinWordCount(quoteLength: string): number {
+  switch (quoteLength) {
+    case 'short': return 8;
+    case 'long': return 60;
+    case 'medium':
+    default: return 25;
+  }
+}
+
+function buildQuotePrompt(category: string, language: string, userPrompt?: string, quoteLength?: string): string {
   const langName = getLanguageName(language);
   const langScript = getLanguageScript(language);
+  const lengthInstruction = getQuoteLengthInstruction(quoteLength || 'medium');
   const scriptInstruction = langScript
     ? `\n- You MUST write the quotes in ${langName} using ${langScript}. Do NOT write in English or transliteration — use the native script only.`
     : '';
 
-  return `You are a creative quote generator. Generate exactly 5 unique, beautiful, original ${category} quotes in ${langName}.
+  const lengthLabel = (quoteLength || 'medium').toUpperCase();
+
+  // Inject randomness for unique output every time
+  const tone = pickRandom(CREATIVE_TONES);
+  const angle = pickRandom(CREATIVE_ANGLES);
+  const seed = Math.floor(Math.random() * 99999);
+
+  const longExample = quoteLength === 'long' ? `
+
+EXAMPLE of a LONG quote (80-150 words) for reference — your quotes MUST be at least THIS length:
+"Love is not merely a feeling that comes and goes with the seasons — it is a choice we make every single morning when we wake up beside the same person, a decision renewed through years of shared laughter and silent tears, through celebrations and hardships that test the very foundation of our bond. True love is built in the quiet moments — in the cup of tea made without asking, in the hand held during difficult times, in the forgiveness offered when pride says otherwise. It grows deeper not despite the years, but because of them, like roots of an ancient tree that only grow stronger with time."` : '';
+
+  return `You are a creative quote writer. Generate exactly 5 unique, beautiful, original ${category} quotes in ${langName}.
 ${userPrompt ? `\nThe user wants the quotes to be about: ${userPrompt}` : ''}
 
-Rules:
-- Generate exactly 5 different quote variations
+Creative Direction for THIS generation (seed: ${seed}):
+- Write in a ${tone} tone
+- Approach the topic ${angle}
+- Make these quotes completely DIFFERENT from any previous generation — be surprising and fresh
+
+${lengthInstruction}
+The requested length is ${lengthLabel}. This is the MOST IMPORTANT rule. Every single quote MUST meet the word count requirement.${longExample}
+
+Additional Rules:
+- Generate exactly 5 different quote variations, each one unique in perspective and wording
 - Each quote must be original, meaningful, and emotionally resonant
-- Keep each quote concise (1-3 sentences, under 200 characters preferred)
-- For the author field, create a believable attribution or use "Unknown" for anonymous wisdom
+- For the author field, create a believable pen name or attribution — vary the author names
 - For Islamic category: use wisdom from Quran/Hadith references appropriately
 - For Hindi Shayari: write in proper shayari style with rhyming couplets in Devanagari script${scriptInstruction}
 - ALL 5 quotes must be written in ${langName}${language !== 'en' ? '. Do NOT write quotes in English.' : ''}
+- FINAL CHECK: Before returning, verify EACH quote is ${lengthLabel} length${quoteLength === 'long' ? ' (80-150 words, full paragraph)' : quoteLength === 'short' ? ' (10-30 words)' : ' (30-80 words)'}. ${quoteLength === 'long' ? 'Short one-liners will be REJECTED.' : ''}
 
 Return ONLY valid JSON array in this exact format:
 [{"quote": "quote text in ${langName}", "author": "Author Name"}, {"quote": "second quote in ${langName}", "author": "Author Name"}, {"quote": "third quote", "author": "Author"}, {"quote": "fourth quote", "author": "Author"}, {"quote": "fifth quote", "author": "Author"}]`;
@@ -397,6 +514,7 @@ export async function generateQuoteVariations(
   category: string,
   language: string,
   userPrompt?: string,
+  quoteLength?: string,
 ): Promise<QuoteTextResult[]> {
   // DEV_MODE: return mock quotes
   if (process.env.DEV_MODE === 'true') {
@@ -404,60 +522,114 @@ export async function generateQuoteVariations(
     return getMockQuotes(category, language);
   }
 
-  const prompt = buildQuotePrompt(category, language, userPrompt);
+  const effectiveLength = quoteLength || 'medium';
   const provider = getPreferredProvider();
+  const maxTokens = effectiveLength === 'long' ? 4000 : effectiveLength === 'medium' ? 2500 : 1500;
+  const minWords = getMinWordCount(effectiveLength);
+  const MAX_ATTEMPTS = 2;
 
-  const providers =
-    provider === 'auto'
-      ? ['anthropic', 'openai']
-      : [provider, ...(provider !== 'anthropic' ? ['anthropic'] : []), ...(provider !== 'openai' ? ['openai'] : [])];
+  // Build provider chain — only include providers with valid API keys
+  const allProviders: string[] = [];
+  if (provider !== 'auto') allProviders.push(provider);
+  for (const p of ['gemini', 'anthropic', 'openai']) {
+    if (!allProviders.includes(p)) allProviders.push(p);
+  }
+  // Filter to only providers with keys
+  const providers = allProviders.filter((p) => {
+    if (p === 'gemini') return !!process.env.GEMINI_API_KEY;
+    if (p === 'anthropic') return !!process.env.ANTHROPIC_API_KEY;
+    if (p === 'openai') return !!process.env.OPENAI_API_KEY;
+    return false;
+  });
 
-  log.info({ category, language, provider, userPrompt: userPrompt?.substring(0, 50) }, 'Generating 5 quote variations');
+  log.info({ category, language, providers, quoteLength: effectiveLength, maxTokens, minWords, userPrompt: userPrompt?.substring(0, 50) }, 'Generating 5 quote variations');
+
+  if (providers.length === 0) {
+    log.warn('No AI provider keys configured, returning mock quotes');
+    return getMockQuotes(category, language);
+  }
 
   for (const p of providers) {
-    try {
-      let responseText: string;
+    for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+      try {
+        // Rebuild prompt each attempt for fresh random direction
+        const prompt = buildQuotePrompt(category, language, userPrompt, effectiveLength);
+        let responseText: string;
 
-      if (p === 'anthropic') {
-        const client = getAnthropicClient();
-        const response = await client.messages.create({
-          model: 'claude-sonnet-4-20250514',
-          max_tokens: 1500,
-          messages: [{ role: 'user', content: prompt }],
-        });
-        responseText = response.content[0].type === 'text' ? response.content[0].text : '';
-      } else if (p === 'openai') {
-        const client = getOpenAIClient();
-        const response = await client.chat.completions.create({
-          model: 'gpt-4o-mini',
-          max_tokens: 1500,
-          messages: [{ role: 'user', content: prompt }],
-        });
-        responseText = response.choices[0]?.message?.content || '';
-      } else {
-        continue;
-      }
-
-      // Parse JSON array response
-      const jsonMatch = responseText.match(/\[[\s\S]*\]/);
-      if (jsonMatch) {
-        const parsed = JSON.parse(jsonMatch[0]) as Array<{ quote: string; author: string }>;
-        if (Array.isArray(parsed) && parsed.length >= 1) {
-          const variations = parsed
-            .filter((item) => item.quote)
-            .slice(0, 5)
-            .map((item) => ({ quote: item.quote, author: item.author || 'Unknown' }));
-
-          if (variations.length >= 1) {
-            log.info({ provider: p, category, count: variations.length }, 'Quote variations generated');
-            return variations;
-          }
+        if (p === 'gemini') {
+          responseText = await callGemini(prompt, maxTokens, 0.9 + (attempt - 1) * 0.05);
+        } else if (p === 'anthropic') {
+          const client = getAnthropicClient();
+          const response = await client.messages.create({
+            model: 'claude-sonnet-4-20250514',
+            max_tokens: maxTokens,
+            temperature: 0.9 + (attempt - 1) * 0.05,
+            messages: [{ role: 'user', content: prompt }],
+          });
+          responseText = response.content[0].type === 'text' ? response.content[0].text : '';
+        } else if (p === 'openai') {
+          const client = getOpenAIClient();
+          const response = await client.chat.completions.create({
+            model: 'gpt-4o-mini',
+            max_tokens: maxTokens,
+            temperature: 0.9 + (attempt - 1) * 0.05,
+            messages: [{ role: 'user', content: prompt }],
+          });
+          responseText = response.choices[0]?.message?.content || '';
+        } else {
+          break;
         }
-      }
 
-      log.warn({ provider: p, responseText: responseText.substring(0, 200) }, 'Failed to parse quote variations');
-    } catch (err) {
-      log.warn({ provider: p, err }, 'Quote generation failed with provider, trying next...');
+        // Strip markdown code blocks (```json ... ```) before parsing
+        let cleanedResponse = responseText;
+        const codeBlockMatch = cleanedResponse.match(/```(?:json)?\s*([\s\S]*?)```/);
+        if (codeBlockMatch) {
+          cleanedResponse = codeBlockMatch[1].trim();
+        }
+
+        // Parse JSON array response
+        const jsonMatch = cleanedResponse.match(/\[[\s\S]*\]/);
+        if (!jsonMatch) {
+          log.warn({ provider: p, attempt, responseText: responseText.substring(0, 300) }, 'Failed to parse JSON from response');
+          continue;
+        }
+
+        const parsed = JSON.parse(jsonMatch[0]) as Array<{ quote: string; author: string }>;
+        if (!Array.isArray(parsed) || parsed.length < 1) {
+          log.warn({ provider: p, attempt }, 'Parsed result is not a valid array');
+          continue;
+        }
+
+        const variations = parsed
+          .filter((item) => item.quote)
+          .slice(0, 5)
+          .map((item) => ({ quote: item.quote, author: item.author || 'Unknown' }));
+
+        if (variations.length < 1) continue;
+
+        // Check word counts
+        const wordCounts = variations.map((v) => v.quote.split(/\s+/).length);
+        const avgWords = Math.round(wordCounts.reduce((a, b) => a + b, 0) / wordCounts.length);
+
+        log.info(
+          { provider: p, category, attempt, count: variations.length, quoteLength: effectiveLength, wordCounts, avgWords, minWords },
+          'Quote variations generated',
+        );
+
+        // If average word count is too low and we have retries left, try again
+        if (avgWords < minWords && attempt < MAX_ATTEMPTS) {
+          log.warn(
+            { avgWords, minWords, quoteLength: effectiveLength, attempt },
+            'Quotes too short for requested length, retrying with fresh prompt',
+          );
+          continue;
+        }
+
+        return variations;
+      } catch (err) {
+        log.warn({ provider: p, attempt, err }, 'Quote generation failed');
+        break; // Try next provider
+      }
     }
   }
 

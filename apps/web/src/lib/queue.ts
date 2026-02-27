@@ -181,6 +181,7 @@ export async function enqueueQuoteJob(data: {
   prompt: string
   category: string
   language: string
+  quoteLength?: string
   plan: string
 }) {
   const queue = getQuoteQueue()

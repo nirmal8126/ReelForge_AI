@@ -71,15 +71,25 @@ export const SUPPORTED_LANGUAGES = [
 
 // Quote module constants
 export const QUOTE_CATEGORIES = [
-  { id: 'motivational', name: 'Motivational', icon: 'Flame', color: '#F59E0B' },
+  { id: 'motivational', name: 'Motivation', icon: 'Flame', color: '#F59E0B' },
   { id: 'love', name: 'Love', icon: 'Heart', color: '#EC4899' },
-  { id: 'funny', name: 'Funny', icon: 'Laugh', color: '#F97316' },
+  { id: 'funny', name: 'Comedy', icon: 'Laugh', color: '#F97316' },
   { id: 'wisdom', name: 'Wisdom', icon: 'Brain', color: '#8B5CF6' },
   { id: 'success', name: 'Success', icon: 'Trophy', color: '#10B981' },
   { id: 'life', name: 'Life', icon: 'Leaf', color: '#22C55E' },
   { id: 'friendship', name: 'Friendship', icon: 'Users', color: '#3B82F6' },
   { id: 'islamic', name: 'Islamic', icon: 'Star', color: '#059669' },
   { id: 'shayari', name: 'Hindi Shayari', icon: 'Pen', color: '#E11D48' },
+  { id: 'tech', name: 'Tech & Gadgets', icon: 'Cpu', color: '#6366F1' },
+  { id: 'finance', name: 'Finance', icon: 'TrendingUp', color: '#0EA5E9' },
+  { id: 'fitness', name: 'Fitness', icon: 'Dumbbell', color: '#EF4444' },
+  { id: 'education', name: 'Education', icon: 'GraduationCap', color: '#8B5CF6' },
+  { id: 'business', name: 'Business', icon: 'Briefcase', color: '#1D4ED8' },
+  { id: 'health', name: 'Health & Wellness', icon: 'HeartPulse', color: '#14B8A6' },
+  { id: 'cooking', name: 'Cooking', icon: 'ChefHat', color: '#D97706' },
+  { id: 'gaming', name: 'Gaming', icon: 'Gamepad2', color: '#7C3AED' },
+  { id: 'travel', name: 'Travel', icon: 'Plane', color: '#0284C7' },
+  { id: 'beauty', name: 'Beauty & Fashion', icon: 'Gem', color: '#DB2777' },
   { id: 'custom', name: 'Custom Topic', icon: 'Sparkles', color: '#6366F1' },
 ] as const
 

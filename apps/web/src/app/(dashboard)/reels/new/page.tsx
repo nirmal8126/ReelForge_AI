@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import {
   Sparkles, Mic, Clock, Monitor, Send,
   ArrowLeft, ArrowRight, Check, Loader2, Film, Wand2,
+  FileText, Ratio,
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { SUPPORTED_LANGUAGES, LANGUAGE_VOICE_MAP, NICHE_PRESETS } from '@/lib/constants'
@@ -82,13 +83,14 @@ export default function CreateReelPage() {
   const [form, setForm] = useState({
     title: '',
     prompt: '',
+    userScript: '',
     style: 'cinematic',
     language: 'hi',
     voiceId: VOICES[0].id,
     durationSeconds: 30,
     aspectRatio: '9:16',
     channelProfileId: preselectedProfile,
-    selectedScript: 0,
+    selectedScript: -1, // -1 = none selected yet
   })
 
   useEffect(() => {
@@ -97,6 +99,23 @@ export default function CreateReelPage() {
       .then(data => setProfiles(Array.isArray(data) ? data : []))
       .catch(() => {})
   }, [])
+
+  // Build the combined script options list: user script (if any) + AI variations
+  const allScriptOptions: { label: string; text: string }[] = []
+  if (form.userScript.trim().length > 10) {
+    allScriptOptions.push({ label: 'Your Script', text: form.userScript.trim() })
+  }
+  scriptVariations.forEach((s, i) => {
+    allScriptOptions.push({ label: `AI Variation ${i + 1}`, text: s })
+  })
+
+  // Get the actual selected script text
+  const getSelectedScript = (): string | undefined => {
+    if (form.selectedScript >= 0 && form.selectedScript < allScriptOptions.length) {
+      return allScriptOptions[form.selectedScript].text
+    }
+    return undefined
+  }
 
   const handleGenerateIdea = async () => {
     setGeneratingIdea(true)
@@ -153,6 +172,8 @@ export default function CreateReelPage() {
       }
       if (data.variations && data.variations.length > 0) {
         setScriptVariations(data.variations)
+        // Auto-select first option (user script if exists, else first AI variation)
+        setForm(prev => ({ ...prev, selectedScript: 0 }))
         setStep(3)
         toast.success('Scripts generated!')
       } else {
@@ -168,13 +189,14 @@ export default function CreateReelPage() {
   const handleSubmit = async () => {
     setLoading(true)
     try {
+      const selectedScript = getSelectedScript()
       const res = await fetch('/api/reels', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           title: form.title || form.prompt.substring(0, 80),
           prompt: form.prompt,
-          script: scriptVariations[form.selectedScript] || undefined,
+          script: selectedScript || undefined,
           style: form.style,
           language: form.language,
           voiceId: form.voiceId,
@@ -200,12 +222,14 @@ export default function CreateReelPage() {
   }
 
   const steps = [
-    { num: 1, label: 'Topic & Prompt', icon: Sparkles },
-    { num: 2, label: 'Style & Settings', icon: Monitor },
+    { num: 1, label: 'Content & Duration', icon: Sparkles },
+    { num: 2, label: 'Style', icon: Monitor },
     { num: 3, label: 'Script Selection', icon: Film },
-    { num: 4, label: 'Voice & Duration', icon: Mic },
-    { num: 5, label: 'Review & Submit', icon: Send },
+    { num: 4, label: 'Voice', icon: Mic },
+    { num: 5, label: 'Review & Generate', icon: Send },
   ]
+
+  const hasUserScript = form.userScript.trim().length > 10
 
   return (
     <div className="mx-auto" style={{ maxWidth: step === 1 ? '100%' : '56rem' }}>
@@ -236,7 +260,7 @@ export default function CreateReelPage() {
         ))}
       </div>
 
-      {/* Step 1: Topic & Prompt */}
+      {/* Step 1: Content & Duration */}
       {step === 1 && (
         <div className="space-y-6">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -244,7 +268,7 @@ export default function CreateReelPage() {
             <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-6 space-y-5">
               <div>
                 <h3 className="text-sm font-semibold text-white mb-0.5">Preferences</h3>
-                <p className="text-xs text-gray-500">Choose a profile or niche and language</p>
+                <p className="text-xs text-gray-500">Choose profile, language, duration & format</p>
               </div>
 
               {/* Channel Profile */}
@@ -320,6 +344,54 @@ export default function CreateReelPage() {
                 </div>
               </div>
 
+              {/* Duration */}
+              <div>
+                <label className="block text-xs font-medium text-gray-400 mb-1.5">
+                  <span className="flex items-center gap-1.5"><Clock className="h-3.5 w-3.5" /> Duration</span>
+                </label>
+                <div className="flex gap-2">
+                  {DURATIONS.map((d) => (
+                    <button
+                      key={d.value}
+                      type="button"
+                      onClick={() => setForm({ ...form, durationSeconds: d.value })}
+                      className={`flex-1 rounded-lg border px-2 py-2 text-center transition ${
+                        form.durationSeconds === d.value
+                          ? 'border-brand-500 bg-brand-500/15 text-brand-400'
+                          : 'border-white/10 bg-white/5 text-gray-400 hover:bg-white/10'
+                      }`}
+                    >
+                      <p className="text-sm font-bold">{d.label}</p>
+                      <p className="text-[10px] text-gray-500">{d.desc}</p>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Aspect Ratio */}
+              <div>
+                <label className="block text-xs font-medium text-gray-400 mb-1.5">
+                  <span className="flex items-center gap-1.5"><Ratio className="h-3.5 w-3.5" /> Aspect Ratio</span>
+                </label>
+                <div className="flex gap-2">
+                  {ASPECTS.map((a) => (
+                    <button
+                      key={a.value}
+                      type="button"
+                      onClick={() => setForm({ ...form, aspectRatio: a.value })}
+                      className={`flex-1 rounded-lg border px-3 py-2 text-center transition ${
+                        form.aspectRatio === a.value
+                          ? 'border-brand-500 bg-brand-500/15 text-brand-400'
+                          : 'border-white/10 bg-white/5 text-gray-400 hover:bg-white/10'
+                      }`}
+                    >
+                      <p className="text-sm font-bold">{a.label}</p>
+                      <p className="text-[10px] text-gray-500">{a.desc}</p>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
               {/* Generate Idea */}
               <div className="rounded-xl border border-dashed border-white/15 bg-white/[0.02] p-3.5 space-y-3">
                 <div>
@@ -351,7 +423,7 @@ export default function CreateReelPage() {
             <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-6 flex flex-col">
               <div className="mb-5">
                 <h3 className="text-sm font-semibold text-white mb-0.5">Content</h3>
-                <p className="text-xs text-gray-500">Enter your reel title and describe what it should be about</p>
+                <p className="text-xs text-gray-500">Enter your reel topic and optionally your own script</p>
               </div>
 
               {/* Title */}
@@ -367,15 +439,36 @@ export default function CreateReelPage() {
               </div>
 
               {/* Prompt */}
-              <div className="flex-1 flex flex-col">
+              <div className="mb-4">
                 <label className="block text-xs font-medium text-gray-400 mb-1.5">What&apos;s your reel about? *</label>
                 <textarea
                   value={form.prompt}
                   onChange={(e) => setForm({ ...form, prompt: e.target.value })}
-                  className="w-full flex-1 min-h-[200px] rounded-lg bg-white/10 border border-white/10 px-4 py-2.5 text-sm text-white placeholder-gray-500 focus:border-brand-500 focus:ring-1 focus:ring-brand-500 outline-none resize-none"
-                  placeholder="Describe your reel topic in detail. The more context you provide, the better the AI can generate a script.&#10;&#10;Example: Create a 30-second reel about the top 5 AI tools that every content creator should be using in 2025, with emphasis on free tools that save time."
+                  className="w-full min-h-[120px] rounded-lg bg-white/10 border border-white/10 px-4 py-2.5 text-sm text-white placeholder-gray-500 focus:border-brand-500 focus:ring-1 focus:ring-brand-500 outline-none resize-none"
+                  placeholder="Describe your reel topic in detail. The more context you provide, the better the AI can generate a script."
                 />
-                <p className="text-xs text-gray-500 mt-1.5">{form.prompt.length}/10000 characters</p>
+                <p className="text-xs text-gray-500 mt-1">{form.prompt.length}/10000 characters</p>
+              </div>
+
+              {/* User Script (optional) */}
+              <div className="flex-1 flex flex-col">
+                <label className="block text-xs font-medium text-gray-400 mb-1.5">
+                  <span className="flex items-center gap-1.5">
+                    <FileText className="h-3.5 w-3.5" />
+                    Your Script (optional)
+                  </span>
+                </label>
+                <textarea
+                  value={form.userScript}
+                  onChange={(e) => setForm({ ...form, userScript: e.target.value })}
+                  className="w-full flex-1 min-h-[120px] rounded-lg bg-white/10 border border-white/10 px-4 py-2.5 text-sm text-white placeholder-gray-500 focus:border-brand-500 focus:ring-1 focus:ring-brand-500 outline-none resize-none"
+                  placeholder={"Paste your own script here if you have one. It will appear as an option in Step 3 alongside AI-generated scripts.\n\nLeave empty to use only AI-generated scripts."}
+                />
+                {hasUserScript && (
+                  <p className="text-xs text-green-400 mt-1.5 flex items-center gap-1">
+                    <Check className="h-3 w-3" /> Your script will be available in script selection
+                  </p>
+                )}
               </div>
             </div>
           </div>
@@ -416,21 +509,45 @@ export default function CreateReelPage() {
             </div>
           </div>
 
+          {/* Info about user script */}
+          {hasUserScript && (
+            <div className="rounded-lg bg-green-500/10 border border-green-500/20 p-4">
+              <p className="text-sm text-green-400">
+                You have your own script ready. You can generate AI variations too, or skip directly to script selection.
+              </p>
+            </div>
+          )}
+
           <div className="flex justify-between">
             <button onClick={() => setStep(1)} className="inline-flex items-center gap-2 rounded-lg bg-white/10 px-6 py-2.5 text-sm font-medium text-white hover:bg-white/20 transition">
               <ArrowLeft className="h-4 w-4" /> Back
             </button>
-            <button
-              onClick={handleGenerateScripts}
-              disabled={generatingScript}
-              className="inline-flex items-center gap-2 rounded-lg bg-brand-600 px-6 py-2.5 text-sm font-medium text-white hover:bg-brand-500 transition disabled:opacity-50"
-            >
-              {generatingScript ? (
-                <><Loader2 className="h-4 w-4 animate-spin" /> Generating Scripts...</>
-              ) : (
-                <>Generate Scripts <Sparkles className="h-4 w-4" /></>
+            <div className="flex items-center gap-3">
+              {/* Skip to script selection if user has their own script */}
+              {hasUserScript && (
+                <button
+                  onClick={() => {
+                    // Auto-select user script (index 0) and go to step 3
+                    setForm(prev => ({ ...prev, selectedScript: 0 }))
+                    setStep(3)
+                  }}
+                  className="inline-flex items-center gap-2 rounded-lg bg-white/10 px-5 py-2.5 text-sm font-medium text-white hover:bg-white/20 transition"
+                >
+                  <FileText className="h-4 w-4" /> Use My Script
+                </button>
               )}
-            </button>
+              <button
+                onClick={handleGenerateScripts}
+                disabled={generatingScript}
+                className="inline-flex items-center gap-2 rounded-lg bg-brand-600 px-6 py-2.5 text-sm font-medium text-white hover:bg-brand-500 transition disabled:opacity-50"
+              >
+                {generatingScript ? (
+                  <><Loader2 className="h-4 w-4 animate-spin" /> Generating Scripts...</>
+                ) : (
+                  <>Generate Scripts <Sparkles className="h-4 w-4" /></>
+                )}
+              </button>
+            </div>
           </div>
         </div>
       )}
@@ -439,9 +556,16 @@ export default function CreateReelPage() {
       {step === 3 && (
         <div className="space-y-6">
           <div>
-            <label className="block text-sm font-medium text-gray-300 mb-4">Select a Script Variation</label>
+            <label className="block text-sm font-medium text-gray-300 mb-1">Select a Script</label>
+            <p className="text-xs text-gray-500 mb-4">
+              {hasUserScript && scriptVariations.length > 0
+                ? 'Choose your own script or one of the AI-generated variations'
+                : hasUserScript
+                ? 'Your script is ready. You can also generate AI variations.'
+                : 'Choose from the AI-generated script variations'}
+            </p>
             <div className="space-y-4">
-              {scriptVariations.map((script, i) => (
+              {allScriptOptions.map((option, i) => (
                 <button
                   key={i}
                   onClick={() => setForm({ ...form, selectedScript: i })}
@@ -452,12 +576,26 @@ export default function CreateReelPage() {
                   }`}
                 >
                   <div className="flex items-center justify-between mb-3">
-                    <span className="text-sm font-medium text-brand-400">Variation {i + 1}</span>
+                    <span className={`text-sm font-medium ${
+                      option.label === 'Your Script' ? 'text-green-400' : 'text-brand-400'
+                    }`}>
+                      {option.label === 'Your Script' && <FileText className="h-3.5 w-3.5 inline mr-1.5 -mt-0.5" />}
+                      {option.label}
+                    </span>
                     {form.selectedScript === i && <Check className="h-5 w-5 text-brand-400" />}
                   </div>
-                  <p className="text-sm text-gray-300 whitespace-pre-line leading-relaxed">{script}</p>
+                  <p className="text-sm text-gray-300 whitespace-pre-line leading-relaxed">{option.text}</p>
                 </button>
               ))}
+
+              {/* Show message if no scripts at all */}
+              {allScriptOptions.length === 0 && (
+                <div className="rounded-xl border border-dashed border-white/15 p-8 text-center">
+                  <Film className="h-10 w-10 text-gray-600 mx-auto mb-3" />
+                  <p className="text-sm text-gray-400 mb-1">No scripts available</p>
+                  <p className="text-xs text-gray-500">Go back and generate AI scripts, or add your own script in Step 1.</p>
+                </div>
+              )}
             </div>
           </div>
 
@@ -472,20 +610,24 @@ export default function CreateReelPage() {
                 className="inline-flex items-center gap-2 rounded-lg bg-white/10 px-5 py-2.5 text-sm font-medium text-white hover:bg-white/20 transition disabled:opacity-50"
               >
                 {generatingScript ? (
-                  <><Loader2 className="h-4 w-4 animate-spin" /> Regenerating...</>
+                  <><Loader2 className="h-4 w-4 animate-spin" /> Generating...</>
                 ) : (
-                  <><Wand2 className="h-4 w-4" /> Regenerate</>
+                  <><Wand2 className="h-4 w-4" /> {scriptVariations.length > 0 ? 'Regenerate' : 'Generate AI Scripts'}</>
                 )}
               </button>
-              <button onClick={() => setStep(4)} className="inline-flex items-center gap-2 rounded-lg bg-brand-600 px-6 py-2.5 text-sm font-medium text-white hover:bg-brand-500 transition">
-                Next: Voice & Duration <ArrowRight className="h-4 w-4" />
+              <button
+                onClick={() => setStep(4)}
+                disabled={form.selectedScript < 0 || form.selectedScript >= allScriptOptions.length}
+                className="inline-flex items-center gap-2 rounded-lg bg-brand-600 px-6 py-2.5 text-sm font-medium text-white hover:bg-brand-500 transition disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Next: Voice <ArrowRight className="h-4 w-4" />
               </button>
             </div>
           </div>
         </div>
       )}
 
-      {/* Step 4: Voice & Duration */}
+      {/* Step 4: Voice */}
       {step === 4 && (
         <div className="space-y-8">
           <div>
@@ -546,46 +688,18 @@ export default function CreateReelPage() {
             })()}
           </div>
 
-          <div>
-            <label className="block text-sm font-medium text-gray-300 mb-4">Duration</label>
-            <div className="flex gap-4">
-              {DURATIONS.map((d) => (
-                <button
-                  key={d.value}
-                  onClick={() => setForm({ ...form, durationSeconds: d.value })}
-                  className={`flex-1 rounded-lg border p-4 text-center transition ${
-                    form.durationSeconds === d.value
-                      ? 'border-brand-500 bg-brand-500/10'
-                      : 'border-white/10 bg-white/5 hover:bg-white/10'
-                  }`}
-                >
-                  <Clock className={`h-5 w-5 mx-auto mb-2 ${form.durationSeconds === d.value ? 'text-brand-400' : 'text-gray-500'}`} />
-                  <p className="text-lg font-bold text-white">{d.label}</p>
-                  <p className="text-xs text-gray-400">{d.desc}</p>
-                </button>
-              ))}
+          {/* Script preview */}
+          {getSelectedScript() && (
+            <div className="rounded-xl border border-white/10 bg-white/[0.03] p-5">
+              <p className="text-xs text-gray-400 mb-2 flex items-center gap-1.5">
+                <FileText className="h-3.5 w-3.5" />
+                Selected Script Preview
+              </p>
+              <p className="text-sm text-gray-300 whitespace-pre-line leading-relaxed line-clamp-4">
+                {getSelectedScript()}
+              </p>
             </div>
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-300 mb-4">Aspect Ratio</label>
-            <div className="flex gap-4">
-              {ASPECTS.map((a) => (
-                <button
-                  key={a.value}
-                  onClick={() => setForm({ ...form, aspectRatio: a.value })}
-                  className={`flex-1 rounded-lg border p-4 text-center transition ${
-                    form.aspectRatio === a.value
-                      ? 'border-brand-500 bg-brand-500/10'
-                      : 'border-white/10 bg-white/5 hover:bg-white/10'
-                  }`}
-                >
-                  <p className="text-lg font-bold text-white">{a.label}</p>
-                  <p className="text-xs text-gray-400">{a.desc}</p>
-                </button>
-              ))}
-            </div>
-          </div>
+          )}
 
           <div className="flex justify-between">
             <button onClick={() => setStep(3)} className="inline-flex items-center gap-2 rounded-lg bg-white/10 px-6 py-2.5 text-sm font-medium text-white hover:bg-white/20 transition">
@@ -610,13 +724,18 @@ export default function CreateReelPage() {
               <p className="text-xs text-gray-400 mb-1">Prompt</p>
               <p className="text-sm text-gray-300">{form.prompt}</p>
             </div>
-            {scriptVariations[form.selectedScript] && (
+            {getSelectedScript() && (
               <div className="p-5">
-                <p className="text-xs text-gray-400 mb-1">Selected Script</p>
-                <p className="text-sm text-gray-300 whitespace-pre-line">{scriptVariations[form.selectedScript]}</p>
+                <p className="text-xs text-gray-400 mb-1">
+                  Selected Script
+                  {form.selectedScript < allScriptOptions.length && (
+                    <span className="ml-2 text-gray-500">({allScriptOptions[form.selectedScript]?.label})</span>
+                  )}
+                </p>
+                <p className="text-sm text-gray-300 whitespace-pre-line">{getSelectedScript()}</p>
               </div>
             )}
-            <div className="p-5 grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div className="p-5 grid grid-cols-2 md:grid-cols-5 gap-4">
               <div>
                 <p className="text-xs text-gray-400 mb-1">Style</p>
                 <p className="text-white capitalize">{form.style}</p>

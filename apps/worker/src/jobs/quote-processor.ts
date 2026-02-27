@@ -13,6 +13,7 @@ export interface QuoteJobData {
   prompt: string;
   category: string;
   language: string;
+  quoteLength?: string; // 'short' | 'medium' | 'long'
 }
 
 export interface QuoteJobResult {
@@ -29,7 +30,7 @@ export interface QuoteJobResult {
  */
 export async function processQuoteJob(job: Job<QuoteJobData>): Promise<QuoteJobResult> {
   const startTime = Date.now();
-  const { quoteJobId, prompt, category, language } = job.data;
+  const { quoteJobId, prompt, category, language, quoteLength } = job.data;
   const log = logger.child({ quoteJobId, jobId: job.id });
 
   try {
@@ -40,7 +41,7 @@ export async function processQuoteJob(job: Job<QuoteJobData>): Promise<QuoteJobR
     await updateStatus(quoteJobId, 'TEXT_GENERATING', 10, 'Generating quote variations...');
     await job.updateProgress(10);
 
-    const variations = await generateQuoteVariations(category, language, prompt);
+    const variations = await generateQuoteVariations(category, language, prompt, quoteLength);
 
     // Store all variations as JSON, pick the first as the primary
     const variationsJson = JSON.stringify(variations);
