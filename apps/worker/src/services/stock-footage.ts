@@ -166,6 +166,71 @@ export async function searchPexelsForClip(
 }
 
 // ---------------------------------------------------------------------------
+// Per-scene Pixabay clip search (fallback when Pexels fails)
+// ---------------------------------------------------------------------------
+
+/**
+ * Search Pixabay for a single video clip matching a keyword.
+ * Fallback when Pexels returns no results.
+ */
+export async function searchPixabayForClip(
+  keyword: string,
+  targetDuration: number,
+): Promise<PexelsClipResult | null> {
+  const pixabayKey = process.env.PIXABAY_API_KEY;
+  if (!pixabayKey) {
+    return null;
+  }
+
+  try {
+    const response = await axios.get(PIXABAY_API_URL, {
+      params: {
+        key: pixabayKey,
+        q: keyword,
+        per_page: 10,
+        video_type: 'all',
+      },
+      timeout: 10_000,
+    });
+
+    const videos = response.data.hits || [];
+    if (videos.length === 0) {
+      log.info({ keyword }, 'No Pixabay results for keyword');
+      return null;
+    }
+
+    // Filter for videos with large quality available
+    const valid = videos.filter((v: any) => v.videos && (v.videos.large || v.videos.medium));
+    if (valid.length === 0) return null;
+
+    // Sort by closest duration match
+    valid.sort((a: any, b: any) => {
+      const aDiff = Math.abs(a.duration - targetDuration);
+      const bDiff = Math.abs(b.duration - targetDuration);
+      return aDiff - bDiff;
+    });
+
+    const video = valid[0];
+    const videoFile = video.videos.large || video.videos.medium;
+
+    log.info({ keyword, videoId: video.id, duration: video.duration, provider: 'pixabay' }, 'Pixabay clip found for scene');
+
+    // Cache for future use
+    await cacheFootage(keyword, videoFile.url, String(video.id), 'pixabay', video.duration);
+
+    return {
+      downloadUrl: videoFile.url,
+      duration: video.duration,
+      width: videoFile.width || 1280,
+      height: videoFile.height || 720,
+    };
+  } catch (err) {
+    log.warn({ keyword, err: err instanceof Error ? err.message : err }, 'Pixabay clip search failed');
+    return null;
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Pexels Integration
 // ---------------------------------------------------------------------------
 

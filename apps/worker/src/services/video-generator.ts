@@ -1,7 +1,7 @@
 import axios, { AxiosInstance } from 'axios';
 import { logger } from '../utils/logger';
 import { convertScriptToSearchKeywords, generateSceneImages } from './image-generator';
-import { searchPexelsForClip } from './stock-footage';
+import { searchPexelsForClip, searchPixabayForClip } from './stock-footage';
 import { concatenateClipsWithCrossfade, SceneClip } from './scene-clip-composer';
 
 const log = logger.child({ service: 'video-generator' });
@@ -313,14 +313,18 @@ async function generateWithVeo(
 // ---------------------------------------------------------------------------
 
 /**
- * Generate a video by searching Pexels for stock video clips per script scene,
+ * Generate a video by searching stock video sites for clips per script scene,
  * then concatenating them with crossfade transitions.
  *
  * Flow:
  *  1. Gemini text model converts script → English search keywords per scene
- *  2. Search Pexels for a video clip per scene keyword
- *  3. If Pexels has no result → retry simplified keyword → fall back to Gemini image
- *  4. Concatenate all clips with FFmpeg xfade transitions
+ *  2. For each scene, try multiple search strategies:
+ *     a. Full keyword on Pexels (e.g. "tired person desk")
+ *     b. Simplified keyword on Pexels (e.g. "tired person")
+ *     c. Single word on Pexels (e.g. "tired")
+ *     d. Full keyword on Pixabay (fallback provider)
+ *     e. Gemini AI image (last resort)
+ *  3. Concatenate all clips with FFmpeg xfade transitions
  */
 async function generateWithPerScenePexels(
   prompt: string,
@@ -333,40 +337,36 @@ async function generateWithPerScenePexels(
   const orientation = aspectRatio === '9:16' ? 'portrait' : aspectRatio === '1:1' ? 'square' : 'landscape';
 
   // Step 1: Generate scene keywords from script
-  log.info({ sceneCount, durationSeconds }, 'Step 1: Generating scene keywords from script');
+  log.info({ sceneCount, durationSeconds, hasScript: !!script }, 'Step 1: Generating scene keywords from script');
   const scenes = await convertScriptToSearchKeywords(
     script || prompt,
     sceneCount,
     durationSeconds,
   );
 
-  // Step 2: Search Pexels for each scene and build clip list
-  log.info({ sceneCount: scenes.length }, 'Step 2: Searching Pexels for scene clips');
+  log.info({ scenes: scenes.map(s => ({ keyword: s.keyword, duration: s.durationSeconds })) }, 'Scene keywords generated');
+
+  // Step 2: Search stock video providers for each scene
+  log.info({ sceneCount: scenes.length }, 'Step 2: Searching stock video providers for scene clips');
   const clips: SceneClip[] = [];
 
-  for (const scene of scenes) {
-    log.info({ keyword: scene.keyword, duration: scene.durationSeconds }, 'Searching for scene clip');
+  for (let idx = 0; idx < scenes.length; idx++) {
+    const scene = scenes[idx];
+    log.info({ scene: idx + 1, total: scenes.length, keyword: scene.keyword, duration: scene.durationSeconds }, 'Searching for scene clip');
 
-    // Try the keyword from Gemini
-    let pexelsResult = await searchPexelsForClip(scene.keyword, scene.durationSeconds, orientation);
+    let result = await findBestClipForScene(scene.keyword, scene.durationSeconds, orientation);
 
-    // Retry with simplified keyword (first word only)
-    if (!pexelsResult) {
-      const simplified = scene.keyword.split(' ')[0];
-      log.info({ original: scene.keyword, simplified }, 'No results, trying simplified keyword');
-      pexelsResult = await searchPexelsForClip(simplified, scene.durationSeconds, orientation);
-    }
-
-    if (pexelsResult) {
+    if (result) {
+      log.info({ scene: idx + 1, keyword: scene.keyword, provider: 'stock-video', duration: result.duration }, 'Stock clip found');
       clips.push({
-        downloadUrl: pexelsResult.downloadUrl,
+        downloadUrl: result.downloadUrl,
         durationSeconds: scene.durationSeconds,
-        actualDuration: pexelsResult.duration,
+        actualDuration: result.duration,
         keyword: scene.keyword,
       });
     } else {
       // Final fallback: Gemini AI image for this scene
-      log.warn({ keyword: scene.keyword }, 'No Pexels results, falling back to Gemini image');
+      log.warn({ scene: idx + 1, keyword: scene.keyword }, 'No stock video found after all retries, falling back to Gemini image');
       try {
         const [imageBuffer] = await generateSceneImages({
           prompt: scene.keyword,
@@ -395,18 +395,83 @@ async function generateWithPerScenePexels(
       }
     }
 
-    // Brief delay between Pexels API calls to respect rate limits
+    // Brief delay between API calls to respect rate limits
     await sleep(300);
   }
 
   // Step 3: Concatenate with crossfade transitions
-  log.info({ clipCount: clips.length, keywords: clips.map(c => c.keyword) }, 'Step 3: Concatenating scene clips');
+  const stockClipCount = clips.filter(c => !c.isFallbackImage).length;
+  log.info({
+    clipCount: clips.length,
+    stockClipCount,
+    fallbackCount: clips.length - stockClipCount,
+    keywords: clips.map(c => c.keyword),
+  }, 'Step 3: Concatenating scene clips');
+
   return concatenateClipsWithCrossfade({
     clips,
     totalDurationSeconds: durationSeconds,
     aspectRatio,
     crossfadeDurationSeconds: 0.5,
   });
+}
+
+/**
+ * Try multiple search strategies to find a stock video clip for a scene.
+ * Returns the first successful match or null if all strategies fail.
+ */
+async function findBestClipForScene(
+  keyword: string,
+  targetDuration: number,
+  orientation: 'landscape' | 'portrait' | 'square',
+): Promise<{ downloadUrl: string; duration: number } | null> {
+  const words = keyword.split(' ').filter(w => w.length >= 2);
+
+  // Strategy 1: Full keyword on Pexels
+  let result = await searchPexelsForClip(keyword, targetDuration, orientation);
+  if (result) {
+    log.debug({ keyword, strategy: 'pexels-full' }, 'Clip found');
+    return result;
+  }
+
+  // Strategy 2: Two-word simplified keyword on Pexels
+  if (words.length > 2) {
+    const twoWord = words.slice(0, 2).join(' ');
+    log.debug({ original: keyword, simplified: twoWord }, 'Trying 2-word keyword on Pexels');
+    await sleep(200);
+    result = await searchPexelsForClip(twoWord, targetDuration, orientation);
+    if (result) return result;
+  }
+
+  // Strategy 3: Single main word on Pexels
+  if (words.length > 1) {
+    const singleWord = words[0];
+    log.debug({ original: keyword, simplified: singleWord }, 'Trying single word on Pexels');
+    await sleep(200);
+    result = await searchPexelsForClip(singleWord, targetDuration, orientation);
+    if (result) return result;
+  }
+
+  // Strategy 4: Full keyword on Pixabay
+  log.debug({ keyword }, 'Trying keyword on Pixabay');
+  await sleep(200);
+  const pixabayResult = await searchPixabayForClip(keyword, targetDuration);
+  if (pixabayResult) {
+    log.debug({ keyword, strategy: 'pixabay-full' }, 'Clip found');
+    return pixabayResult;
+  }
+
+  // Strategy 5: Simplified keyword on Pixabay
+  if (words.length > 1) {
+    const simplified = words[0];
+    log.debug({ original: keyword, simplified }, 'Trying single word on Pixabay');
+    await sleep(200);
+    const pixSimple = await searchPixabayForClip(simplified, targetDuration);
+    if (pixSimple) return pixSimple;
+  }
+
+  log.warn({ keyword }, 'All stock video search strategies exhausted');
+  return null;
 }
 
 // ---------------------------------------------------------------------------

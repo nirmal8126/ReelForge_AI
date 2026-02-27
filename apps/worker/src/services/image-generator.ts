@@ -307,26 +307,35 @@ export async function convertScriptToSearchKeywords(
   const model = process.env.GEMINI_MODEL || 'gemini-2.5-flash';
   const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
 
-  const systemPrompt = `You are a stock footage search specialist. Your job is to convert a voiceover script into exactly ${sceneCount} short English search keywords that will be used to find stock video clips on Pexels.
+  const systemPrompt = `You are a stock footage search specialist for Pexels.com. Convert the voiceover script below into exactly ${sceneCount} search keywords. These keywords will be typed into Pexels video search to find matching clips.
 
-Rules:
-- Output EXACTLY ${sceneCount} lines
-- Each line format: keyword | duration_seconds
-- Each keyword must be 2-3 simple English words that would return good results on a stock video site
-- Use generic, commonly-filmed subjects (e.g. "morning coffee", "city skyline", "person typing", "sunset beach", "healthy food", "running outdoors")
-- AVOID abstract concepts that won't have stock footage (e.g. "motivation", "success mindset", "energy boost")
-- AVOID proper nouns, brand names, or overly specific terms
-- The durations must add up to approximately ${totalDurationSeconds} seconds
-- Each scene should be at least 3 seconds and at most 10 seconds
+CRITICAL RULES:
+- Output EXACTLY ${sceneCount} lines, format: keyword | duration_seconds
+- Keywords must be 2-3 SIMPLE English words describing a VISUAL SCENE that a camera can film
+- Think "what would a videographer film?" — real people, places, objects, actions
+- Each keyword should DIRECTLY MATCH what the voiceover is talking about in that part of the script
+- The script may be in Hindi or another language — translate the VISUAL MEANING to English
 
-Example output for a 30-second fitness tips script:
-tired person desk | 6
-drinking water | 6
-morning stretching | 6
-deep breathing | 6
-happy person | 6
+GOOD keywords (real scenes cameras can film):
+"woman drinking water", "person running park", "office desk laptop", "cooking kitchen",
+"doctor patient", "happy family dinner", "sunrise mountains", "busy city traffic",
+"child playing", "gym workout", "fresh vegetables", "sleeping person bed"
 
-Output ONLY the lines. No numbering, no bullets, no extra text.`;
+BAD keywords (abstract concepts with no stock footage):
+"motivation", "success", "energy boost", "health tips", "confidence", "mindset",
+"productivity hack", "life balance", "self improvement", "growth"
+
+- Durations must add up to approximately ${totalDurationSeconds} seconds
+- Each scene: minimum 3 seconds, maximum 10 seconds
+
+Example for a 30-second script about morning routine:
+woman waking up | 6
+person drinking coffee | 6
+morning exercise | 6
+healthy breakfast | 6
+person leaving home | 6
+
+Output ONLY the lines. No numbering, no bullets, no markdown, no extra text.`;
 
   const userMessage = `Convert this voiceover script into ${sceneCount} stock footage search keywords:\n\n${script}`;
 
@@ -363,22 +372,29 @@ Output ONLY the lines. No numbering, no bullets, no extra text.`;
       throw new Error('No text returned from Gemini');
     }
 
+    log.info({ rawGeminiResponse: text }, 'Gemini keyword response received');
+
     // Parse "keyword | duration" lines
     const lines = text
       .split('\n')
       .map((line: string) => line.trim())
-      .filter((line: string) => line.includes('|'));
+      .filter((line: string) => line.length > 3 && line.includes('|'));
+
+    if (lines.length === 0) {
+      log.warn({ text }, 'Gemini returned no parseable lines (expected "keyword | duration")');
+      throw new Error('No valid keyword lines in Gemini response');
+    }
 
     const perScene = Math.ceil(totalDurationSeconds / sceneCount);
     const scenes: SceneKeyword[] = lines.slice(0, sceneCount).map((line: string) => {
       const [kw, dur] = line.split('|').map((s: string) => s.trim());
       return {
-        keyword: kw.substring(0, 50).replace(/^\d+[\.\)]\s*/, ''), // strip numbering
+        keyword: kw.substring(0, 50).replace(/^\d+[\.\)]\s*/, '').replace(/['"]/g, ''), // strip numbering and quotes
         durationSeconds: Math.max(3, Math.min(10, parseInt(dur) || perScene)),
       };
     });
 
-    log.info({ parsedScenes: scenes.length, scenes }, 'Search keywords parsed');
+    log.info({ parsedScenes: scenes.length, scenes }, 'Search keywords parsed from Gemini');
 
     // Ensure we have exactly sceneCount keywords
     while (scenes.length < sceneCount) {
@@ -397,15 +413,43 @@ Output ONLY the lines. No numbering, no bullets, no extra text.`;
 
 /**
  * Fallback when Gemini is unavailable: extract simple keywords from script.
+ * Tries to pick meaningful English nouns/phrases; defaults to generic categories.
  */
 function buildFallbackKeywords(script: string, sceneCount: number, totalDuration: number): SceneKeyword[] {
   const perScene = Math.ceil(totalDuration / sceneCount);
-  // Try to use something from the script, or default to a generic keyword
-  const keyword = 'nature landscape';
-  return Array.from({ length: sceneCount }, () => ({
-    keyword,
-    durationSeconds: perScene,
-  }));
+
+  // Generic fallback categories that always have Pexels results
+  const genericPool = [
+    'person talking', 'city skyline', 'nature landscape', 'office work',
+    'people walking', 'sunrise timelapse', 'cooking food', 'workout fitness',
+    'happy people', 'technology computer', 'busy street', 'ocean waves',
+  ];
+
+  // Try to extract English words from the script (skip non-latin characters)
+  const englishWords = script
+    .replace(/[^\x20-\x7E]/g, ' ')  // keep only ASCII printable
+    .split(/\s+/)
+    .filter(w => w.length >= 3 && /^[a-zA-Z]+$/.test(w))
+    .map(w => w.toLowerCase());
+
+  // Build unique 2-word keyword combinations from English words found
+  const usedKeywords: string[] = [];
+  if (englishWords.length >= 2) {
+    for (let i = 0; i < englishWords.length - 1 && usedKeywords.length < sceneCount; i++) {
+      const kw = `${englishWords[i]} ${englishWords[i + 1]}`;
+      if (!usedKeywords.includes(kw)) usedKeywords.push(kw);
+    }
+  }
+
+  // Fill remaining with generic pool (different keyword per scene)
+  const scenes: SceneKeyword[] = [];
+  for (let i = 0; i < sceneCount; i++) {
+    const keyword = usedKeywords[i] || genericPool[i % genericPool.length];
+    scenes.push({ keyword, durationSeconds: perScene });
+  }
+
+  log.info({ scenes, source: usedKeywords.length > 0 ? 'script-extracted' : 'generic-pool' }, 'Fallback keywords built');
+  return scenes;
 }
 
 // ---------------------------------------------------------------------------
