@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
+import Link from 'next/link'
 import {
   Sparkles, Mic, Send, ArrowLeft, ArrowRight, Loader2, Zap, Check,
   LayoutList, GripVertical, Trash2, Plus, Pencil, ChevronDown, ChevronUp,
@@ -286,9 +287,12 @@ export default function CreateLongFormPage() {
 
   return (
     <div className="mx-auto" style={{ maxWidth: step === 1 ? '100%' : '56rem' }}>
-      <div className="mb-8 pb-6 border-b border-white/[0.06]">
-        <h1 className="text-3xl font-bold text-white tracking-tight">Create Long-Form Video</h1>
-        <p className="text-sm text-gray-500 mt-2">AI-powered video generation with plan preview</p>
+      <Link href="/long-form" className="inline-flex items-center gap-1.5 text-sm text-gray-400 hover:text-white transition mb-3">
+        <ArrowLeft className="h-4 w-4" /> Back to Videos
+      </Link>
+      <div className="mb-6 pb-5 border-b border-white/[0.06]">
+        <h1 className="text-2xl font-bold text-white tracking-tight">Create Long-Form Video</h1>
+        <p className="text-sm text-gray-500 mt-1">AI-powered video generation with plan preview</p>
       </div>
 
       {/* Step Progress */}

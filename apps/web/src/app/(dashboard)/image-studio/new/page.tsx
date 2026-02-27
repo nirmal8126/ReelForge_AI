@@ -182,7 +182,7 @@ export default function ImageStudioNewPage() {
       <div className="mb-8">
         <button
           onClick={() => router.push('/image-studio')}
-          className="inline-flex items-center gap-2 text-sm text-gray-400 hover:text-white transition mb-4"
+          className="inline-flex items-center gap-1.5 text-sm text-gray-400 hover:text-white transition mb-3"
         >
           <ArrowLeft className="h-4 w-4" />
           Back to Image Studio

@@ -4,8 +4,9 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import {
   Joystick, Send, Loader2, Palette, Gauge, Clock, Monitor,
-  Music, Type, Eye, MessageSquare, Wand2,
+  Music, Type, Eye, MessageSquare, Wand2, ArrowLeft,
 } from 'lucide-react'
+import Link from 'next/link'
 import toast from 'react-hot-toast'
 
 // ---------------------------------------------------------------------------
@@ -120,11 +121,14 @@ export default function CreateGameplayPage() {
   return (
     <div>
       {/* Header */}
-      <div className="mb-8 pb-6 border-b border-white/[0.06]">
+      <Link href="/gameplay" className="inline-flex items-center gap-1.5 text-sm text-gray-400 hover:text-white transition mb-3">
+        <ArrowLeft className="h-4 w-4" /> Back to Gameplay Videos
+      </Link>
+      <div className="mb-6 pb-5 border-b border-white/[0.06]">
         <div className="flex items-start justify-between">
           <div>
-            <h1 className="text-3xl font-bold text-white tracking-tight">Create 3D Gameplay Video</h1>
-            <p className="text-sm text-gray-500 mt-2">Generate satisfying animated gameplay videos for Shorts, Reels & TikTok</p>
+            <h1 className="text-2xl font-bold text-white tracking-tight">Create 3D Gameplay Video</h1>
+            <p className="text-sm text-gray-500 mt-1">Generate satisfying animated gameplay videos for Shorts, Reels & TikTok</p>
           </div>
           <button
             type="button"

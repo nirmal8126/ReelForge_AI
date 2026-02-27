@@ -286,16 +286,16 @@ export default function EditSeriesPage() {
 
   return (
     <div>
-      <div className="mb-8 pb-6 border-b border-white/[0.06]">
+      <div className="mb-6 pb-5 border-b border-white/[0.06]">
         <Link
           href={`/cartoon-studio/${seriesId}`}
-          className="inline-flex items-center gap-2 text-sm text-gray-400 hover:text-white transition mb-4"
+          className="inline-flex items-center gap-1.5 text-sm text-gray-400 hover:text-white transition mb-3"
         >
           <ArrowLeft className="h-4 w-4" />
           Back to {series.name}
         </Link>
-        <h1 className="text-3xl font-bold text-white tracking-tight">Edit Series</h1>
-        <p className="text-sm text-gray-500 mt-2">Update series details and manage characters</p>
+        <h1 className="text-2xl font-bold text-white tracking-tight">Edit Series</h1>
+        <p className="text-sm text-gray-500 mt-1">Update series details and manage characters</p>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">

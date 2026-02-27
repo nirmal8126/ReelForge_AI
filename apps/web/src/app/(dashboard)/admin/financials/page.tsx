@@ -401,9 +401,9 @@ export default async function AdminFinancialsPage() {
   return (
     <div>
       {/* Header */}
-      <div className="mb-8 pb-6 border-b border-white/[0.06]">
-        <h1 className="text-3xl font-bold text-white tracking-tight">Platform Financials</h1>
-        <p className="text-sm text-gray-500 mt-2">Revenue, costs, profit/loss analysis, and service health</p>
+      <div className="mb-6 pb-5 border-b border-white/[0.06]">
+        <h1 className="text-2xl font-bold text-white tracking-tight">Platform Financials</h1>
+        <p className="text-sm text-gray-500 mt-1">Revenue, costs, profit/loss analysis, and service health</p>
       </div>
 
       {/* KPI Cards */}

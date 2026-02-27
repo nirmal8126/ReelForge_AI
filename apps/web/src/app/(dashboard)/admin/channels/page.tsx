@@ -133,7 +133,7 @@ export default function AdminChannelsPage() {
   return (
     <div>
       {/* Header */}
-      <div className="flex items-center justify-between mb-8 pb-6 border-b border-white/[0.06]">
+      <div className="flex items-center justify-between mb-6 pb-5 border-b border-white/[0.06]">
         <div>
           <h1 className="text-2xl font-bold text-white tracking-tight flex items-center gap-3">
             <Tv className="h-6 w-6 text-brand-400" />

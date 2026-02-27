@@ -189,7 +189,7 @@ export default function AdminUsersPage() {
   return (
     <div className="mx-auto max-w-5xl">
       {/* Header */}
-      <div className="mb-8 pb-6 border-b border-white/[0.06]">
+      <div className="mb-6 pb-5 border-b border-white/[0.06]">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="h-10 w-10 rounded-xl bg-purple-500/10 flex items-center justify-center">

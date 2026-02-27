@@ -106,7 +106,7 @@ export default function AdminSocialPlatformsPage() {
   return (
     <div className="mx-auto max-w-3xl">
       {/* Header */}
-      <div className="mb-8 pb-6 border-b border-white/[0.06]">
+      <div className="mb-6 pb-5 border-b border-white/[0.06]">
         <div className="flex items-center gap-3">
           <div className="h-10 w-10 rounded-xl bg-red-500/10 flex items-center justify-center">
             <Share2 className="h-5 w-5 text-red-400" />

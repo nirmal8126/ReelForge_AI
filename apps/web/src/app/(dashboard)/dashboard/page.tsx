@@ -409,9 +409,9 @@ export default async function DashboardPage() {
     return (
       <div>
         {/* Header */}
-        <div className="mb-8 pb-6 border-b border-white/[0.06]">
-          <h1 className="text-3xl font-bold text-white tracking-tight">Admin Dashboard</h1>
-          <p className="text-sm text-gray-500 mt-2">Platform overview and management</p>
+        <div className="mb-6 pb-5 border-b border-white/[0.06]">
+          <h1 className="text-2xl font-bold text-white tracking-tight">Admin Dashboard</h1>
+          <p className="text-sm text-gray-500 mt-1">Platform overview and management</p>
         </div>
 
         {/* KPI Cards */}
@@ -577,11 +577,11 @@ export default async function DashboardPage() {
       <DashboardBanners placement="DASHBOARD_TOP" />
 
       {/* Header */}
-      <div className="mb-8 pb-6 border-b border-white/[0.06]">
-        <h1 className="text-3xl font-bold text-white tracking-tight">
+      <div className="mb-6 pb-5 border-b border-white/[0.06]">
+        <h1 className="text-2xl font-bold text-white tracking-tight">
           Welcome back, {session.user.name?.split(' ')[0]}
         </h1>
-        <p className="text-sm text-gray-500 mt-2">Here&apos;s your content creation overview</p>
+        <p className="text-sm text-gray-500 mt-1">Here&apos;s your content creation overview</p>
       </div>
 
       {/* Stats */}

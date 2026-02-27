@@ -132,19 +132,19 @@ export default async function ImageStudioDetailPage({ params }: ImageStudioDetai
       {/* Back navigation */}
       <Link
         href="/image-studio"
-        className="inline-flex items-center gap-2 text-sm text-gray-400 hover:text-white transition mb-6"
+        className="inline-flex items-center gap-1.5 text-sm text-gray-400 hover:text-white transition mb-3"
       >
         <ArrowLeft className="h-4 w-4" />
         Back to Image Studio
       </Link>
 
       {/* Header */}
-      <div className="flex items-start justify-between mb-8 pb-6 border-b border-white/[0.06]">
+      <div className="flex items-start justify-between mb-6 pb-5 border-b border-white/[0.06]">
         <div className="flex-1 min-w-0">
-          <h1 className="text-3xl font-bold text-white tracking-tight truncate">
+          <h1 className="text-2xl font-bold text-white tracking-tight truncate">
             {job.title || 'Untitled'}
           </h1>
-          <div className="flex items-center gap-4 mt-2">
+          <div className="flex items-center gap-4 mt-1">
             <span
               className={`inline-flex items-center gap-1.5 text-sm font-medium ${getJobStatusColor(
                 job.status

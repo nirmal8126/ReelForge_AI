@@ -4,8 +4,9 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import {
   Smile, HelpCircle, Calculator, BookOpen, ArrowLeftRight,
-  Send, Loader2, Gamepad2,
+  Send, Loader2, Gamepad2, ArrowLeft,
 } from 'lucide-react'
+import Link from 'next/link'
 import toast from 'react-hot-toast'
 import {
   CHALLENGE_TYPES,
@@ -63,9 +64,12 @@ export default function CreateChallengePage() {
   return (
     <div>
       {/* Header */}
-      <div className="mb-8 pb-6 border-b border-white/[0.06]">
-        <h1 className="text-3xl font-bold text-white tracking-tight">Create Challenge Video</h1>
-        <p className="text-sm text-gray-500 mt-2">Generate interactive quiz & game reels with AI</p>
+      <Link href="/challenges" className="inline-flex items-center gap-1.5 text-sm text-gray-400 hover:text-white transition mb-3">
+        <ArrowLeft className="h-4 w-4" /> Back to Challenges
+      </Link>
+      <div className="mb-6 pb-5 border-b border-white/[0.06]">
+        <h1 className="text-2xl font-bold text-white tracking-tight">Create Challenge Video</h1>
+        <p className="text-sm text-gray-500 mt-1">Generate interactive quiz & game reels with AI</p>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">

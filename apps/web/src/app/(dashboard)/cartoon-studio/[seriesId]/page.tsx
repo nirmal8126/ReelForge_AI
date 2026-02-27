@@ -54,17 +54,17 @@ export default async function SeriesDetailPage({
   return (
     <div>
       {/* Header */}
-      <div className="mb-8 pb-6 border-b border-white/[0.06]">
+      <div className="mb-6 pb-5 border-b border-white/[0.06]">
         <Link
           href="/cartoon-studio"
-          className="inline-flex items-center gap-2 text-sm text-gray-400 hover:text-white transition mb-4"
+          className="inline-flex items-center gap-1.5 text-sm text-gray-400 hover:text-white transition mb-3"
         >
           <ArrowLeft className="h-4 w-4" />
           Back to Cartoon Studio
         </Link>
 
         <div className="flex items-center justify-between">
-          <h1 className="text-3xl font-bold text-white tracking-tight">{series.name}</h1>
+          <h1 className="text-2xl font-bold text-white tracking-tight">{series.name}</h1>
           <div className="flex items-center gap-3">
             <WeeklyPlanner seriesId={seriesId} />
             <Link

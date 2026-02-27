@@ -142,16 +142,16 @@ export default function NewSeriesPage() {
   return (
     <div>
       {/* Header */}
-      <div className="mb-8 pb-6 border-b border-white/[0.06]">
+      <div className="mb-6 pb-5 border-b border-white/[0.06]">
         <Link
           href="/cartoon-studio"
-          className="inline-flex items-center gap-2 text-sm text-gray-400 hover:text-white transition mb-4"
+          className="inline-flex items-center gap-1.5 text-sm text-gray-400 hover:text-white transition mb-3"
         >
           <ArrowLeft className="h-4 w-4" />
           Back to Cartoon Studio
         </Link>
-        <h1 className="text-3xl font-bold text-white tracking-tight">Create New Series</h1>
-        <p className="text-sm text-gray-500 mt-2">
+        <h1 className="text-2xl font-bold text-white tracking-tight">Create New Series</h1>
+        <p className="text-sm text-gray-500 mt-1">
           Define your cartoon series and its characters
         </p>
       </div>
