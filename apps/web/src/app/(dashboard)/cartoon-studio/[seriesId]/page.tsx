@@ -78,6 +78,18 @@ export default async function SeriesDetailPage({
         </div>
       </div>
 
+      {/* Banner */}
+      {series.bannerUrl && (
+        <div className="w-full aspect-[16/5] rounded-xl overflow-hidden mb-6 relative">
+          <img src={series.bannerUrl} alt={series.name} className="w-full h-full object-cover" />
+          {series.logoUrl && (
+            <div className="absolute bottom-4 left-4">
+              <img src={series.logoUrl} alt="" className="h-16 w-16 rounded-xl border-2 border-white/20 object-cover shadow-lg" />
+            </div>
+          )}
+        </div>
+      )}
+
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* LEFT — Series Details */}
         <div className="space-y-6">

@@ -47,6 +47,8 @@ export async function generateCartoonStory(opts: {
   seriesDescription?: string | null;
   targetAudience?: string | null;
   artStyle?: string | null;
+  bannerUrl?: string | null;
+  logoUrl?: string | null;
   characters: CartoonCharacterInfo[];
   episodePrompt: string;
   language: string;
@@ -122,6 +124,8 @@ async function generateWithAnthropic(opts: {
   seriesDescription?: string | null;
   targetAudience?: string | null;
   artStyle?: string | null;
+  bannerUrl?: string | null;
+  logoUrl?: string | null;
   characters: CartoonCharacterInfo[];
   episodePrompt: string;
   language: string;
@@ -143,6 +147,7 @@ Series: "${opts.seriesName}"
 ${opts.seriesDescription ? `Series Description: ${opts.seriesDescription}` : ''}
 ${opts.targetAudience ? `Target Audience: ${opts.targetAudience}` : ''}
 ${opts.artStyle ? `Art Style: ${opts.artStyle}` : ''}
+${opts.bannerUrl ? `Series Visual Theme: The series has an established visual banner representing its atmosphere and setting.` : ''}
 
 Characters:
 ${characterList}
@@ -223,6 +228,8 @@ async function generateWithGemini(opts: {
   seriesDescription?: string | null;
   targetAudience?: string | null;
   artStyle?: string | null;
+  bannerUrl?: string | null;
+  logoUrl?: string | null;
   characters: CartoonCharacterInfo[];
   episodePrompt: string;
   language: string;
@@ -244,6 +251,7 @@ Series: "${opts.seriesName}"
 ${opts.seriesDescription ? `Series Description: ${opts.seriesDescription}` : ''}
 ${opts.targetAudience ? `Target Audience: ${opts.targetAudience}` : ''}
 ${opts.artStyle ? `Art Style: ${opts.artStyle}` : ''}
+${opts.bannerUrl ? `Series Visual Theme: The series has an established visual banner representing its atmosphere and setting.` : ''}
 
 Characters:
 ${characterList}

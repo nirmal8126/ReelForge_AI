@@ -98,6 +98,7 @@ function buildSystemPrompt(
     description: string | null
     targetAudience: string | null
     artStyle: string | null
+    bannerUrl: string | null
     language: string
     characters: { name: string; description: string | null; personality: string | null }[]
     episodes: { title: string; synopsis: string | null; prompt: string }[]
@@ -123,6 +124,7 @@ Series: "${series.name}"
 ${series.description ? `Description: ${series.description}` : ''}
 ${series.targetAudience ? `Target Audience: ${series.targetAudience}` : ''}
 ${series.artStyle ? `Art Style: ${series.artStyle}` : ''}
+${series.bannerUrl ? `Series Visual Theme: The series has an established visual banner representing its atmosphere and setting.` : ''}
 Language: ${languageName}
 
 Characters:

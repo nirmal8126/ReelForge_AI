@@ -113,6 +113,8 @@ export async function processCartoonEpisode(
         seriesDescription: series.description,
         targetAudience: series.targetAudience,
         artStyle: series.artStyle,
+        bannerUrl: series.bannerUrl,
+        logoUrl: series.logoUrl,
         characters: series.characters.map((c) => ({
           name: c.name,
           description: c.description,

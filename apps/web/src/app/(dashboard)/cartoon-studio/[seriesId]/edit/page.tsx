@@ -14,6 +14,10 @@ import {
   ChevronDown,
   ChevronUp,
   Check,
+  Upload,
+  Sparkles,
+  ImageIcon,
+  X,
 } from 'lucide-react'
 import { SUPPORTED_LANGUAGES } from '@/lib/constants'
 import { SearchableSelect } from '@/components/ui/searchable-select'
@@ -36,6 +40,8 @@ interface Series {
   narratorVoiceId: string | null
   language: string
   aspectRatio: string
+  bannerUrl: string | null
+  logoUrl: string | null
   characters: Character[]
 }
 
@@ -87,6 +93,14 @@ export default function EditSeriesPage() {
   const [language, setLanguage] = useState('hi')
   const [narratorVoiceId, setNarratorVoiceId] = useState('')
 
+  // Banner & logo
+  const [bannerUrl, setBannerUrl] = useState('')
+  const [logoUrl, setLogoUrl] = useState('')
+  const [uploadingBanner, setUploadingBanner] = useState(false)
+  const [uploadingLogo, setUploadingLogo] = useState(false)
+  const [generatingBanner, setGeneratingBanner] = useState(false)
+  const [generatingLogo, setGeneratingLogo] = useState(false)
+
   // Character editing state
   const [expandedCharId, setExpandedCharId] = useState<string | null>(null)
   const [editingChar, setEditingChar] = useState<Record<string, { name: string; description: string; personality: string; voiceId: string; color: string }>>({})
@@ -109,10 +123,88 @@ export default function EditSeriesPage() {
           setArtStyle(data.series.artStyle || '')
           setLanguage(data.series.language || 'hi')
           setNarratorVoiceId(data.series.narratorVoiceId || '')
+          setBannerUrl(data.series.bannerUrl || '')
+          setLogoUrl(data.series.logoUrl || '')
         }
       })
       .finally(() => setLoading(false))
   }, [seriesId])
+
+  async function handleImageUpload(imageType: 'banner' | 'logo', file: File) {
+    const setter = imageType === 'banner' ? setBannerUrl : setLogoUrl
+    const setUploading = imageType === 'banner' ? setUploadingBanner : setUploadingLogo
+
+    setUploading(true)
+    try {
+      const formData = new FormData()
+      formData.append('image', file)
+      formData.append('type', imageType)
+
+      const res = await fetch(`/api/cartoon-studio/series/${seriesId}/upload-image`, {
+        method: 'POST',
+        body: formData,
+      })
+
+      if (!res.ok) {
+        const data = await res.json()
+        toast.error(data.error || `Failed to upload ${imageType}`)
+        return
+      }
+
+      const data = await res.json()
+      setter(data.url)
+      toast.success(`${imageType === 'banner' ? 'Banner' : 'Logo'} uploaded`)
+    } catch {
+      toast.error(`Failed to upload ${imageType}`)
+    } finally {
+      setUploading(false)
+    }
+  }
+
+  async function handleGenerateImage(imageType: 'banner' | 'logo') {
+    const setter = imageType === 'banner' ? setBannerUrl : setLogoUrl
+    const setGenerating = imageType === 'banner' ? setGeneratingBanner : setGeneratingLogo
+
+    setGenerating(true)
+    try {
+      const res = await fetch(`/api/cartoon-studio/series/${seriesId}/generate-image`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ type: imageType }),
+      })
+
+      if (!res.ok) {
+        const data = await res.json()
+        toast.error(data.error || `Failed to generate ${imageType}`)
+        return
+      }
+
+      const data = await res.json()
+      setter(data.url)
+      toast.success(`${imageType === 'banner' ? 'Banner' : 'Logo'} generated with AI`)
+    } catch {
+      toast.error(`Failed to generate ${imageType}`)
+    } finally {
+      setGenerating(false)
+    }
+  }
+
+  async function handleRemoveImage(imageType: 'banner' | 'logo') {
+    const setter = imageType === 'banner' ? setBannerUrl : setLogoUrl
+    try {
+      const res = await fetch(`/api/cartoon-studio/series/${seriesId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ [imageType === 'banner' ? 'bannerUrl' : 'logoUrl']: null }),
+      })
+      if (res.ok) {
+        setter('')
+        toast.success(`${imageType === 'banner' ? 'Banner' : 'Logo'} removed`)
+      }
+    } catch {
+      toast.error(`Failed to remove ${imageType}`)
+    }
+  }
 
   async function handleSave() {
     if (!name.trim()) {
@@ -296,6 +388,105 @@ export default function EditSeriesPage() {
         </Link>
         <h1 className="text-2xl font-bold text-white tracking-tight">Edit Series</h1>
         <p className="text-sm text-gray-500 mt-1">Update series details and manage characters</p>
+      </div>
+
+      {/* Visual Identity */}
+      <div className="rounded-xl border border-white/10 bg-white/5 p-5 mb-6">
+        <h2 className="text-lg font-semibold text-white mb-5">Visual Identity</h2>
+        <div className="grid grid-cols-1 lg:grid-cols-[1fr_auto] gap-6">
+          {/* Banner */}
+          <div>
+            <label className="text-sm font-medium text-gray-300 mb-2 block">Banner Image</label>
+            {bannerUrl ? (
+              <div className="relative rounded-lg overflow-hidden border border-white/10">
+                <img src={bannerUrl} alt="Series banner" className="w-full aspect-video object-cover" />
+                <button
+                  onClick={() => handleRemoveImage('banner')}
+                  className="absolute top-2 right-2 h-7 w-7 rounded-full bg-black/60 flex items-center justify-center text-gray-300 hover:text-white hover:bg-black/80 transition"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+            ) : (
+              <div className="rounded-lg border-2 border-dashed border-white/10 bg-white/[0.02] p-8 flex flex-col items-center justify-center text-center aspect-video">
+                <ImageIcon className="h-8 w-8 text-gray-600 mb-2" />
+                <p className="text-sm text-gray-500">No banner image set</p>
+                <p className="text-xs text-gray-600 mt-1">Upload your own or generate with AI</p>
+              </div>
+            )}
+            <div className="flex items-center gap-2 mt-3">
+              <label className={`inline-flex items-center gap-1.5 rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-xs font-medium text-gray-400 hover:bg-white/10 hover:text-white transition cursor-pointer ${uploadingBanner ? 'opacity-50 pointer-events-none' : ''}`}>
+                {uploadingBanner ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Upload className="h-3.5 w-3.5" />}
+                Upload
+                <input
+                  type="file"
+                  accept="image/png,image/jpeg,image/webp"
+                  className="hidden"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0]
+                    if (file) handleImageUpload('banner', file)
+                    e.target.value = ''
+                  }}
+                  disabled={uploadingBanner}
+                />
+              </label>
+              <button
+                onClick={() => handleGenerateImage('banner')}
+                disabled={generatingBanner}
+                className="inline-flex items-center gap-1.5 rounded-lg border border-brand-500/30 bg-brand-500/10 px-3 py-2 text-xs font-medium text-brand-400 hover:bg-brand-500/20 transition disabled:opacity-50"
+              >
+                {generatingBanner ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
+                Generate with AI
+              </button>
+            </div>
+          </div>
+
+          {/* Logo */}
+          <div className="w-full lg:w-48">
+            <label className="text-sm font-medium text-gray-300 mb-2 block">Logo</label>
+            {logoUrl ? (
+              <div className="relative rounded-lg overflow-hidden border border-white/10 aspect-square">
+                <img src={logoUrl} alt="Series logo" className="w-full h-full object-cover" />
+                <button
+                  onClick={() => handleRemoveImage('logo')}
+                  className="absolute top-2 right-2 h-7 w-7 rounded-full bg-black/60 flex items-center justify-center text-gray-300 hover:text-white hover:bg-black/80 transition"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+            ) : (
+              <div className="rounded-lg border-2 border-dashed border-white/10 bg-white/[0.02] p-6 flex flex-col items-center justify-center text-center aspect-square">
+                <ImageIcon className="h-6 w-6 text-gray-600 mb-1" />
+                <p className="text-xs text-gray-500">No logo</p>
+              </div>
+            )}
+            <div className="flex items-center gap-2 mt-3">
+              <label className={`inline-flex items-center gap-1.5 rounded-lg border border-white/10 bg-white/5 px-2.5 py-2 text-xs font-medium text-gray-400 hover:bg-white/10 hover:text-white transition cursor-pointer ${uploadingLogo ? 'opacity-50 pointer-events-none' : ''}`}>
+                {uploadingLogo ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Upload className="h-3.5 w-3.5" />}
+                Upload
+                <input
+                  type="file"
+                  accept="image/png,image/jpeg,image/webp"
+                  className="hidden"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0]
+                    if (file) handleImageUpload('logo', file)
+                    e.target.value = ''
+                  }}
+                  disabled={uploadingLogo}
+                />
+              </label>
+              <button
+                onClick={() => handleGenerateImage('logo')}
+                disabled={generatingLogo}
+                className="inline-flex items-center gap-1.5 rounded-lg border border-brand-500/30 bg-brand-500/10 px-2.5 py-2 text-xs font-medium text-brand-400 hover:bg-brand-500/20 transition disabled:opacity-50"
+              >
+                {generatingLogo ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
+                AI
+              </button>
+            </div>
+          </div>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">

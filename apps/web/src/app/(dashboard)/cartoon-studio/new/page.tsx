@@ -262,6 +262,12 @@ export default function NewSeriesPage() {
                 searchPlaceholder="Search voices..."
               />
             </div>
+
+            <div className="rounded-lg border border-white/10 bg-white/[0.03] p-3 mt-1">
+              <p className="text-xs text-gray-500">
+                You can add a <span className="text-gray-400">banner image</span> and <span className="text-gray-400">logo</span> after creating the series from the Edit page. Upload your own or generate with AI.
+              </p>
+            </div>
           </div>
         </div>
 

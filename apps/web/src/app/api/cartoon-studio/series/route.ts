@@ -11,6 +11,8 @@ const createSeriesSchema = z.object({
   narratorVoiceId: z.string().max(100).optional(),
   language: z.string().regex(/^[a-z]{2}$/).default('hi'),
   aspectRatio: z.enum(['16:9', '9:16', '1:1']).default('16:9'),
+  bannerUrl: z.string().max(500).optional(),
+  logoUrl: z.string().max(500).optional(),
   characters: z.array(z.object({
     name: z.string().min(1).max(100),
     description: z.string().max(2000).optional(),
@@ -55,6 +57,8 @@ export async function POST(req: NextRequest) {
         narratorVoiceId: data.narratorVoiceId,
         language: data.language,
         aspectRatio: data.aspectRatio,
+        bannerUrl: data.bannerUrl,
+        logoUrl: data.logoUrl,
         characters: data.characters?.length ? {
           create: data.characters.map((c) => ({
             name: c.name,

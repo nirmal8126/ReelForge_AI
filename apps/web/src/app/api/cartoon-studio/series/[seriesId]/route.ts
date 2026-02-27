@@ -11,6 +11,8 @@ const updateSeriesSchema = z.object({
   narratorVoiceId: z.string().max(100).optional(),
   language: z.string().regex(/^[a-z]{2}$/).optional(),
   aspectRatio: z.enum(['16:9', '9:16', '1:1']).optional(),
+  bannerUrl: z.string().max(500).optional().nullable(),
+  logoUrl: z.string().max(500).optional().nullable(),
 })
 
 // GET /api/cartoon-studio/series/[seriesId]
