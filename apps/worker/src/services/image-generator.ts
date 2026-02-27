@@ -289,6 +289,12 @@ export interface SceneKeyword {
  * Use Gemini text model to convert a voiceover script (in any language)
  * into short English search keywords optimized for Pexels stock video search.
  *
+ * Approach:
+ *  1. Split the script into N scene chunks (by sentences)
+ *  2. Label each chunk explicitly in the prompt so Gemini matches each part
+ *  3. Validate and sanitize keywords
+ *  4. Fall back to generic keywords for any scene that fails
+ *
  * Example input (Hindi script about energy tips):
  *   → [{ keyword: "tired person desk", duration: 5 },
  *      { keyword: "drinking water glass", duration: 5 },
@@ -301,45 +307,47 @@ export async function convertScriptToSearchKeywords(
 ): Promise<SceneKeyword[]> {
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) {
+    log.warn('GEMINI_API_KEY not set, using fallback keywords');
     return buildFallbackKeywords(script, sceneCount, totalDurationSeconds);
   }
 
   const model = process.env.GEMINI_MODEL || 'gemini-2.5-flash';
   const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+  const perScene = Math.ceil(totalDurationSeconds / sceneCount);
 
-  const systemPrompt = `You are a stock footage search specialist for Pexels.com. Convert the voiceover script below into exactly ${sceneCount} search keywords. These keywords will be typed into Pexels video search to find matching clips.
+  // Step 1: Split script into scene chunks so Gemini knows which part = which scene
+  const sceneChunks = splitScriptIntoScenes(script, sceneCount);
+  log.info({ sceneCount, chunks: sceneChunks.map(c => c.substring(0, 60)) }, 'Script split into scene chunks');
 
-CRITICAL RULES:
-- Output EXACTLY ${sceneCount} lines, format: keyword | duration_seconds
-- Keywords must be 2-3 SIMPLE English words describing a VISUAL SCENE that a camera can film
-- Think "what would a videographer film?" — real people, places, objects, actions
-- Each keyword should DIRECTLY MATCH what the voiceover is talking about in that part of the script
-- The script may be in Hindi or another language — translate the VISUAL MEANING to English
+  // Step 2: Build prompt with explicit scene labels
+  const labeledScenes = sceneChunks.map((chunk, i) =>
+    `SCENE ${i + 1} (${perScene} seconds):\n${chunk}`
+  ).join('\n\n');
 
-GOOD keywords (real scenes cameras can film):
-"woman drinking water", "person running park", "office desk laptop", "cooking kitchen",
-"doctor patient", "happy family dinner", "sunrise mountains", "busy city traffic",
-"child playing", "gym workout", "fresh vegetables", "sleeping person bed"
+  const systemPrompt = `You are a stock footage search specialist. For each labeled SCENE below, output ONE search keyword that can find a matching stock video clip on Pexels.com.
 
-BAD keywords (abstract concepts with no stock footage):
-"motivation", "success", "energy boost", "health tips", "confidence", "mindset",
-"productivity hack", "life balance", "self improvement", "growth"
+RULES:
+- Output EXACTLY ${sceneCount} lines
+- Format per line: keyword | duration_seconds
+- Each keyword = 2-3 SIMPLE English words describing something a CAMERA CAN FILM
+- The keyword must visually represent what is being said in that scene
+- The script may be in Hindi or other languages — translate the VISUAL MEANING to English
 
-- Durations must add up to approximately ${totalDurationSeconds} seconds
-- Each scene: minimum 3 seconds, maximum 10 seconds
+GOOD keywords (filmable scenes):
+woman drinking water, person running park, office desk laptop, cooking kitchen,
+doctor patient, happy family dinner, sunrise mountains, busy city traffic,
+child playing, gym workout, fresh vegetables, sleeping person bed,
+woman stretching, man reading book, friends laughing, typing keyboard
 
-Example for a 30-second script about morning routine:
-woman waking up | 6
-person drinking coffee | 6
-morning exercise | 6
-healthy breakfast | 6
-person leaving home | 6
+BAD keywords (abstract/unfindable):
+motivation, success, energy boost, health tips, confidence, mindset,
+productivity, life balance, self improvement, growth, wellness journey
 
-Output ONLY the lines. No numbering, no bullets, no markdown, no extra text.`;
+Output ONLY the ${sceneCount} lines. No numbering, bullets, markdown, or extra text.`;
 
-  const userMessage = `Convert this voiceover script into ${sceneCount} stock footage search keywords:\n\n${script}`;
+  const userMessage = `For each scene below, give me ONE stock video search keyword:\n\n${labeledScenes}`;
 
-  log.info({ model, sceneCount, totalDurationSeconds }, 'Converting script to Pexels search keywords');
+  log.info({ model, sceneCount, totalDurationSeconds, scriptLength: script.length }, 'Converting script to search keywords via Gemini');
 
   try {
     const response = await fetch(url, {
@@ -355,13 +363,15 @@ Output ONLY the lines. No numbering, no bullets, no markdown, no extra text.`;
           parts: [{ text: systemPrompt }],
         },
         generationConfig: {
-          temperature: 0.5,
+          temperature: 0.3,
           maxOutputTokens: 512,
         },
       }),
     });
 
     if (!response.ok) {
+      const errBody = await response.text().catch(() => '');
+      log.error({ status: response.status, body: errBody.substring(0, 200) }, 'Gemini keyword API failed');
       throw new Error(`Gemini API returned ${response.status}`);
     }
 
@@ -374,41 +384,156 @@ Output ONLY the lines. No numbering, no bullets, no markdown, no extra text.`;
 
     log.info({ rawGeminiResponse: text }, 'Gemini keyword response received');
 
-    // Parse "keyword | duration" lines
-    const lines = text
-      .split('\n')
-      .map((line: string) => line.trim())
-      .filter((line: string) => line.length > 3 && line.includes('|'));
+    // Step 3: Parse and validate keywords
+    const scenes = parseAndValidateKeywords(text, sceneCount, perScene);
 
-    if (lines.length === 0) {
-      log.warn({ text }, 'Gemini returned no parseable lines (expected "keyword | duration")');
-      throw new Error('No valid keyword lines in Gemini response');
-    }
-
-    const perScene = Math.ceil(totalDurationSeconds / sceneCount);
-    const scenes: SceneKeyword[] = lines.slice(0, sceneCount).map((line: string) => {
-      const [kw, dur] = line.split('|').map((s: string) => s.trim());
-      return {
-        keyword: kw.substring(0, 50).replace(/^\d+[\.\)]\s*/, '').replace(/['"]/g, ''), // strip numbering and quotes
-        durationSeconds: Math.max(3, Math.min(10, parseInt(dur) || perScene)),
-      };
-    });
-
-    log.info({ parsedScenes: scenes.length, scenes }, 'Search keywords parsed from Gemini');
-
-    // Ensure we have exactly sceneCount keywords
-    while (scenes.length < sceneCount) {
-      scenes.push({
-        keyword: scenes[scenes.length - 1]?.keyword || 'nature landscape',
-        durationSeconds: perScene,
-      });
-    }
-
+    log.info({ scenes }, 'Final validated search keywords');
     return scenes;
   } catch (err) {
     log.warn({ err: err instanceof Error ? err.message : err }, 'Keyword conversion failed, using fallbacks');
     return buildFallbackKeywords(script, sceneCount, totalDurationSeconds);
   }
+}
+
+// ---------------------------------------------------------------------------
+// Script Scene Splitter
+// ---------------------------------------------------------------------------
+
+/**
+ * Split a script into N roughly equal scene chunks.
+ * Splits by sentence boundaries (periods, question marks, newlines)
+ * then groups sentences into N chunks.
+ */
+function splitScriptIntoScenes(script: string, sceneCount: number): string[] {
+  // Split by sentence-ending punctuation or newlines (works for any language)
+  const sentences = script
+    .split(/(?<=[।.?!?\n])\s*/)
+    .map(s => s.trim())
+    .filter(s => s.length > 0);
+
+  if (sentences.length <= sceneCount) {
+    // Fewer sentences than scenes — pad with empty to reach sceneCount
+    const chunks = [...sentences];
+    while (chunks.length < sceneCount) {
+      chunks.push(sentences[sentences.length - 1] || script.substring(0, 100));
+    }
+    return chunks;
+  }
+
+  // Group sentences into N roughly equal chunks
+  const chunks: string[] = [];
+  const perChunk = Math.ceil(sentences.length / sceneCount);
+
+  for (let i = 0; i < sceneCount; i++) {
+    const start = i * perChunk;
+    const end = Math.min(start + perChunk, sentences.length);
+    chunks.push(sentences.slice(start, end).join(' '));
+  }
+
+  return chunks;
+}
+
+// ---------------------------------------------------------------------------
+// Keyword Parser & Validator
+// ---------------------------------------------------------------------------
+
+/**
+ * Parse Gemini response into SceneKeyword[] with validation.
+ * Strips markdown, validates keywords are English, replaces bad keywords.
+ */
+function parseAndValidateKeywords(text: string, sceneCount: number, perSceneDuration: number): SceneKeyword[] {
+  // Strip common markdown artifacts
+  const cleaned = text
+    .replace(/\*\*/g, '')     // bold
+    .replace(/\*/g, '')       // italic
+    .replace(/`/g, '')        // backticks
+    .replace(/^#+\s*/gm, '') // headings
+    .replace(/^[-•]\s*/gm, ''); // bullets
+
+  // Parse "keyword | duration" lines
+  const lines = cleaned
+    .split('\n')
+    .map(line => line.trim())
+    .filter(line => line.length > 3);
+
+  const scenes: SceneKeyword[] = [];
+
+  for (const line of lines) {
+    if (scenes.length >= sceneCount) break;
+
+    let keyword: string;
+    let duration: number;
+
+    if (line.includes('|')) {
+      const [kw, dur] = line.split('|').map(s => s.trim());
+      keyword = sanitizeKeyword(kw);
+      duration = Math.max(3, Math.min(10, parseInt(dur) || perSceneDuration));
+    } else {
+      // Line without | separator — treat whole line as keyword
+      keyword = sanitizeKeyword(line);
+      duration = perSceneDuration;
+    }
+
+    if (keyword.length >= 3 && isValidStockKeyword(keyword)) {
+      scenes.push({ keyword, durationSeconds: duration });
+    } else {
+      log.debug({ rejected: keyword, original: line }, 'Keyword rejected by validation');
+    }
+  }
+
+  // Fill any missing scenes with generic keywords
+  const genericPool = [
+    'person talking', 'city skyline', 'nature landscape', 'office work',
+    'people walking', 'sunrise timelapse', 'cooking food', 'workout fitness',
+    'happy people', 'technology computer', 'busy street', 'ocean waves',
+  ];
+
+  while (scenes.length < sceneCount) {
+    const fallback = genericPool[scenes.length % genericPool.length];
+    log.warn({ index: scenes.length, fallback }, 'Using generic fallback for missing scene keyword');
+    scenes.push({ keyword: fallback, durationSeconds: perSceneDuration });
+  }
+
+  return scenes;
+}
+
+/**
+ * Clean up a raw keyword string from Gemini output.
+ */
+function sanitizeKeyword(raw: string): string {
+  return raw
+    .replace(/^\d+[\.\)\-:]\s*/, '')  // strip numbering (1. 2) 3- 4:)
+    .replace(/['""`]/g, '')            // strip quotes
+    .replace(/\*+/g, '')              // strip markdown bold/italic
+    .replace(/[^\x20-\x7E]/g, '')     // strip non-ASCII (keeps English only)
+    .replace(/\s+/g, ' ')             // collapse whitespace
+    .trim()
+    .toLowerCase()
+    .substring(0, 50);
+}
+
+/**
+ * Check if a keyword is likely to return stock footage results.
+ * Rejects abstract concepts, single characters, etc.
+ */
+function isValidStockKeyword(keyword: string): boolean {
+  // Must have at least 2 words for better search results
+  const wordCount = keyword.split(' ').filter(w => w.length >= 2).length;
+  if (wordCount < 1) return false;
+
+  // Reject known abstract concepts that never have stock footage
+  const abstractTerms = [
+    'motivation', 'success', 'confidence', 'mindset', 'productivity',
+    'self improvement', 'growth', 'wellness', 'energy boost', 'life balance',
+    'health tips', 'positivity', 'abundance', 'manifestation', 'affirmation',
+  ];
+  if (abstractTerms.some(term => keyword.includes(term))) return false;
+
+  // Must be primarily English letters (at least 70% of characters)
+  const letterCount = (keyword.match(/[a-z]/g) || []).length;
+  if (letterCount / keyword.length < 0.7) return false;
+
+  return true;
 }
 
 /**
