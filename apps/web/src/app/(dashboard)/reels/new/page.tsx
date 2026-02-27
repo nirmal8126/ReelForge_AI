@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
+import Link from 'next/link'
 import {
   Sparkles, Mic, Clock, Monitor, Send,
   ArrowLeft, ArrowRight, Check, Loader2, Film, Wand2,
@@ -234,6 +235,12 @@ export default function CreateReelPage() {
   return (
     <div className="mx-auto" style={{ maxWidth: step === 1 ? '100%' : '56rem' }}>
       <div className="mb-8 pb-6 border-b border-white/[0.06]">
+        <Link
+          href="/reels"
+          className="inline-flex items-center gap-1.5 text-sm text-gray-400 hover:text-white transition mb-3"
+        >
+          <ArrowLeft className="h-4 w-4" /> Back to Reels
+        </Link>
         <h1 className="text-3xl font-bold text-white tracking-tight">Create New Reel</h1>
         <p className="text-sm text-gray-500 mt-2">AI-powered reel generation in 5 steps</p>
       </div>
