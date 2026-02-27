@@ -15,6 +15,8 @@ import {
 } from 'lucide-react'
 import { getJobStatusLabel } from '@/lib/utils'
 import { Pagination } from '@/components/pagination'
+import { AdminUserBadge } from '@/components/admin-user-badge'
+import { AdminDeleteButton } from '@/components/admin-delete-button'
 
 interface GameplayPageProps {
   searchParams: { status?: string; page?: string }
@@ -63,6 +65,7 @@ export default async function GameplayPage({ searchParams }: GameplayPageProps) 
       orderBy: { createdAt: 'desc' },
       skip: (page - 1) * limit,
       take: limit,
+      include: { user: isAdmin ? { select: { id: true, name: true, email: true } } : false },
     }),
     prisma.gameplayJob.count({ where }),
   ])
@@ -295,6 +298,17 @@ export default async function GameplayPage({ searchParams }: GameplayPageProps) 
                   </div>
                   {job.gameTitle && (
                     <p className="text-xs text-gray-400 mt-1.5 truncate">{job.gameTitle}</p>
+                  )}
+                  {isAdmin && job.user && (
+                    <AdminUserBadge
+                      name={job.user.name || ''}
+                      email={job.user.email || ''}
+                    />
+                  )}
+                  {isAdmin && (
+                    <div className="mt-2">
+                      <AdminDeleteButton jobType="gameplay" jobId={job.id} />
+                    </div>
                   )}
                 </div>
               </Link>

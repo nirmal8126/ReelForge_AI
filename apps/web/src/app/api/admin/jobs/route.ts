@@ -26,7 +26,7 @@ async function requireAdmin() {
 // ---------------------------------------------------------------------------
 
 const deleteJobSchema = z.object({
-  jobType: z.enum(['reel', 'quote', 'challenge', 'longForm', 'cartoonSeries', 'imageStudio']),
+  jobType: z.enum(['reel', 'quote', 'challenge', 'longForm', 'cartoonSeries', 'imageStudio', 'gameplay']),
   jobId: z.string().min(1),
 })
 
@@ -57,6 +57,9 @@ export async function DELETE(req: NextRequest) {
       break
     case 'imageStudio':
       await prisma.imageStudioJob.delete({ where: { id: data.jobId } })
+      break
+    case 'gameplay':
+      await prisma.gameplayJob.delete({ where: { id: data.jobId } })
       break
   }
 

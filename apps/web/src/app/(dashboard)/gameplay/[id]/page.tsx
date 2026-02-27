@@ -18,10 +18,13 @@ import {
   Gauge,
   Music,
   Film,
+  Upload,
+  FileText,
 } from 'lucide-react'
 import { PublishDialog } from '@/components/publish/publish-dialog'
 import { getJobStatusLabel, getJobStatusColor } from '@/lib/utils'
 import { DeleteGameplayButton } from './delete-button'
+import { RetryButton } from './retry-button'
 import { AutoRefresh } from './auto-refresh'
 import { CopyHashtags } from '@/components/copy-hashtags'
 
@@ -80,6 +83,33 @@ export default async function GameplayDetailPage({ params }: GameplayDetailPageP
     return colors[difficulty] || '#6366F1'
   }
 
+  // Pipeline stages
+  const stages = [
+    { key: 'QUEUED', label: 'Queued', icon: Clock },
+    { key: 'CONFIG_GENERATING', label: 'Config Generation', icon: FileText },
+    { key: 'RENDERING', label: 'Rendering Frames', icon: Film },
+    { key: 'ENCODING', label: 'Encoding Video', icon: Monitor },
+    { key: 'UPLOADING', label: 'Uploading', icon: Upload },
+    { key: 'COMPLETED', label: 'Completed', icon: CheckCircle2 },
+  ]
+
+  const stageOrder = stages.map((s) => s.key)
+  const currentIndex = stageOrder.indexOf(job.status)
+
+  function getStageStatus(stageKey: string) {
+    if (isFailed) {
+      const failedIndex = stageOrder.indexOf(stageKey)
+      if (failedIndex < currentIndex) return 'completed'
+      if (failedIndex === currentIndex) return 'failed'
+      return 'pending'
+    }
+    if (isCompleted) return 'completed'
+    const stageIndex = stageOrder.indexOf(stageKey)
+    if (stageIndex < currentIndex) return 'completed'
+    if (stageIndex === currentIndex) return 'active'
+    return 'pending'
+  }
+
   return (
     <div>
       <AutoRefresh enabled={isProcessing} intervalMs={3000} />
@@ -132,6 +162,7 @@ export default async function GameplayDetailPage({ params }: GameplayDetailPageP
         </div>
 
         <div className="flex items-center gap-3 ml-4">
+          {isFailed && <RetryButton jobId={job.id} />}
           <DeleteGameplayButton jobId={job.id} isProcessing={isProcessing} />
         </div>
       </div>
@@ -180,6 +211,9 @@ export default async function GameplayDetailPage({ params }: GameplayDetailPageP
                         {job.errorMessage}
                       </p>
                     )}
+                    <div className="mt-4">
+                      <RetryButton jobId={job.id} />
+                    </div>
                   </>
                 ) : (
                   <>
@@ -223,8 +257,86 @@ export default async function GameplayDetailPage({ params }: GameplayDetailPageP
           {job.hashtags && <CopyHashtags hashtags={job.hashtags} />}
         </div>
 
-        {/* Sidebar — Details */}
+        {/* Sidebar */}
         <div className="space-y-6">
+          {/* Generation Pipeline */}
+          <div className="rounded-xl border border-white/10 bg-white/5 p-6">
+            <h2 className="text-lg font-semibold text-white mb-6">Generation Pipeline</h2>
+            <div className="space-y-0">
+              {stages.map((stage, idx) => {
+                const status = getStageStatus(stage.key)
+                const Icon = stage.icon
+                const isLast = idx === stages.length - 1
+
+                return (
+                  <div key={stage.key} className="relative flex gap-3">
+                    {/* Connector line */}
+                    {!isLast && (
+                      <div
+                        className={`absolute left-[15px] top-[30px] w-0.5 h-[calc(100%-6px)] ${
+                          status === 'completed'
+                            ? 'bg-green-500'
+                            : status === 'active'
+                            ? 'bg-brand-500'
+                            : status === 'failed'
+                            ? 'bg-red-500'
+                            : 'bg-white/10'
+                        }`}
+                      />
+                    )}
+
+                    {/* Icon */}
+                    <div
+                      className={`relative z-10 flex h-8 w-8 items-center justify-center rounded-full flex-shrink-0 ${
+                        status === 'completed'
+                          ? 'bg-green-500/20 text-green-400'
+                          : status === 'active'
+                          ? 'bg-brand-500/20 text-brand-400'
+                          : status === 'failed'
+                          ? 'bg-red-500/20 text-red-400'
+                          : 'bg-white/5 text-gray-600'
+                      }`}
+                    >
+                      {status === 'completed' ? (
+                        <CheckCircle2 className="h-4 w-4" />
+                      ) : status === 'failed' ? (
+                        <XCircle className="h-4 w-4" />
+                      ) : status === 'active' ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <Icon className="h-4 w-4" />
+                      )}
+                    </div>
+
+                    {/* Label */}
+                    <div className="pb-6">
+                      <p
+                        className={`text-sm font-medium ${
+                          status === 'completed'
+                            ? 'text-green-400'
+                            : status === 'active'
+                            ? 'text-brand-400'
+                            : status === 'failed'
+                            ? 'text-red-400'
+                            : 'text-gray-600'
+                        }`}
+                      >
+                        {stage.label}
+                      </p>
+                      {status === 'active' && (
+                        <p className="text-xs text-gray-500 mt-0.5">In progress...</p>
+                      )}
+                      {status === 'failed' && (
+                        <p className="text-xs text-red-400/70 mt-0.5">Error occurred</p>
+                      )}
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+
+          {/* Details */}
           <div className="rounded-xl border border-white/10 bg-white/5 p-6">
             <h2 className="text-lg font-semibold text-white mb-4">Details</h2>
             <dl className="space-y-4">
