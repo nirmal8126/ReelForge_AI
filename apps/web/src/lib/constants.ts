@@ -57,6 +57,22 @@ export const CREDIT_PACKAGES = [
 export const REEL_DURATIONS = [5, 10, 15, 30, 60] as const
 export const ASPECT_RATIOS = ['9:16', '1:1', '16:9'] as const
 
+export const VIDEO_STYLES = [
+  { id: 'cinematic', name: 'Cinematic', color: '#1E293B', desc: 'Movie-like visuals' },
+  { id: 'minimal', name: 'Minimal', color: '#F8FAFC', desc: 'Clean & simple' },
+  { id: 'energetic', name: 'Energetic', color: '#EF4444', desc: 'High energy vibes' },
+  { id: 'dark', name: 'Dark Mode', color: '#0F172A', desc: 'Sleek dark aesthetic' },
+  { id: 'neon', name: 'Neon', color: '#A855F7', desc: 'Glowing neon effects' },
+  { id: 'warm', name: 'Warm', color: '#F59E0B', desc: 'Warm golden tones' },
+  { id: 'corporate', name: 'Corporate', color: '#3B82F6', desc: 'Professional look' },
+  { id: 'documentary', name: 'Documentary', color: '#0F766E', desc: 'Educational style' },
+  { id: 'retro', name: 'Retro', color: '#D97706', desc: 'Vintage vibes' },
+  { id: 'nature', name: 'Nature', color: '#22C55E', desc: 'Earthy organic feel' },
+  { id: 'urban', name: 'Urban', color: '#64748B', desc: 'City streetwear' },
+  { id: 'luxury', name: 'Luxury', color: '#A16207', desc: 'Premium gold & black' },
+  { id: 'playful', name: 'Playful', color: '#EC4899', desc: 'Fun & colorful' },
+] as const
+
 export const SUPPORTED_LANGUAGES = [
   { code: 'hi', name: 'Hindi', flag: '🇮🇳' },
   { code: 'en', name: 'English', flag: '🇺🇸' },

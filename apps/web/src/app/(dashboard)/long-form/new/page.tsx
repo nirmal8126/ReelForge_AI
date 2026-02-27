@@ -3,12 +3,12 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import {
-  Sparkles, Mic, Send, ArrowLeft, ArrowRight, Loader2, Youtube, Zap,
+  Sparkles, Mic, Send, ArrowLeft, ArrowRight, Loader2, Zap, Check,
   LayoutList, GripVertical, Trash2, Plus, Pencil, ChevronDown, ChevronUp,
   Clock, Eye, Wand2,
 } from 'lucide-react'
 import toast from 'react-hot-toast'
-import { SUPPORTED_LANGUAGES, NICHE_PRESETS } from '@/lib/constants'
+import { SUPPORTED_LANGUAGES, NICHE_PRESETS, VIDEO_STYLES, LANGUAGE_VOICE_MAP } from '@/lib/constants'
 
 const NICHE_ORDER = ['motivation', 'tech', 'finance', 'fitness', 'education', 'business', 'health', 'cooking', 'gaming', 'travel', 'beauty', 'comedy'] as const
 const NICHES = NICHE_ORDER.map(id => ({
@@ -17,20 +17,15 @@ const NICHES = NICHE_ORDER.map(id => ({
   color: NICHE_PRESETS[id].primaryColor,
 }))
 
-const STYLES = [
-  { id: 'cinematic', name: 'Cinematic', color: '#1E293B', desc: 'Movie-like visuals' },
-  { id: 'documentary', name: 'Documentary', color: '#0F766E', desc: 'Educational style' },
-  { id: 'energetic', name: 'Energetic', color: '#EF4444', desc: 'High energy vibes' },
-  { id: 'corporate', name: 'Corporate', color: '#3B82F6', desc: 'Professional look' },
-  { id: 'minimal', name: 'Minimal', color: '#F8FAFC', desc: 'Clean & simple' },
-  { id: 'dark', name: 'Dark Mode', color: '#0F172A', desc: 'Sleek dark aesthetic' },
-]
-
 const VOICES = [
   { id: 'EXAVITQu4vr4xnSDxMaL', name: 'Sarah - Professional Female' },
   { id: 'TX3LPaxmHKxFdv7VOQHJ', name: 'Liam - Professional Male' },
   { id: 'XB0fDUnXU5powFXDhCwa', name: 'Charlotte - Energetic Female' },
   { id: 'pqHfZKP75CvOlQylNhV4', name: 'Bill - Energetic Male' },
+  { id: 'Xb7hH8MSUJpSbSDYk0k2', name: 'Alice - Calm Female' },
+  { id: 'CwhRBWXzGAHq8TQ4Fs17', name: 'Roger - Calm Male' },
+  { id: 'jBpfuIE2acCO8z3wKNLl', name: 'Emily - Casual Female' },
+  { id: 'bIHbv24MWmeRgasZH58o', name: 'Will - Casual Male' },
 ]
 
 const DURATIONS = [
@@ -39,13 +34,6 @@ const DURATIONS = [
   { value: 15, label: '15 min', desc: 'Detailed guide' },
   { value: 20, label: '20 min', desc: 'Deep dive' },
   { value: 30, label: '30 min', desc: 'Documentary' },
-]
-
-const AI_CLIP_RATIOS = [
-  { value: 0.1, label: '10% AI', desc: 'Budget-friendly', cost: '~$1.20' },
-  { value: 0.3, label: '30% AI', desc: 'Balanced (Recommended)', cost: '~$2.80' },
-  { value: 0.5, label: '50% AI', desc: 'High quality', cost: '~$4.40' },
-  { value: 1.0, label: '100% AI', desc: 'Premium', cost: '~$8.40' },
 ]
 
 const ASPECTS = [
@@ -732,34 +720,6 @@ export default function CreateLongFormPage() {
       {step === 3 && (
         <div className="space-y-6">
           <div>
-            <label className="block text-sm font-medium text-gray-300 mb-3">
-              AI Clip Ratio
-              <span className="text-xs text-gray-500 ml-2">Higher = better quality, higher cost</span>
-            </label>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-              {AI_CLIP_RATIOS.map(ratio => (
-                <button
-                  key={ratio.value}
-                  onClick={() => setForm({ ...form, aiClipRatio: ratio.value })}
-                  className={`rounded-lg border p-4 text-left transition ${
-                    form.aiClipRatio === ratio.value
-                      ? 'border-brand-500 bg-brand-500/10'
-                      : 'border-white/10 bg-white/5 hover:border-white/20'
-                  }`}
-                >
-                  <div className="flex items-center justify-between mb-1">
-                    <span className={`font-semibold ${form.aiClipRatio === ratio.value ? 'text-brand-400' : 'text-white'}`}>
-                      {ratio.label}
-                    </span>
-                    <span className="text-xs text-gray-500">{ratio.cost}</span>
-                  </div>
-                  <div className="text-xs text-gray-400">{ratio.desc}</div>
-                </button>
-              ))}
-            </div>
-          </div>
-
-          <div>
             <label className="block text-sm font-medium text-gray-300 mb-3">Aspect Ratio</label>
             <div className="grid grid-cols-3 gap-3">
               {ASPECTS.map(aspect => (
@@ -780,46 +740,24 @@ export default function CreateLongFormPage() {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-300 mb-3">Visual Style</label>
-            <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-              {STYLES.map(style => (
+            <label className="block text-sm font-medium text-gray-300 mb-4">Visual Style</label>
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+              {VIDEO_STYLES.map((style) => (
                 <button
                   key={style.id}
                   onClick={() => setForm({ ...form, style: style.id })}
-                  className={`rounded-lg border p-4 text-left transition ${
+                  className={`rounded-xl border p-4 text-left transition ${
                     form.style === style.id
-                      ? 'border-brand-500 bg-brand-500/10'
-                      : 'border-white/10 bg-white/5 hover:border-white/20'
+                      ? 'border-brand-500 bg-brand-500/10 ring-1 ring-brand-500'
+                      : 'border-white/10 bg-white/5 hover:bg-white/10'
                   }`}
                 >
-                  <div className={`font-semibold mb-1 ${form.style === style.id ? 'text-brand-400' : 'text-white'}`}>
-                    {style.name}
-                  </div>
-                  <div className="text-xs text-gray-400">{style.desc}</div>
+                  <div className="h-8 w-8 rounded-lg mb-3" style={{ backgroundColor: style.color }} />
+                  <p className="text-sm font-medium text-white">{style.name}</p>
+                  <p className="text-xs text-gray-400">{style.desc}</p>
                 </button>
               ))}
             </div>
-          </div>
-
-          <div className="flex items-center gap-4">
-            <label className="flex items-center gap-2 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={form.useStockFootage}
-                onChange={e => setForm({ ...form, useStockFootage: e.target.checked })}
-                className="w-4 h-4 rounded border-white/10 bg-white/5 text-brand-600 focus:ring-brand-500/20"
-              />
-              <span className="text-sm text-gray-300">Use stock footage (free)</span>
-            </label>
-            <label className="flex items-center gap-2 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={form.useStaticVisuals}
-                onChange={e => setForm({ ...form, useStaticVisuals: e.target.checked })}
-                className="w-4 h-4 rounded border-white/10 bg-white/5 text-brand-600 focus:ring-brand-500/20"
-              />
-              <span className="text-sm text-gray-300">Use static visuals</span>
-            </label>
           </div>
 
           <div className="flex items-center justify-between">
@@ -839,41 +777,62 @@ export default function CreateLongFormPage() {
       {step === 4 && (
         <div className="space-y-6">
           <div>
-            <label className="block text-sm font-medium text-gray-300 mb-3">Voice</label>
-            <select
-              value={form.voiceId}
-              onChange={e => setForm({ ...form, voiceId: e.target.value })}
-              className="w-full rounded-lg border border-white/10 bg-white/5 px-4 py-2.5 text-white focus:border-brand-500 focus:ring focus:ring-brand-500/20 transition"
-            >
-              {VOICES.map(voice => (
-                <option key={voice.id} value={voice.id}>{voice.name}</option>
-              ))}
-            </select>
-          </div>
+            <label className="block text-sm font-medium text-gray-300 mb-4">AI Voice</label>
+            {(() => {
+              const availableVoices = LANGUAGE_VOICE_MAP[form.language] || []
+              const filteredVoices = VOICES.filter(v => availableVoices.includes(v.id))
 
-          <div>
-            <label className="block text-sm font-medium text-gray-300 mb-3">Language</label>
-            <select
-              value={form.language}
-              onChange={e => setForm({ ...form, language: e.target.value })}
-              className="w-full rounded-lg border border-white/10 bg-white/5 px-4 py-2.5 text-white focus:border-brand-500 focus:ring focus:ring-brand-500/20 transition"
-            >
-              {SUPPORTED_LANGUAGES.map(lang => (
-                <option key={lang.code} value={lang.code}>{lang.name}</option>
-              ))}
-            </select>
-          </div>
+              if (filteredVoices.length === 0) {
+                return (
+                  <>
+                    <div className="rounded-lg bg-yellow-500/10 border border-yellow-500/20 p-4 mb-4">
+                      <p className="text-sm text-yellow-400">
+                        Voices for {SUPPORTED_LANGUAGES.find(l => l.code === form.language)?.name} coming soon!
+                        Using English voices as temporary fallback.
+                      </p>
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      {VOICES.map((voice) => (
+                        <button
+                          key={voice.id}
+                          onClick={() => setForm({ ...form, voiceId: voice.id })}
+                          className={`flex items-center gap-3 rounded-lg border p-4 text-left transition ${
+                            form.voiceId === voice.id
+                              ? 'border-brand-500 bg-brand-500/10'
+                              : 'border-white/10 bg-white/5 hover:bg-white/10'
+                          }`}
+                        >
+                          <Mic className={`h-5 w-5 flex-shrink-0 ${form.voiceId === voice.id ? 'text-brand-400' : 'text-gray-500'}`} />
+                          <span className="text-sm text-white">{voice.name}</span>
+                          {form.voiceId === voice.id && <Check className="h-4 w-4 text-brand-400 ml-auto" />}
+                        </button>
+                      ))}
+                    </div>
+                  </>
+                )
+              }
 
-          <label className="flex items-center gap-2 cursor-pointer">
-            <input
-              type="checkbox"
-              checked={form.publishToYouTube}
-              onChange={e => setForm({ ...form, publishToYouTube: e.target.checked })}
-              className="w-4 h-4 rounded border-white/10 bg-white/5 text-brand-600 focus:ring-brand-500/20"
-            />
-            <Youtube className="h-4 w-4 text-red-500" />
-            <span className="text-sm text-gray-300">Auto-publish to YouTube when complete</span>
-          </label>
+              return (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  {filteredVoices.map((voice) => (
+                    <button
+                      key={voice.id}
+                      onClick={() => setForm({ ...form, voiceId: voice.id })}
+                      className={`flex items-center gap-3 rounded-lg border p-4 text-left transition ${
+                        form.voiceId === voice.id
+                          ? 'border-brand-500 bg-brand-500/10'
+                          : 'border-white/10 bg-white/5 hover:bg-white/10'
+                      }`}
+                    >
+                      <Mic className={`h-5 w-5 flex-shrink-0 ${form.voiceId === voice.id ? 'text-brand-400' : 'text-gray-500'}`} />
+                      <span className="text-sm text-white">{voice.name}</span>
+                      {form.voiceId === voice.id && <Check className="h-4 w-4 text-brand-400 ml-auto" />}
+                    </button>
+                  ))}
+                </div>
+              )
+            })()}
+          </div>
 
           <div className="flex items-center justify-between">
             <button onClick={() => setStep(3)} className="inline-flex items-center gap-2 text-gray-400 hover:text-white transition">

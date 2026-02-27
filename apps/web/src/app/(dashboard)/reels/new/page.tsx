@@ -9,7 +9,7 @@ import {
   FileText, Ratio,
 } from 'lucide-react'
 import toast from 'react-hot-toast'
-import { SUPPORTED_LANGUAGES, LANGUAGE_VOICE_MAP, NICHE_PRESETS } from '@/lib/constants'
+import { SUPPORTED_LANGUAGES, LANGUAGE_VOICE_MAP, NICHE_PRESETS, VIDEO_STYLES } from '@/lib/constants'
 
 const NICHE_ORDER = ['motivation', 'tech', 'finance', 'fitness', 'education', 'business', 'health', 'cooking', 'gaming', 'travel', 'beauty', 'comedy'] as const
 const NICHES = NICHE_ORDER.map(id => ({
@@ -17,21 +17,6 @@ const NICHES = NICHE_ORDER.map(id => ({
   name: NICHE_PRESETS[id].name,
   color: NICHE_PRESETS[id].primaryColor,
 }))
-
-const STYLES = [
-  { id: 'cinematic', name: 'Cinematic', color: '#1E293B', desc: 'Movie-like visuals' },
-  { id: 'minimal', name: 'Minimal', color: '#F8FAFC', desc: 'Clean & simple' },
-  { id: 'energetic', name: 'Energetic', color: '#EF4444', desc: 'High energy vibes' },
-  { id: 'dark', name: 'Dark Mode', color: '#0F172A', desc: 'Sleek dark aesthetic' },
-  { id: 'neon', name: 'Neon', color: '#A855F7', desc: 'Glowing neon effects' },
-  { id: 'warm', name: 'Warm', color: '#F59E0B', desc: 'Warm golden tones' },
-  { id: 'corporate', name: 'Corporate', color: '#3B82F6', desc: 'Professional look' },
-  { id: 'retro', name: 'Retro', color: '#D97706', desc: 'Vintage vibes' },
-  { id: 'nature', name: 'Nature', color: '#22C55E', desc: 'Earthy organic feel' },
-  { id: 'urban', name: 'Urban', color: '#64748B', desc: 'City streetwear' },
-  { id: 'luxury', name: 'Luxury', color: '#A16207', desc: 'Premium gold & black' },
-  { id: 'playful', name: 'Playful', color: '#EC4899', desc: 'Fun & colorful' },
-]
 
 const VOICES = [
   { id: 'EXAVITQu4vr4xnSDxMaL', name: 'Sarah - Professional Female' },
@@ -498,7 +483,7 @@ export default function CreateReelPage() {
           <div>
             <label className="block text-sm font-medium text-gray-300 mb-4">Visual Style</label>
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
-              {STYLES.map((style) => (
+              {VIDEO_STYLES.map((style) => (
                 <button
                   key={style.id}
                   onClick={() => setForm({ ...form, style: style.id })}
