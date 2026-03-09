@@ -40,6 +40,7 @@ model User {
   channelProfiles    ChannelProfile[]
   youtubeConnection  YouTubeConnection?
   autopilotSchedules AutopilotSchedule[]
+  autopilotLogs      AutopilotLog[]
   contentCalendar    ContentCalendar[]
   referralsMade      Referral[]          @relation("ReferrerReferrals")
   referralsReceived  Referral[]          @relation("ReferredReferrals")
@@ -454,43 +455,65 @@ model YouTubeConnection {
 
 // Autopilot scheduling
 model AutopilotSchedule {
-  id               String @id @default(cuid())
-  userId           String @map("user_id")
-  channelProfileId String @map("channel_profile_id")
+  id               String  @id @default(cuid())
+  userId           String  @map("user_id")
+  channelProfileId String? @map("channel_profile_id")
 
   name     String  @db.VarChar(150)
   isActive Boolean @default(true) @map("is_active")
+
+  // Module type — which kind of job to create
+  moduleType AutopilotModuleType @default(LONG_FORM) @map("module_type")
 
   // Schedule settings
   frequency      AutopilotFrequency @default(WEEKLY)
   cronExpression String?            @map("cron_expression") @db.VarChar(100)
   timezone       String             @default("UTC") @db.VarChar(50)
+  scheduledTime  String             @default("09:00") @map("scheduled_time") @db.VarChar(5) // HH:mm
 
   // Content generation
   useTrendingTopics  Boolean @default(false) @map("use_trending_topics")
-  trendingCategories Json?   @map("trending_categories") // Array of categories to monitor
-  customTopics       Json?   @map("custom_topics") // Predefined topic pool
+  trendingCategories Json?   @map("trending_categories")
+  customTopics       Json?   @map("custom_topics") // Predefined topic pool (rotates through)
+  topicIndex         Int     @default(0) @map("topic_index") // Current index in topic pool
 
-  // Video settings (template)
-  durationMinutes Int     @default(10) @map("duration_minutes")
+  // Common video settings (template)
+  durationSeconds Int     @default(30) @map("duration_seconds") // For reels/challenges/gameplay
+  durationMinutes Int     @default(10) @map("duration_minutes") // For long-form
+  aspectRatio     String  @default("9:16") @map("aspect_ratio") @db.VarChar(10)
   style           String? @db.VarChar(100)
   language        String  @default("hi") @db.VarChar(10)
   voiceId         String? @map("voice_id") @db.VarChar(100)
 
-  // YouTube auto-publish
-  autoPublish   Boolean @default(false) @map("auto_publish")
-  publishDelay  Int     @default(0) @map("publish_delay") // minutes after generation
-  privacyStatus String  @default("private") @db.VarChar(20)
+  // Module-specific settings (stored as JSON for flexibility)
+  moduleSettings Json? @map("module_settings")
+  // Reel: { }
+  // LongForm: { aiClipRatio, useStockFootage, useStaticVisuals }
+  // Challenge: { challengeType, category, difficulty, numQuestions, timerSeconds, templateStyle, voiceEnabled }
+  // Gameplay: { template, theme, difficulty, musicStyle, gameTitle, showScore, ctaText }
+  // Quote: { category, quoteLength }
+  // ImageStudio: { mode, transitionStyle, voiceEnabled }
+  // Cartoon: { seriesId, narratorVoiceId }
+
+  // Auto-publish settings
+  autoPublish     Boolean @default(false) @map("auto_publish")
+  publishDelay    Int     @default(0) @map("publish_delay") // minutes after generation
+  requireApproval Boolean @default(false) @map("require_approval")
+  publishTargets  Json?   @map("publish_targets")
+  // Array of: { socialAccountId, format? (shorts/reels/video/post) }
 
   // Stats
   totalGenerated Int       @default(0) @map("total_generated")
+  totalPublished Int       @default(0) @map("total_published")
+  totalFailed    Int       @default(0) @map("total_failed")
   lastRunAt      DateTime? @map("last_run_at")
   nextRunAt      DateTime? @map("next_run_at")
 
   user            User              @relation(fields: [userId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  channelProfile  ChannelProfile    @relation(fields: [channelProfileId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  channelProfile  ChannelProfile?   @relation(fields: [channelProfileId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   longFormJobs    LongFormJob[]
   calendarEntries ContentCalendar[]
+  logs            AutopilotLog[]
 
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
@@ -499,6 +522,46 @@ model AutopilotSchedule {
   @@index([channelProfileId])
   @@index([isActive, nextRunAt])
   @@map("autopilot_schedules")
+}
+
+// Autopilot execution log — tracks every run (generation + publish)
+model AutopilotLog {
+  id                  String @id @default(cuid())
+  autopilotScheduleId String @map("autopilot_schedule_id")
+  userId              String @map("user_id")
+
+  // Job reference (polymorphic)
+  moduleType AutopilotModuleType @map("module_type")
+  jobId      String              @map("job_id") @db.VarChar(100)
+
+  // Generation
+  status       AutopilotLogStatus @default(GENERATING)
+  topic        String?            @db.Text
+  errorMessage String?            @map("error_message") @db.Text
+
+  // Publishing
+  publishStatus  AutopilotPublishStatus @default(PENDING) @map("publish_status")
+  publishResults Json?                  @map("publish_results") // Array of per-platform results
+  publishedAt    DateTime?              @map("published_at")
+  scheduledPublishAt DateTime?          @map("scheduled_publish_at") // When to publish (after delay)
+
+  // Approval workflow
+  requiresApproval Boolean   @default(false) @map("requires_approval")
+  approvedAt       DateTime? @map("approved_at")
+  rejectedAt       DateTime? @map("rejected_at")
+  reviewNote       String?   @map("review_note") @db.Text
+
+  autopilotSchedule AutopilotSchedule @relation(fields: [autopilotScheduleId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  user              User              @relation(fields: [userId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([autopilotScheduleId])
+  @@index([userId])
+  @@index([publishStatus, scheduledPublishAt])
+  @@index([moduleType, jobId])
+  @@map("autopilot_logs")
 }
 
 // Content calendar for manual planning
@@ -846,6 +909,32 @@ enum AutopilotFrequency {
   BIWEEKLY
   MONTHLY
   CUSTOM
+}
+
+enum AutopilotModuleType {
+  REEL
+  LONG_FORM
+  QUOTE
+  CHALLENGE
+  GAMEPLAY
+  IMAGE_STUDIO
+  CARTOON
+}
+
+enum AutopilotLogStatus {
+  GENERATING
+  COMPLETED
+  FAILED
+}
+
+enum AutopilotPublishStatus {
+  PENDING         // Waiting for job to complete
+  AWAITING_APPROVAL // Job done, waiting for user approval
+  SCHEDULED       // Approved/auto, waiting for publish delay
+  PUBLISHING      // Currently uploading to platforms
+  PUBLISHED       // Successfully published
+  FAILED          // Publish failed
+  SKIPPED         // User rejected / skipped
 }
 
 enum CalendarEntryStatus {

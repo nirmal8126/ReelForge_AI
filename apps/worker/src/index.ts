@@ -14,6 +14,8 @@ import { processImageStudioJob } from './jobs/image-studio-processor';
 import { processSequenceEmails } from './jobs/sequence-processor';
 import { checkSequenceTriggers } from './jobs/sequence-trigger-checker';
 import { processBadgeChecker } from './jobs/badge-checker';
+import { processAutopilotScheduler } from './jobs/autopilot-scheduler';
+import { processAutopilotPublisher } from './jobs/autopilot-publisher';
 
 function loadEnvFiles() {
   const cwd = process.cwd();
@@ -411,6 +413,78 @@ badgeQueue.add('check-badges', {}, {
 }).catch((err: unknown) => logger.error({ err }, 'Failed to schedule badge checker'));
 
 // ---------------------------------------------------------------------------
+// Autopilot scheduler (every 5 minutes) — creates jobs from schedules
+// ---------------------------------------------------------------------------
+const autopilotSchedulerQueue = new Queue('autopilot-scheduler', { connection });
+const autopilotSchedulerWorker = new Worker(
+  'autopilot-scheduler',
+  async (job) => {
+    logger.info({ jobId: job.id }, 'Running autopilot scheduler');
+    return processAutopilotScheduler(job);
+  },
+  {
+    connection,
+    concurrency: 1,
+    removeOnComplete: { count: 100 },
+    removeOnFail: { count: 100 },
+  },
+);
+
+autopilotSchedulerWorker.on('completed', (job) => {
+  logger.info({ jobId: job.id }, 'Autopilot scheduler completed');
+});
+
+autopilotSchedulerWorker.on('failed', (job, err) => {
+  logger.error({ jobId: job?.id, err: err.message }, 'Autopilot scheduler failed');
+});
+
+autopilotSchedulerWorker.on('error', (err) => {
+  logger.error({ err }, 'Autopilot scheduler error');
+});
+
+// Run every 5 minutes
+autopilotSchedulerQueue.add('check-schedules', {}, {
+  repeat: { every: 5 * 60 * 1000 },
+  jobId: 'autopilot-scheduler-5min',
+}).catch((err: unknown) => logger.error({ err }, 'Failed to schedule autopilot scheduler'));
+
+// ---------------------------------------------------------------------------
+// Autopilot publisher (every 2 minutes) — publishes completed jobs to platforms
+// ---------------------------------------------------------------------------
+const autopilotPublisherQueue = new Queue('autopilot-publisher', { connection });
+const autopilotPublisherWorker = new Worker(
+  'autopilot-publisher',
+  async (job) => {
+    logger.info({ jobId: job.id }, 'Running autopilot publisher');
+    return processAutopilotPublisher(job);
+  },
+  {
+    connection,
+    concurrency: 1,
+    removeOnComplete: { count: 100 },
+    removeOnFail: { count: 100 },
+  },
+);
+
+autopilotPublisherWorker.on('completed', (job) => {
+  logger.info({ jobId: job.id }, 'Autopilot publisher completed');
+});
+
+autopilotPublisherWorker.on('failed', (job, err) => {
+  logger.error({ jobId: job?.id, err: err.message }, 'Autopilot publisher failed');
+});
+
+autopilotPublisherWorker.on('error', (err) => {
+  logger.error({ err }, 'Autopilot publisher error');
+});
+
+// Run every 2 minutes
+autopilotPublisherQueue.add('publish-jobs', {}, {
+  repeat: { every: 2 * 60 * 1000 },
+  jobId: 'autopilot-publisher-2min',
+}).catch((err: unknown) => logger.error({ err }, 'Failed to schedule autopilot publisher'));
+
+// ---------------------------------------------------------------------------
 // Graceful shutdown
 // ---------------------------------------------------------------------------
 const shutdown = async (signal: string) => {
@@ -428,6 +502,8 @@ const shutdown = async (signal: string) => {
     sequenceWorker.close(),
     triggerWorker.close(),
     badgeWorker.close(),
+    autopilotSchedulerWorker.close(),
+    autopilotPublisherWorker.close(),
   ]);
 
   await connection.quit();
@@ -443,8 +519,8 @@ process.on('SIGINT', () => shutdown('SIGINT'));
 // ---------------------------------------------------------------------------
 logger.info(
   {
-    queues: ['reel-jobs', 'long-form-jobs', 'cartoon-episode-jobs', 'quote-jobs', 'challenge-jobs', 'gameplay-jobs', 'image-studio-jobs', 'email-notifications', 'sequence-processor', 'sequence-trigger-checker', 'badge-checker'],
-    concurrency: { reelJobs: 5, longFormJobs: 2, cartoonEpisodes: 2, quoteJobs: 5, challengeJobs: 5, gameplayJobs: 3, imageStudioJobs: 3, emailNotifications: 10, sequences: 1, triggers: 1, badges: 1 },
+    queues: ['reel-jobs', 'long-form-jobs', 'cartoon-episode-jobs', 'quote-jobs', 'challenge-jobs', 'gameplay-jobs', 'image-studio-jobs', 'email-notifications', 'sequence-processor', 'sequence-trigger-checker', 'badge-checker', 'autopilot-scheduler', 'autopilot-publisher'],
+    concurrency: { reelJobs: 5, longFormJobs: 2, cartoonEpisodes: 2, quoteJobs: 5, challengeJobs: 5, gameplayJobs: 3, imageStudioJobs: 3, emailNotifications: 10, sequences: 1, triggers: 1, badges: 1, autopilotScheduler: 1, autopilotPublisher: 1 },
     redis: process.env.REDIS_URL ? '(configured)' : 'redis://localhost:6379',
   },
   'ReelForge worker service started',
