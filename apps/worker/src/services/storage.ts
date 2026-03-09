@@ -62,8 +62,10 @@ function uploadToLocalStorage(opts: UploadOptions): UploadResult {
 
   log.warn({ filePath, sizeBytes: buffer.length }, 'DEMO MODE: Saved to local filesystem (configure R2_ACCOUNT_ID for cloud storage)');
 
+  // Return API-proxied URL so the browser can load the file
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
   return {
-    url: `file://${filePath}`,
+    url: `${appUrl}/api/media/reels/${userId}/${reelJobId}.mp4`,
     thumbnailUrl: null,
   };
 }
@@ -149,7 +151,9 @@ export async function uploadSceneImage(opts: {
     const filePath = join(outputDir, `scene-${sceneIndex}.${ext}`);
     writeFileSync(filePath, buffer);
     log.warn({ filePath }, 'Scene image saved to local filesystem (no R2 config)');
-    return `file://${filePath}`;
+    // Return API-proxied URL so the browser can load the file
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
+    return `${appUrl}/api/media/scenes/${userId}/${episodeId}/scene-${sceneIndex}.${ext}`;
   }
 
   const bucket = process.env.R2_BUCKET_NAME || 'reelforge-media';

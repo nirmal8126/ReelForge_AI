@@ -9,6 +9,7 @@ import { uploadToStorage, uploadSceneImage } from '../services/storage';
 import { generateHashtags } from '../services/hashtag-generator';
 import fsPromises from 'fs/promises';
 import { existsSync, writeFileSync, readFileSync, mkdirSync } from 'fs';
+import { execSync } from 'child_process';
 import path from 'path';
 import os from 'os';
 
@@ -172,6 +173,12 @@ export async function processCartoonEpisode(
 
       const artStyle = series.artStyle || 'cartoon';
 
+      // Build character appearance context for image prompts
+      const characterContext = series.characters
+        .map((c) => `${c.name}: ${c.description || 'cartoon character'}`)
+        .join('. ');
+      const seriesContext = `${artStyle} style, series "${series.name}"${series.description ? ` — ${series.description}` : ''}. Characters: ${characterContext}`;
+
       for (let idx = 0; idx < pendingImageScenes.length; idx++) {
         const scene = pendingImageScenes[idx];
         const imagePath = path.join(imageDir, `scene-${scene.sceneIndex}.png`);
@@ -183,9 +190,12 @@ export async function processCartoonEpisode(
 
         let imageBuffer: Buffer;
         try {
-          // Use the scene's visualPrompt (already in English) for AI image generation
+          // Enrich prompt with series context so images match the series style & characters
+          const basePrompt = scene.visualPrompt || scene.description || 'cartoon scene';
+          const enrichedPrompt = `${basePrompt}. ${seriesContext}. High quality, consistent character design, vibrant colors.`;
+
           const [generated] = await generateSceneImages({
-            prompt: scene.visualPrompt || scene.description || 'cartoon scene',
+            prompt: enrichedPrompt,
             style: artStyle,
             count: 1,
             aspectRatio: job.data.aspectRatio,
@@ -200,10 +210,10 @@ export async function processCartoonEpisode(
             : job.data.aspectRatio === '1:1'
               ? { w: 1080, h: 1080 }
               : { w: 1920, h: 1080 };
-          const ppmPath = path.join(imageDir, `scene-${scene.sceneIndex}.ppm`);
-          generatePlaceholderPPM(ppmPath, res.w, res.h, scene.sceneIndex);
+          const placeholderPath = path.join(imageDir, `scene-${scene.sceneIndex}.png`);
+          generatePlaceholderPNG(placeholderPath, res.w, res.h, scene.sceneIndex);
           // For placeholder, store local path (used by composer) and mark done
-          imageBuffer = readFileSync(ppmPath);
+          imageBuffer = readFileSync(placeholderPath);
         }
 
         // Save locally for FFmpeg composer
@@ -269,12 +279,15 @@ export async function processCartoonEpisode(
       }
 
       const defaultVoiceId = series.narratorVoiceId || 'EXAVITQu4vr4xnSDxMaL'; // "Sarah" default
-      const audioSegments: Buffer[] = [];
+      const audioTmpDir = path.join(os.tmpdir(), `cartoon-audio-${episodeId}`);
+      mkdirSync(audioTmpDir, { recursive: true });
+      const audioPartFiles: string[] = [];
+      let audioPartIndex = 0;
       let currentTime = 0;
 
       for (let i = 0; i < scenes.length; i++) {
         const scene = scenes[i];
-        const sceneAudioParts: Buffer[] = [];
+        const scenePartFiles: string[] = [];
 
         // Generate narration audio
         if (scene.narration) {
@@ -283,7 +296,10 @@ export async function processCartoonEpisode(
             voiceId: defaultVoiceId,
             language: series.language,
           });
-          sceneAudioParts.push(narrationAudio);
+          const partPath = path.join(audioTmpDir, `part-${audioPartIndex++}.mp3`);
+          writeFileSync(partPath, narrationAudio);
+          scenePartFiles.push(partPath);
+          log.info({ sceneIndex: i, partSize: narrationAudio.length, type: 'narration' }, 'Audio part generated');
         }
 
         // Generate dialogue audio for each line
@@ -296,28 +312,42 @@ export async function processCartoonEpisode(
               voiceId,
               language: series.language,
             });
-            sceneAudioParts.push(lineAudio);
+            const partPath = path.join(audioTmpDir, `part-${audioPartIndex++}.mp3`);
+            writeFileSync(partPath, lineAudio);
+            scenePartFiles.push(partPath);
+            log.info({ sceneIndex: i, partSize: lineAudio.length, type: 'dialogue', character: line.characterName }, 'Audio part generated');
           }
         }
 
-        // Combine scene audio parts
-        if (sceneAudioParts.length > 0) {
-          const combined = Buffer.concat(sceneAudioParts);
-          audioSegments.push(combined);
+        // Track scene audio parts and estimate duration using FFmpeg probe
+        if (scenePartFiles.length > 0) {
+          audioPartFiles.push(...scenePartFiles);
 
-          // Estimate duration (rough: MP3 at ~16KB/sec for speech)
-          const estimatedDuration = Math.max(5, combined.length / 16000);
+          // Get actual duration of scene audio parts via ffprobe
+          let sceneDuration = 0;
+          for (const partFile of scenePartFiles) {
+            try {
+              const probeOutput = execSync(
+                `ffprobe -v error -show_entries format=duration -of csv=p=0 "${partFile}"`,
+                { timeout: 10_000, stdio: 'pipe', maxBuffer: 1024 * 1024 },
+              ).toString().trim();
+              sceneDuration += parseFloat(probeOutput) || 5;
+            } catch {
+              // Fallback: estimate from file size (~16KB/sec for speech MP3)
+              const fileSize = readFileSync(partFile).length;
+              sceneDuration += Math.max(3, fileSize / 16000);
+            }
+          }
 
-          // Update scene timing
           await prisma.cartoonScene.update({
             where: { id: scene.id },
             data: {
               startTime: currentTime,
-              endTime: currentTime + estimatedDuration,
+              endTime: currentTime + sceneDuration,
             },
           });
 
-          currentTime += estimatedDuration;
+          currentTime += sceneDuration;
         } else {
           // No audio for this scene — give it a default 5 second duration
           await prisma.cartoonScene.update({
@@ -331,11 +361,29 @@ export async function processCartoonEpisode(
         await setProgress(Math.min(progress, 69));
       }
 
-      // Concatenate all audio segments
-      audioBuffer = Buffer.concat(audioSegments);
+      // Concatenate all audio parts using FFmpeg (proper MP3 merging)
+      if (audioPartFiles.length > 0) {
+        const concatListPath = path.join(audioTmpDir, 'concat.txt');
+        const concatContent = audioPartFiles.map((f) => `file '${f}'`).join('\n');
+        writeFileSync(concatListPath, concatContent);
+
+        const mergedPath = path.join(audioTmpDir, 'merged.mp3');
+        execSync(
+          `ffmpeg -y -f concat -safe 0 -i "${concatListPath}" -c:a libmp3lame -b:a 128k "${mergedPath}"`,
+          { timeout: 120_000, stdio: 'pipe', maxBuffer: 50 * 1024 * 1024 },
+        );
+        audioBuffer = readFileSync(mergedPath);
+        log.info({ partCount: audioPartFiles.length, mergedSize: audioBuffer.length }, 'Audio parts merged via FFmpeg');
+      } else {
+        audioBuffer = Buffer.alloc(0);
+        log.warn('No audio parts generated for any scene');
+      }
 
       // Cache audio
       writeFileSync(audioCachePath, audioBuffer);
+
+      // Cleanup audio temp dir
+      try { require('fs').rmSync(audioTmpDir, { recursive: true, force: true }); } catch { /* ignore */ }
 
       // Update episode duration
       await prisma.cartoonEpisode.update({
@@ -471,34 +519,29 @@ function buildSubtitleLines(scene: any): { speaker: string; text: string; color?
   return lines;
 }
 
-function generatePlaceholderPPM(
+function generatePlaceholderPNG(
   outputPath: string,
   width: number,
   height: number,
   sceneIndex: number,
 ): void {
   const colors = [
-    [99, 102, 241],
-    [168, 85, 247],
-    [59, 130, 246],
-    [16, 185, 129],
-    [245, 158, 11],
-    [239, 68, 68],
-    [236, 72, 153],
-    [6, 182, 212],
+    '6366F1', 'A855F7', '3B82F6', '10B981',
+    'F59E0B', 'EF4444', 'EC4899', '06B6D4',
   ];
-  const [r, g, b] = colors[sceneIndex % colors.length];
+  const color = colors[sceneIndex % colors.length];
 
-  const header = `P6\n${width} ${height}\n255\n`;
-  const headerBuf = Buffer.from(header, 'ascii');
-  const pixelCount = width * height;
-  const pixelData = Buffer.alloc(pixelCount * 3);
-
-  for (let i = 0; i < pixelCount; i++) {
-    pixelData[i * 3] = r;
-    pixelData[i * 3 + 1] = g;
-    pixelData[i * 3 + 2] = b;
+  try {
+    const { execSync } = require('child_process');
+    execSync(
+      `ffmpeg -y -f lavfi -i "color=c=0x${color}:s=${width}x${height}:d=1" -frames:v 1 "${outputPath}"`,
+      { timeout: 10_000, stdio: 'pipe', maxBuffer: 10 * 1024 * 1024 },
+    );
+  } catch {
+    // Fallback: tiny 1x1 PPM
+    const r = parseInt(color.substring(0, 2), 16);
+    const g = parseInt(color.substring(2, 4), 16);
+    const b = parseInt(color.substring(4, 6), 16);
+    writeFileSync(outputPath, Buffer.concat([Buffer.from(`P6\n1 1\n255\n`, 'ascii'), Buffer.from([r, g, b])]));
   }
-
-  writeFileSync(outputPath, Buffer.concat([headerBuf, pixelData]));
 }

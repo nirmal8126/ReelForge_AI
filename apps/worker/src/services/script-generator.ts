@@ -101,6 +101,43 @@ Output the raw script text only. Do not include labels like "Hook:", "Body:", "C
 }
 
 // ---------------------------------------------------------------------------
+// Post-processing: Ensure complete script
+// ---------------------------------------------------------------------------
+
+/**
+ * Ensure the script ends with a complete sentence.
+ * If it appears truncated (ends without punctuation), trim to the last
+ * complete sentence.
+ */
+function ensureCompleteScript(script: string): string {
+  const trimmed = script.trim();
+  if (!trimmed) return trimmed;
+
+  // Check if it ends with proper sentence-ending punctuation (including Hindi।)
+  const lastChar = trimmed[trimmed.length - 1];
+  if (/[.!?।।)"\u0964]/.test(lastChar)) {
+    return trimmed;
+  }
+
+  // Script appears truncated — find the last complete sentence
+  // Match sentence-ending punctuation followed by a space or end of string
+  const sentenceEnds = [...trimmed.matchAll(/[.!?।\u0964]["']?\s/g)];
+  if (sentenceEnds.length > 0) {
+    const lastEnd = sentenceEnds[sentenceEnds.length - 1];
+    const cutoff = lastEnd.index! + lastEnd[0].trimEnd().length;
+    const truncated = trimmed.substring(0, cutoff);
+    log.warn(
+      { originalLength: trimmed.length, truncatedLength: truncated.length },
+      'Script appeared truncated, trimmed to last complete sentence',
+    );
+    return truncated;
+  }
+
+  // No sentence boundary found — return as-is with period
+  return trimmed + '।';
+}
+
+// ---------------------------------------------------------------------------
 // Primary: Anthropic Claude
 // ---------------------------------------------------------------------------
 
@@ -110,7 +147,7 @@ async function generateWithClaude(opts: ScriptGenerationOptions): Promise<string
 
   const response = await client.messages.create({
     model: 'claude-sonnet-4-5-20250929',
-    max_tokens: 2048,
+    max_tokens: 4096,
     system: buildSystemPrompt(opts),
     messages: [
       {
@@ -137,7 +174,7 @@ async function generateWithOpenAI(opts: ScriptGenerationOptions): Promise<string
 
   const response = await client.chat.completions.create({
     model: 'gpt-4',
-    max_tokens: 1024,
+    max_tokens: 4096,
     temperature: 0.8,
     messages: [
       { role: 'system', content: buildSystemPrompt(opts) },
@@ -184,7 +221,7 @@ async function generateWithGemini(opts: ScriptGenerationOptions): Promise<string
         },
         generationConfig: {
           temperature: 0.8,
-          maxOutputTokens: 2048,
+          maxOutputTokens: 4096,
         },
       }),
     },
@@ -311,7 +348,11 @@ export async function generateScript(opts: ScriptGenerationOptions): Promise<str
 
   for (const attempt of attempts) {
     try {
-      const script = await attempt.run();
+      let script = await attempt.run();
+
+      // Ensure script ends with a complete sentence
+      script = ensureCompleteScript(script);
+
       log.info({ provider: attempt.name, wordCount: script.split(/\s+/).length }, 'Script generated');
       return script;
     } catch (err) {

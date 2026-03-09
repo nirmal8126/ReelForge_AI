@@ -117,7 +117,7 @@ function generateSilentAudio(script: string): Buffer {
   try {
     execSync(
       `ffmpeg -y -f lavfi -i anullsrc=r=44100:cl=mono -t ${durationSeconds} -q:a 9 "${tmpFile}"`,
-      { timeout: 30_000, stdio: 'pipe' }
+      { timeout: 30_000, stdio: 'pipe', maxBuffer: 10 * 1024 * 1024 }
     );
 
     const buffer = fs.readFileSync(tmpFile);

@@ -42,13 +42,28 @@ export async function composeReel(opts: ComposeOptions): Promise<Buffer> {
     // -------------------------------------------------------------------
     // Write input files to temp directory
     // -------------------------------------------------------------------
-    log.info({ tmpDir }, 'Writing temp files for composition');
+    log.info(
+      { tmpDir, videoSize: videoBuffer.length, audioSize: audioBuffer.length },
+      'Writing temp files for composition',
+    );
 
     await Promise.all([
       fs.promises.writeFile(videoPath, videoBuffer),
       fs.promises.writeFile(audioPath, audioBuffer),
       fs.promises.writeFile(subtitlePath, generateSRT(script)),
     ]);
+
+    // Verify audio file is valid MP3 via ffprobe
+    try {
+      const { execSync } = require('child_process');
+      const probeOut = execSync(
+        `ffprobe -v error -show_entries format=duration,format_name -of json "${audioPath}"`,
+        { timeout: 10_000, stdio: 'pipe' },
+      ).toString();
+      log.info({ audioProbe: JSON.parse(probeOut).format }, 'Audio file probe');
+    } catch (probeErr: any) {
+      log.warn({ err: probeErr.message }, 'Audio probe failed — file may be invalid');
+    }
 
     // -------------------------------------------------------------------
     // Build FFmpeg filter for caption styling

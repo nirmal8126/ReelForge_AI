@@ -62,6 +62,19 @@ const STAGE_ORDER = [
   'COMPLETED',
 ]
 
+/** Convert file:// URLs to proxied /api/media/ URLs */
+function toServableUrl(url: string | null): string | null {
+  if (!url) return null
+  if (url.startsWith('file:///tmp/reelforge-reels/')) {
+    return '/api/media/reels/' + url.replace('file:///tmp/reelforge-reels/', '')
+  }
+  if (url.startsWith('file:///tmp/reelforge-scenes/')) {
+    return '/api/media/scenes/' + url.replace('file:///tmp/reelforge-scenes/', '')
+  }
+  if (url.startsWith('file://')) return null // unsupported local path
+  return url
+}
+
 const STAGE_LABELS: Record<string, string> = {
   QUEUED: 'Queued',
   STORY_GENERATING: 'Writing Story',
@@ -198,9 +211,9 @@ export default function EpisodeDetailPage() {
                     <div className="flex items-start gap-4">
                       {/* Scene image thumbnail */}
                       <div className="w-28 h-20 rounded-lg bg-white/5 flex-shrink-0 overflow-hidden flex items-center justify-center">
-                        {scene.imageUrl ? (
+                        {toServableUrl(scene.imageUrl) ? (
                           // eslint-disable-next-line @next/next/no-img-element
-                          <img src={scene.imageUrl} alt="" className="w-full h-full object-cover" />
+                          <img src={toServableUrl(scene.imageUrl)!} alt="" className="w-full h-full object-cover" />
                         ) : (
                           <ImageIcon className="h-5 w-5 text-gray-600" />
                         )}
@@ -286,11 +299,11 @@ export default function EpisodeDetailPage() {
         {/* RIGHT — Pipeline + Preview */}
         <div className="space-y-6">
           {/* Video Preview */}
-          {episode.status === 'COMPLETED' && episode.outputUrl && (
+          {episode.status === 'COMPLETED' && toServableUrl(episode.outputUrl) && (
             <div className="space-y-3">
               <div className="rounded-xl border border-white/10 bg-black overflow-hidden">
                 <video
-                  src={episode.outputUrl}
+                  src={toServableUrl(episode.outputUrl)!}
                   controls
                   className="w-full"
                   playsInline
@@ -299,7 +312,7 @@ export default function EpisodeDetailPage() {
               <PublishDialog
                 jobType="cartoon"
                 jobId={episodeId}
-                videoUrl={episode.outputUrl}
+                videoUrl={toServableUrl(episode.outputUrl)!}
                 defaultTitle={`${episode.series.name} - Ep. ${episode.episodeNumber}: ${episode.title}`}
               />
             </div>

@@ -57,6 +57,19 @@ export async function composeCartoonEpisode(opts: ComposeCartoonOptions): Promis
     const audioPath = path.join(tmpDir, 'audio.mp3');
     fs.writeFileSync(audioPath, audioBuffer);
 
+    log.info({ audioSize: audioBuffer.length }, 'Audio buffer written to temp file');
+
+    // Verify audio file is valid via ffprobe
+    try {
+      const probeOut = execSync(
+        `ffprobe -v error -show_entries format=duration,format_name -of json "${audioPath}"`,
+        { timeout: 10_000, stdio: 'pipe', maxBuffer: 1024 * 1024 },
+      ).toString();
+      log.info({ audioProbe: JSON.parse(probeOut).format }, 'Cartoon audio probe');
+    } catch (probeErr: any) {
+      log.warn({ err: probeErr.message }, 'Cartoon audio probe failed — file may be invalid');
+    }
+
     const sceneVideos: string[] = [];
 
     // Stage 1: Generate video for each scene (Ken Burns on image)
@@ -74,7 +87,7 @@ export async function composeCartoonEpisode(opts: ComposeCartoonOptions): Promis
     const concatenated = path.join(tmpDir, 'concatenated.mp4');
     execSync(
       `ffmpeg -y -f concat -safe 0 -i "${concatList}" -c copy "${concatenated}"`,
-      { timeout: 120_000, stdio: 'pipe' }
+      { timeout: 180_000, stdio: 'pipe', maxBuffer: 50 * 1024 * 1024 }
     );
 
     // Stage 3: Overlay audio
@@ -83,7 +96,7 @@ export async function composeCartoonEpisode(opts: ComposeCartoonOptions): Promis
       `ffmpeg -y -i "${concatenated}" -i "${audioPath}" ` +
       `-map 0:v -map 1:a -c:v copy -c:a aac -b:a 128k ` +
       `-shortest -movflags +faststart "${output}"`,
-      { timeout: 120_000, stdio: 'pipe' }
+      { timeout: 180_000, stdio: 'pipe', maxBuffer: 50 * 1024 * 1024 }
     );
 
     const buffer = fs.readFileSync(output);
@@ -117,7 +130,7 @@ async function generateSceneVideo(
   if (imageUrl.startsWith('http://') || imageUrl.startsWith('https://')) {
     // Download remote image
     imagePath = path.join(tmpDir, `img-${sceneIndex}.png`);
-    execSync(`curl -sL -o "${imagePath}" "${imageUrl}"`, { timeout: 30_000, stdio: 'pipe' });
+    execSync(`curl -sL -o "${imagePath}" "${imageUrl}"`, { timeout: 30_000, stdio: 'pipe', maxBuffer: 10 * 1024 * 1024 });
   } else if (imageUrl.startsWith('file://')) {
     imagePath = imageUrl.replace('file://', '');
   } else {
@@ -126,7 +139,7 @@ async function generateSceneVideo(
 
   // Check if image exists — generate placeholder if not
   if (!fs.existsSync(imagePath)) {
-    imagePath = path.join(tmpDir, `placeholder-${sceneIndex}.ppm`);
+    imagePath = path.join(tmpDir, `placeholder-${sceneIndex}.png`);
     generatePlaceholderImage(imagePath, res, sceneIndex);
   }
 
@@ -161,7 +174,7 @@ async function generateSceneVideo(
     `-vf "${zoompanFilter}" ` +
     `-t ${duration} -c:v libx264 -preset fast -pix_fmt yuv420p ` +
     `-r ${fps} "${outputPath}"`,
-    { timeout: 60_000, stdio: 'pipe' }
+    { timeout: 120_000, stdio: 'pipe', maxBuffer: 50 * 1024 * 1024 }
   );
 
   log.debug({ sceneIndex, duration, effect }, 'Scene video generated');
@@ -176,30 +189,24 @@ function generatePlaceholderImage(
   res: { width: number; height: number },
   sceneIndex: number,
 ): void {
-  // Generate a PPM image with a gradient-like color based on scene index
   const colors = [
-    [99, 102, 241],   // Indigo
-    [168, 85, 247],   // Purple
-    [59, 130, 246],   // Blue
-    [16, 185, 129],   // Green
-    [245, 158, 11],   // Amber
-    [239, 68, 68],    // Red
-    [236, 72, 153],   // Pink
-    [6, 182, 212],    // Cyan
+    '6366F1', 'A855F7', '3B82F6', '10B981',
+    'F59E0B', 'EF4444', 'EC4899', '06B6D4',
   ];
-  const [r, g, b] = colors[sceneIndex % colors.length];
+  const color = colors[sceneIndex % colors.length];
 
-  // PPM P6 format
-  const header = `P6\n${res.width} ${res.height}\n255\n`;
-  const headerBuf = Buffer.from(header, 'ascii');
-  const pixelCount = res.width * res.height;
-  const pixelData = Buffer.alloc(pixelCount * 3);
-
-  for (let i = 0; i < pixelCount; i++) {
-    pixelData[i * 3] = r;
-    pixelData[i * 3 + 1] = g;
-    pixelData[i * 3 + 2] = b;
+  // Use FFmpeg to generate a small PNG placeholder (much lighter than raw PPM)
+  try {
+    execSync(
+      `ffmpeg -y -f lavfi -i "color=c=0x${color}:s=${res.width}x${res.height}:d=1" -frames:v 1 "${outputPath}"`,
+      { timeout: 10_000, stdio: 'pipe', maxBuffer: 10 * 1024 * 1024 },
+    );
+  } catch {
+    // Fallback: tiny 1x1 PPM that FFmpeg will scale
+    const header = `P6\n1 1\n255\n`;
+    const r = parseInt(color.substring(0, 2), 16);
+    const g = parseInt(color.substring(2, 4), 16);
+    const b = parseInt(color.substring(4, 6), 16);
+    fs.writeFileSync(outputPath, Buffer.concat([Buffer.from(header, 'ascii'), Buffer.from([r, g, b])]));
   }
-
-  fs.writeFileSync(outputPath, Buffer.concat([headerBuf, pixelData]));
 }
