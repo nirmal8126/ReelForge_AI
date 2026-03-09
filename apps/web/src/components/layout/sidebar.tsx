@@ -26,6 +26,7 @@ import {
   DollarSign,
   Share2,
   Zap,
+  Layers,
 } from 'lucide-react'
 import { DashboardBanners } from '@/components/banners/dashboard-banners'
 
@@ -41,6 +42,7 @@ const navSections = [
       { href: '/challenges', label: 'Challenges', icon: Gamepad2, moduleId: 'challenges' },
       { href: '/gameplay', label: '3D Gameplay', icon: Joystick, moduleId: 'gameplay' },
       { href: '/image-studio', label: 'Image Studio', icon: ImagePlus, moduleId: 'image_studio' },
+      { href: '/templates', label: 'Templates', icon: Layers, hideForAdmin: true },
       { href: '/automation', label: 'Automation', icon: Zap, hideForAdmin: true },
       { href: '/profiles', label: 'Channels', icon: Tv, hideForAdmin: true },
       { href: '/social-accounts', label: 'Social Accounts', icon: Share2, hideForAdmin: true },
@@ -144,6 +146,7 @@ export function Sidebar() {
                   { href: '/admin/pricing', label: 'Pricing Regions', icon: Globe },
                   { href: '/admin/financials', label: 'Financials', icon: DollarSign },
                   { href: '/admin/social-platforms', label: 'Social Platforms', icon: Share2 },
+                  { href: '/admin/templates', label: 'Templates', icon: Layers },
                   { href: '/admin/marketing', label: 'Marketing', icon: Megaphone },
                   { href: '/admin/settings', label: 'App Settings', icon: Wrench },
                 ].map((item) => {

@@ -57,6 +57,7 @@ model User {
   badges             UserBadge[]
   socialAccounts     SocialAccount[]
   publishRecords     PublishRecord[]
+  contentTemplates   ContentTemplate[]
 
   lastLoginAt DateTime? @map("last_login_at")
 
@@ -562,6 +563,73 @@ model AutopilotLog {
   @@index([publishStatus, scheduledPublishAt])
   @@index([moduleType, jobId])
   @@map("autopilot_logs")
+}
+
+// ---------------------------------------------------------------------------
+// Content Templates — pre-configured recipes for one-click job creation
+// ---------------------------------------------------------------------------
+
+model ContentTemplate {
+  id          String @id @default(cuid())
+  userId      String? @map("user_id") // null = system template (admin-created)
+
+  name        String  @db.VarChar(150)
+  description String? @db.Text
+  thumbnailUrl String? @map("thumbnail_url") @db.VarChar(500)
+
+  // Module type
+  moduleType  TemplateModuleType @map("module_type")
+
+  // Categorisation
+  category    String  @db.VarChar(50) // motivation, education, entertainment, business, etc.
+  tags        Json?   // Array of string tags: ["viral", "trending", "story", etc.]
+
+  // Prompt template — supports {{topic}} placeholder
+  promptTemplate String @map("prompt_template") @db.Text
+
+  // Pre-filled settings for the module (all fields the create form needs)
+  defaultSettings Json @map("default_settings")
+  // Reel: { durationSeconds, aspectRatio, style, language, voiceId }
+  // LongForm: { durationMinutes, aspectRatio, aiClipRatio, useStockFootage, useStaticVisuals, style, language, voiceId }
+  // Challenge: { challengeType, category, difficulty, numQuestions, timerSeconds, templateStyle, voiceEnabled, language }
+  // Gameplay: { template, theme, difficulty, duration, aspectRatio, musicStyle, showScore }
+  // Quote: { category, language, quoteLength }
+  // ImageStudio: { mode, transitionStyle, voiceEnabled, aspectRatio, language }
+
+  // Theme / visual settings
+  themeConfig Json? @map("theme_config")
+  // { colorPalette, fontStyle, musicMood, visualStyle }
+
+  // Status & visibility
+  isSystem    Boolean @default(false) @map("is_system") // Admin-created system templates
+  isPublic    Boolean @default(true)  @map("is_public") // Visible to all users
+  isFeatured  Boolean @default(false) @map("is_featured") // Highlighted in gallery
+
+  // Stats
+  useCount    Int @default(0) @map("use_count")
+
+  user User? @relation(fields: [userId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([moduleType])
+  @@index([category])
+  @@index([isSystem, isPublic])
+  @@index([isFeatured])
+  @@index([useCount])
+  @@index([userId])
+  @@map("content_templates")
+}
+
+enum TemplateModuleType {
+  REEL
+  LONG_FORM
+  QUOTE
+  CHALLENGE
+  GAMEPLAY
+  IMAGE_STUDIO
+  CARTOON
 }
 
 // Content calendar for manual planning
