@@ -1,6 +1,7 @@
 import axios, { AxiosInstance } from 'axios';
 import { logger } from '../utils/logger';
 import { convertScriptToSearchKeywords, generateSceneImages } from './image-generator';
+import { composeImagesIntoVideo } from './image-video-composer';
 import { searchPexelsForClip, searchPixabayForClip } from './stock-footage';
 import { concatenateClipsWithCrossfade, SceneClip } from './scene-clip-composer';
 
@@ -68,9 +69,10 @@ function sleep(ms: number): Promise<void> {
  * 1. DEV_MODE → per-scene Pexels pipeline
  * 2. NODE_ENV=development → skip paid providers, use per-scene Pexels
  * 3. Premium plans (STARTER+):
- *    a. RUNWAY_API_KEY → RunwayML AI video (best quality)
- *    b. GEMINI_API_KEY → Google Veo 3 Fast AI video ($0.15/sec, same API key)
- * 4. Per-scene Pexels stock video pipeline (free, default for all)
+ *    a. RUNWAY_API_KEY → RunwayML AI video (best quality, ~$0.50/sec)
+ *    b. GEMINI_API_KEY → Google Veo 3 Fast AI video (~$0.15/sec)
+ * 4. AI Images → Video with Ken Burns (~$0.01/image via Gemini, ~50x cheaper)
+ * 5. Per-scene Pexels stock video pipeline (free, default fallback)
  */
 export async function generateVideo(opts: VideoGenerationOptions): Promise<Buffer> {
   const { prompt, script, style, durationSeconds, aspectRatio, plan } = opts;
@@ -103,14 +105,23 @@ export async function generateVideo(opts: VideoGenerationOptions): Promise<Buffe
         log.info({ plan }, 'Premium plan — trying Google Veo 3 Fast');
         return await generateWithVeo(prompt, style, durationSeconds, aspectRatio);
       } catch (err) {
-        log.warn({ err: err instanceof Error ? err.message : err }, 'Veo failed, falling back to Pexels');
+        log.warn({ err: err instanceof Error ? err.message : err }, 'Veo failed, trying AI Images pipeline');
       }
     }
   } else {
-    log.info({ plan: plan || 'FREE' }, 'Free plan — using per-scene Pexels pipeline');
+    log.info({ plan: plan || 'FREE' }, 'Non-premium — using AI Images pipeline');
   }
 
-  // Per-scene Pexels stock video pipeline (free, default for all)
+  // Provider 3: AI Images → Video (Ken Burns motion) — cost-effective for all plans
+  if (process.env.GEMINI_API_KEY) {
+    try {
+      return await generateWithAIImages(prompt, script, style, durationSeconds, aspectRatio);
+    } catch (err) {
+      log.warn({ err: err instanceof Error ? err.message : err }, 'AI Images pipeline failed, falling back to Pexels');
+    }
+  }
+
+  // Final fallback: Per-scene Pexels stock video pipeline (free)
   return generateWithPerScenePexels(prompt, style, durationSeconds, aspectRatio, script);
 }
 
@@ -309,7 +320,61 @@ async function generateWithVeo(
 }
 
 // ---------------------------------------------------------------------------
-// Provider 3: Per-Scene Pexels Stock Video Pipeline (Free)
+// Provider 3: AI Images → Video with Ken Burns Motion (Cost-effective)
+// Cost: ~$0.01/image via Gemini Flash Image — roughly 50x cheaper than RunwayML
+// Flow: Script → Visual Prompts → Gemini AI Images → FFmpeg Ken Burns + xfade
+// ---------------------------------------------------------------------------
+
+async function generateWithAIImages(
+  prompt: string,
+  script: string | undefined,
+  style: string,
+  durationSeconds: number,
+  aspectRatio?: string,
+): Promise<Buffer> {
+  // More images for longer videos for smoother visual flow
+  const imageCount = durationSeconds <= 10 ? 3
+    : durationSeconds <= 20 ? 4
+    : durationSeconds <= 40 ? 5
+    : durationSeconds <= 60 ? 6
+    : 8;
+
+  log.info({
+    durationSeconds,
+    imageCount,
+    hasScript: !!script,
+    aspectRatio,
+  }, 'Generating video via AI Images → Ken Burns pipeline');
+
+  // Step 1: Generate scene-matched AI images via Gemini
+  const imageBuffers = await generateSceneImages({
+    prompt,
+    script,
+    style,
+    count: imageCount,
+    aspectRatio,
+  });
+
+  if (imageBuffers.length === 0) {
+    throw new Error('AI Images pipeline: No images generated');
+  }
+
+  log.info({ generatedImages: imageBuffers.length }, 'AI images generated, composing video');
+
+  // Step 2: Compose images into video with Ken Burns motion + xfade transitions
+  const videoBuffer = await composeImagesIntoVideo({
+    imageBuffers,
+    durationSeconds,
+    aspectRatio,
+    transitionStyle: 'fade',
+  });
+
+  log.info({ videoSizeBytes: videoBuffer.length }, 'AI Images → Video pipeline complete');
+  return videoBuffer;
+}
+
+// ---------------------------------------------------------------------------
+// Provider 4: Per-Scene Pexels Stock Video Pipeline (Free)
 // ---------------------------------------------------------------------------
 
 /**
