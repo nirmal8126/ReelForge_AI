@@ -14,6 +14,7 @@ import {
   Play,
   MessageSquare,
   Image as ImageIcon,
+  Trash2,
 } from 'lucide-react'
 import { PublishDialog } from '@/components/publish/publish-dialog'
 import { CopyHashtags } from '@/components/copy-hashtags'
@@ -95,6 +96,7 @@ export default function EpisodeDetailPage() {
   const [episode, setEpisode] = useState<Episode | null>(null)
   const [loading, setLoading] = useState(true)
   const [retrying, setRetrying] = useState(false)
+  const [deleting, setDeleting] = useState(false)
 
   const fetchEpisode = useCallback(async () => {
     try {
@@ -135,6 +137,27 @@ export default function EpisodeDetailPage() {
       toast.error('Retry failed')
     } finally {
       setRetrying(false)
+    }
+  }
+
+  async function handleDelete() {
+    if (!confirm('Are you sure you want to delete this episode? This action cannot be undone.')) return
+    setDeleting(true)
+    try {
+      const res = await fetch(`/api/cartoon-studio/series/${seriesId}/episodes/${episodeId}`, {
+        method: 'DELETE',
+      })
+      if (res.ok) {
+        toast.success('Episode deleted')
+        router.push(`/cartoon-studio/${seriesId}`)
+      } else {
+        const data = await res.json()
+        toast.error(data.error || 'Delete failed')
+      }
+    } catch {
+      toast.error('Delete failed')
+    } finally {
+      setDeleting(false)
     }
   }
 
@@ -180,16 +203,27 @@ export default function EpisodeDetailPage() {
               <p className="text-sm text-gray-500 mt-2">{episode.synopsis}</p>
             )}
           </div>
-          {episode.status === 'FAILED' && (
+          <div className="flex items-center gap-2">
+            {episode.status === 'FAILED' && (
+              <button
+                onClick={handleRetry}
+                disabled={retrying}
+                className="inline-flex items-center gap-2 rounded-lg bg-red-600/20 border border-red-500/30 px-4 py-2 text-sm font-medium text-red-400 hover:bg-red-600/30 transition disabled:opacity-50"
+              >
+                {retrying ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
+                Retry
+              </button>
+            )}
             <button
-              onClick={handleRetry}
-              disabled={retrying}
-              className="inline-flex items-center gap-2 rounded-lg bg-red-600/20 border border-red-500/30 px-4 py-2 text-sm font-medium text-red-400 hover:bg-red-600/30 transition disabled:opacity-50"
+              onClick={handleDelete}
+              disabled={deleting || isProcessing}
+              title={isProcessing ? 'Cannot delete while processing' : 'Delete episode'}
+              className="inline-flex items-center gap-2 rounded-lg bg-white/[0.02] border border-white/[0.06] px-4 py-2 text-sm font-medium text-gray-400 hover:text-red-400 hover:border-red-500/30 hover:bg-red-600/10 transition disabled:opacity-30 disabled:cursor-not-allowed"
             >
-              {retrying ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
-              Retry
+              {deleting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
+              Delete
             </button>
-          )}
+          </div>
         </div>
       </div>
 
