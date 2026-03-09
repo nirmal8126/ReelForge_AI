@@ -49,7 +49,8 @@ export async function generateSceneImages(opts: SceneImageOptions): Promise<Buff
 
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) {
-    throw new Error('GEMINI_API_KEY is not set');
+    log.warn({ count }, 'GEMINI_API_KEY is not set, returning placeholder images');
+    return generatePlaceholderImages(count);
   }
 
   const { width, height } = getImageDimensions(aspectRatio || '9:16');
@@ -68,12 +69,19 @@ export async function generateSceneImages(opts: SceneImageOptions): Promise<Buff
   log.info({ sceneCount: sceneDirections.length, hasScript: !!script }, 'Scene directions built');
 
   for (let i = 0; i < sceneDirections.length; i++) {
+    // Delay between API calls to avoid Gemini rate limits (skip first)
+    if (i > 0) {
+      await new Promise(r => setTimeout(r, 2000));
+    }
+
     try {
       log.info({ scene: i + 1, total: sceneDirections.length, direction: sceneDirections[i].substring(0, 100) }, 'Generating scene image');
       const imageBuffer = await generateSingleImage(apiKey, sceneDirections[i], width, height);
       images.push(imageBuffer);
     } catch (err) {
       log.warn({ scene: i + 1, err }, 'Failed to generate scene image, trying fallback prompt');
+      // Wait before retry
+      await new Promise(r => setTimeout(r, 3000));
       // Retry with simpler prompt
       try {
         const simplePrompt = `${style} style scene: ${prompt}`;
@@ -96,6 +104,9 @@ export async function generateSceneImages(opts: SceneImageOptions): Promise<Buff
 // Matches proven pattern from admin/marketing/generate-image route.
 // ---------------------------------------------------------------------------
 
+const MAX_RETRIES = 3;
+const INITIAL_RETRY_DELAY_MS = 5_000; // 5s initial backoff for rate limits
+
 async function generateSingleImage(
   apiKey: string,
   prompt: string,
@@ -106,42 +117,62 @@ async function generateSingleImage(
   const ar = width > height ? '16:9' : width < height ? '9:16' : '1:1';
   const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
 
-  log.debug({ model, aspectRatio: ar, promptLength: prompt.length }, 'Calling Gemini image generation');
+  for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+    try {
+      log.debug({ model, aspectRatio: ar, promptLength: prompt.length, attempt }, 'Calling Gemini image generation');
 
-  const response = await axios.post(
-    url,
-    {
-      contents: [{
-        role: 'user',
-        parts: [{ text: `Generate a high-quality image (no text/words/letters in the image): ${prompt}` }],
-      }],
-      generationConfig: {
-        responseModalities: ['TEXT', 'IMAGE'],
-        imageConfig: {
-          aspectRatio: ar,
+      const response = await axios.post(
+        url,
+        {
+          contents: [{
+            role: 'user',
+            parts: [{ text: `Generate a high-quality image (no text/words/letters in the image): ${prompt}` }],
+          }],
+          generationConfig: {
+            responseModalities: ['TEXT', 'IMAGE'],
+            imageConfig: {
+              aspectRatio: ar,
+            },
+          },
         },
-      },
-    },
-    {
-      headers: { 'Content-Type': 'application/json' },
-      timeout: 90_000,
-    },
-  );
+        {
+          headers: { 'Content-Type': 'application/json' },
+          timeout: 90_000,
+        },
+      );
 
-  // Extract image from response — Gemini returns camelCase keys (inlineData, mimeType)
-  const parts = response.data?.candidates?.[0]?.content?.parts;
-  if (!parts || parts.length === 0) {
-    throw new Error('No content returned from Gemini image generation');
-  }
+      // Extract image from response — Gemini returns camelCase keys (inlineData, mimeType)
+      const parts = response.data?.candidates?.[0]?.content?.parts;
+      if (!parts || parts.length === 0) {
+        throw new Error('No content returned from Gemini image generation');
+      }
 
-  for (const part of parts) {
-    if (part.inlineData?.data && part.inlineData?.mimeType?.startsWith('image/')) {
-      log.info({ mimeType: part.inlineData.mimeType }, 'Gemini image generated');
-      return Buffer.from(part.inlineData.data, 'base64');
+      for (const part of parts) {
+        if (part.inlineData?.data && part.inlineData?.mimeType?.startsWith('image/')) {
+          log.info({ mimeType: part.inlineData.mimeType }, 'Gemini image generated');
+          return Buffer.from(part.inlineData.data, 'base64');
+        }
+      }
+
+      throw new Error('No image found in Gemini response parts');
+    } catch (err: any) {
+      const status = err?.response?.status;
+      const isRateLimit = status === 429 || status === 503;
+
+      if (isRateLimit && attempt < MAX_RETRIES) {
+        // Exponential backoff: 5s, 10s, 20s
+        const delay = INITIAL_RETRY_DELAY_MS * Math.pow(2, attempt);
+        log.warn({ status, attempt, delayMs: delay }, 'Rate limited by Gemini, retrying after backoff');
+        await new Promise(r => setTimeout(r, delay));
+        continue;
+      }
+
+      // Not a rate limit or max retries exhausted
+      throw err;
     }
   }
 
-  throw new Error('No image found in Gemini response parts');
+  throw new Error('Image generation failed after all retries');
 }
 
 // ---------------------------------------------------------------------------

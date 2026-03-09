@@ -73,7 +73,7 @@ export async function generateCartoonStory(opts: {
 
   // Fallback to mock
   log.warn('No AI provider available, using mock story');
-  return generateMockStory(opts.characters);
+  return generateMockStory(opts.characters, opts.language);
 }
 
 // ---------------------------------------------------------------------------
@@ -302,7 +302,7 @@ OUTPUT FORMAT: Return ONLY valid JSON with this structure:
     throw new Error(`Gemini API error ${response.status}: ${err}`);
   }
 
-  const data = await response.json();
+  const data = await response.json() as { candidates?: { content?: { parts?: { text?: string }[] } }[] };
   const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
   if (!text) throw new Error('No text in Gemini response');
 
@@ -337,11 +337,55 @@ OUTPUT FORMAT: Return ONLY valid JSON with this structure:
 // Mock Story (fallback)
 // ---------------------------------------------------------------------------
 
-function generateMockStory(characters: CartoonCharacterInfo[]): CartoonStoryResult {
-  const char1 = characters[0]?.name || 'Hero';
-  const char2 = characters[1]?.name || 'Friend';
-
-  const scenes: CartoonStoryScene[] = [
+// Language-specific mock stories
+const MOCK_STORIES: Record<string, (char1: string, char2: string) => CartoonStoryScene[]> = {
+  hi: (char1, char2) => [
+    {
+      description: `${char1} को बगीचे में कुछ अनोखा मिलता है`,
+      visualPrompt: `Cartoon illustration of ${char1} looking surprised at a glowing object in a garden, colorful, child-friendly`,
+      narration: `एक खूबसूरत सुबह, ${char1} बगीचे में खेलने गया और उसे कुछ अद्भुत मिला।`,
+      dialogue: [
+        { characterName: char1, text: 'वाह, ये देखो! ये क्या हो सकता है?' },
+      ],
+    },
+    {
+      description: `${char1} ${char2} को बुलाता है`,
+      visualPrompt: `Cartoon illustration of ${char1} excitedly calling ${char2}, garden background, warm lighting`,
+      narration: `इस खोज से उत्साहित होकर, ${char1} ने अपने सबसे अच्छे दोस्त को पुकारा।`,
+      dialogue: [
+        { characterName: char1, text: `${char2}! जल्दी आओ! तुम्हें ये देखना होगा!` },
+        { characterName: char2, text: 'मैं आ रहा हूँ! क्या मिला तुम्हें?' },
+      ],
+    },
+    {
+      description: `दोनों दोस्त एक साथ चमकती चीज़ की जांच करते हैं`,
+      visualPrompt: `Cartoon illustration of two friends kneeling and looking at a magical glowing crystal, sparkles`,
+      narration: `दोनों ने मिलकर उस रहस्यमयी चीज़ को देखा। वह एक सुंदर क्रिस्टल था जो अलग-अलग रंगों में चमक रहा था।`,
+      dialogue: [
+        { characterName: char2, text: 'ये जादुई क्रिस्टल लग रहा है! शायद ये इच्छाएँ पूरी करता है!' },
+        { characterName: char1, text: 'क्या हम एक इच्छा मांगें? हमें क्या मांगना चाहिए?' },
+      ],
+    },
+    {
+      description: `वे क्रिस्टल को सबके साथ बांटने का फैसला करते हैं`,
+      visualPrompt: `Cartoon illustration of friends showing crystal to neighborhood kids, happy community scene`,
+      narration: `सोचने के बाद, उन्होंने फैसला किया कि सबसे अच्छी इच्छा वह होगी जो सबकी मदद करे।`,
+      dialogue: [
+        { characterName: char1, text: 'मैं चाहता हूँ कि सबका दिन शानदार हो!' },
+        { characterName: char2, text: 'ये सबसे अच्छी इच्छा है! बांटने में ही खुशी है!' },
+      ],
+    },
+    {
+      description: `सभी दोस्त साथ मिलकर खुशी मनाते हैं`,
+      visualPrompt: `Cartoon illustration of group of happy friends playing together, sunset, rainbow, warm scene`,
+      narration: `और इस तरह, बांटने और दयालुता के जादू ने सबको एक साथ ला दिया। अंत!`,
+      dialogue: [
+        { characterName: char1, text: 'ये अब तक का सबसे अच्छा दिन था!' },
+        { characterName: char2, text: 'क्योंकि हमने इसे दोस्तों के साथ बांटा!' },
+      ],
+    },
+  ],
+  en: (char1, char2) => [
     {
       description: `${char1} discovers something unusual in the garden`,
       visualPrompt: `Cartoon illustration of ${char1} looking surprised at a glowing object in a garden, colorful, child-friendly`,
@@ -386,7 +430,16 @@ function generateMockStory(characters: CartoonCharacterInfo[]): CartoonStoryResu
         { characterName: char2, text: 'Because we shared it with friends!' },
       ],
     },
-  ];
+  ],
+};
+
+function generateMockStory(characters: CartoonCharacterInfo[], language: string): CartoonStoryResult {
+  const char1 = characters[0]?.name || 'Hero';
+  const char2 = characters[1]?.name || 'Friend';
+
+  // Use language-specific mock or fallback to English
+  const storyFn = MOCK_STORIES[language] || MOCK_STORIES['en'];
+  const scenes = storyFn(char1, char2);
 
   const fullScript = scenes
     .map((s, i) => {

@@ -1,6 +1,7 @@
 import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
 import { writeFileSync, mkdirSync } from 'fs';
 import { join } from 'path';
+import { randomUUID } from 'crypto';
 import { logger } from '../utils/logger';
 
 const log = logger.child({ service: 'storage' });
@@ -118,4 +119,52 @@ export async function uploadToStorage(opts: UploadOptions): Promise<UploadResult
   log.info({ url, thumbnailUrl }, 'Reel uploaded to R2 successfully');
 
   return { url, thumbnailUrl };
+}
+
+// ---------------------------------------------------------------------------
+// Scene Image Upload (for cartoon episode scene previews)
+// ---------------------------------------------------------------------------
+
+/**
+ * Upload a scene image to storage and return the public URL.
+ * Falls back to local storage if R2 is not configured.
+ */
+export async function uploadSceneImage(opts: {
+  buffer: Buffer;
+  userId: string;
+  episodeId: string;
+  sceneIndex: number;
+  contentType?: string;
+}): Promise<string> {
+  const { buffer, userId, episodeId, sceneIndex, contentType = 'image/png' } = opts;
+  const ext = contentType.includes('png') ? 'png' : 'jpg';
+  const key = `cartoon-scenes/${userId}/${episodeId}/scene-${sceneIndex}.${ext}`;
+
+  const hasR2Config = process.env.R2_ACCOUNT_ID && process.env.R2_ACCESS_KEY_ID && process.env.R2_SECRET_ACCESS_KEY;
+
+  if (!hasR2Config) {
+    // Local storage fallback
+    const outputDir = join('/tmp', 'reelforge-scenes', userId, episodeId);
+    mkdirSync(outputDir, { recursive: true });
+    const filePath = join(outputDir, `scene-${sceneIndex}.${ext}`);
+    writeFileSync(filePath, buffer);
+    log.warn({ filePath }, 'Scene image saved to local filesystem (no R2 config)');
+    return `file://${filePath}`;
+  }
+
+  const bucket = process.env.R2_BUCKET_NAME || 'reelforge-media';
+  const cdnUrl = process.env.CDN_URL || `https://${process.env.R2_ACCOUNT_ID}.r2.dev`;
+  const client = getS3Client();
+
+  await client.send(new PutObjectCommand({
+    Bucket: bucket,
+    Key: key,
+    Body: buffer,
+    ContentType: contentType,
+    CacheControl: 'public, max-age=31536000, immutable',
+  }));
+
+  const url = `${cdnUrl}/${key}`;
+  log.info({ url, sceneIndex }, 'Scene image uploaded to R2');
+  return url;
 }

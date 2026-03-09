@@ -40,7 +40,8 @@ export async function generateVoiceover(opts: VoiceoverOptions): Promise<Buffer>
 
   const apiKey = process.env.ELEVENLABS_API_KEY;
   if (!apiKey) {
-    throw new Error('ELEVENLABS_API_KEY is not set');
+    log.warn('ELEVENLABS_API_KEY is not set, generating silent audio fallback');
+    return generateSilentAudio(script);
   }
 
   log.info({ voiceId, language, scriptLength: script.length }, 'Generating voiceover via ElevenLabs');

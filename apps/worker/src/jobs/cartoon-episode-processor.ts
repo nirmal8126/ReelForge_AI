@@ -2,11 +2,12 @@ import { Job } from 'bullmq';
 import { prisma } from '@reelforge/db';
 import { logger } from '../utils/logger';
 import { generateCartoonStory } from '../services/cartoon-story-generator';
+import { generateSceneImages } from '../services/image-generator';
 import { generateVoiceover } from '../services/voiceover-generator';
 import { composeCartoonEpisode, type CartoonSceneInput } from '../services/cartoon-composer';
-import { uploadToStorage } from '../services/storage';
+import { uploadToStorage, uploadSceneImage } from '../services/storage';
 import { generateHashtags } from '../services/hashtag-generator';
-import fs from 'fs/promises';
+import fsPromises from 'fs/promises';
 import { existsSync, writeFileSync, readFileSync, mkdirSync } from 'fs';
 import path from 'path';
 import os from 'os';
@@ -156,7 +157,7 @@ export async function processCartoonEpisode(
     await setProgress(20);
 
     // ==================================================================
-    // Stage 2: Image Generation — Placeholder (20-45%)
+    // Stage 2: Image Generation via Gemini AI (20-45%)
     // ==================================================================
 
     const pendingImageScenes = scenes.filter((s) => !s.imageUrl);
@@ -164,25 +165,66 @@ export async function processCartoonEpisode(
     if (pendingImageScenes.length > 0) {
       await updateStatus(episodeId, 'IMAGE_GENERATING', 'Generating scene images');
 
-      log.info({ count: pendingImageScenes.length }, 'Stage 2: Generating scene images (placeholder)');
+      log.info({ count: pendingImageScenes.length }, 'Stage 2: Generating scene images via Gemini AI');
 
-      // Generate placeholder images for each scene
       const imageDir = path.join(os.tmpdir(), `cartoon-images-${episodeId}`);
       mkdirSync(imageDir, { recursive: true });
 
-      const res = job.data.aspectRatio === '9:16'
-        ? { w: 1080, h: 1920 }
-        : job.data.aspectRatio === '1:1'
-          ? { w: 1080, h: 1080 }
-          : { w: 1920, h: 1080 };
+      const artStyle = series.artStyle || 'cartoon';
 
-      for (const scene of pendingImageScenes) {
-        const imagePath = path.join(imageDir, `scene-${scene.sceneIndex}.ppm`);
-        generatePlaceholderPPM(imagePath, res.w, res.h, scene.sceneIndex);
+      for (let idx = 0; idx < pendingImageScenes.length; idx++) {
+        const scene = pendingImageScenes[idx];
+        const imagePath = path.join(imageDir, `scene-${scene.sceneIndex}.png`);
+
+        // Delay between API calls to avoid Gemini rate limits (skip first)
+        if (idx > 0) {
+          await new Promise(r => setTimeout(r, 3000));
+        }
+
+        let imageBuffer: Buffer;
+        try {
+          // Use the scene's visualPrompt (already in English) for AI image generation
+          const [generated] = await generateSceneImages({
+            prompt: scene.visualPrompt || scene.description || 'cartoon scene',
+            style: artStyle,
+            count: 1,
+            aspectRatio: job.data.aspectRatio,
+          });
+          imageBuffer = generated;
+          log.info({ sceneIndex: scene.sceneIndex, idx: idx + 1, total: pendingImageScenes.length }, 'AI image generated for scene');
+        } catch (imgErr) {
+          // Fallback to placeholder if Gemini fails
+          log.warn({ sceneIndex: scene.sceneIndex, err: imgErr instanceof Error ? imgErr.message : imgErr }, 'Gemini image failed, using placeholder');
+          const res = job.data.aspectRatio === '9:16'
+            ? { w: 1080, h: 1920 }
+            : job.data.aspectRatio === '1:1'
+              ? { w: 1080, h: 1080 }
+              : { w: 1920, h: 1080 };
+          const ppmPath = path.join(imageDir, `scene-${scene.sceneIndex}.ppm`);
+          generatePlaceholderPPM(ppmPath, res.w, res.h, scene.sceneIndex);
+          // For placeholder, store local path (used by composer) and mark done
+          imageBuffer = readFileSync(ppmPath);
+        }
+
+        // Save locally for FFmpeg composer
+        await fsPromises.writeFile(imagePath, imageBuffer);
+
+        // Upload to storage so frontend can display scene thumbnails
+        let sceneImageUrl = imagePath; // fallback to local path
+        try {
+          sceneImageUrl = await uploadSceneImage({
+            buffer: imageBuffer,
+            userId,
+            episodeId,
+            sceneIndex: scene.sceneIndex,
+          });
+        } catch (uploadErr) {
+          log.warn({ sceneIndex: scene.sceneIndex, err: uploadErr instanceof Error ? uploadErr.message : uploadErr }, 'Scene image upload failed, using local path');
+        }
 
         await prisma.cartoonScene.update({
           where: { id: scene.id },
-          data: { imageUrl: imagePath, status: 'COMPLETED' },
+          data: { imageUrl: sceneImageUrl, status: 'COMPLETED' },
         });
 
         const progress = 20 + Math.round((scene.sceneIndex / scenes.length) * 25);
@@ -195,7 +237,7 @@ export async function processCartoonEpisode(
         orderBy: { sceneIndex: 'asc' },
       });
 
-      log.info('Placeholder images generated');
+      log.info('Scene images generated');
     } else {
       log.info('Stage 2: Skipping — images already exist');
     }
@@ -319,12 +361,25 @@ export async function processCartoonEpisode(
     await updateStatus(episodeId, 'COMPOSING', 'Composing video');
     log.info('Stage 4: Composing cartoon video');
 
-    const sceneInputs: CartoonSceneInput[] = scenes.map((s) => ({
-      sceneIndex: s.sceneIndex,
-      imageUrl: s.imageUrl || '',
-      durationSeconds: Math.max(3, s.endTime - s.startTime),
-      subtitleLines: buildSubtitleLines(s),
-    }));
+    // Use local image paths for FFmpeg composition (not CDN URLs)
+    const imageDir = path.join(os.tmpdir(), `cartoon-images-${episodeId}`);
+    const sceneInputs: CartoonSceneInput[] = scenes.map((s) => {
+      // Prefer local temp file for composition, fall back to imageUrl
+      const localPath = path.join(imageDir, `scene-${s.sceneIndex}.png`);
+      const localPpmPath = path.join(imageDir, `scene-${s.sceneIndex}.ppm`);
+      let imgPath = s.imageUrl || '';
+      if (existsSync(localPath)) {
+        imgPath = localPath;
+      } else if (existsSync(localPpmPath)) {
+        imgPath = localPpmPath;
+      }
+      return {
+        sceneIndex: s.sceneIndex,
+        imageUrl: imgPath,
+        durationSeconds: Math.max(3, s.endTime - s.startTime),
+        subtitleLines: buildSubtitleLines(s),
+      };
+    });
 
     const videoBuffer = await composeCartoonEpisode({
       scenes: sceneInputs,
@@ -356,7 +411,7 @@ export async function processCartoonEpisode(
     const processingTimeMs = Date.now() - startTime;
 
     const hashtags = await generateHashtags({
-      title: job.data.episodePrompt || 'Cartoon episode',
+      title: job.data.prompt || 'Cartoon episode',
       module: 'cartoon',
     });
 
@@ -377,7 +432,7 @@ export async function processCartoonEpisode(
     // No worker-side deduction needed (prevents double-charging)
 
     // Cleanup audio cache
-    try { await fs.unlink(audioCachePath); } catch { /* ignore */ }
+    try { await fsPromises.unlink(audioCachePath); } catch { /* ignore */ }
 
     log.info({ outputUrl, processingTimeMs }, 'Cartoon episode completed');
 
