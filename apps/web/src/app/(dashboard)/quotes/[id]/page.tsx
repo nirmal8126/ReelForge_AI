@@ -13,6 +13,10 @@ import {
   Zap,
   RefreshCw,
   Download,
+  Clock,
+  FileText,
+  Image,
+  Upload,
 } from 'lucide-react'
 import { getJobStatusLabel, getJobStatusColor } from '@/lib/utils'
 import { QUOTE_CATEGORIES } from '@/lib/constants'
@@ -65,6 +69,32 @@ export default async function QuoteDetailPage({ params }: QuoteDetailPageProps) 
 
   function getCategoryColor(category: string): string {
     return QUOTE_CATEGORIES.find((c) => c.id === category)?.color || '#6366F1'
+  }
+
+  // Pipeline stages
+  const stages = [
+    { key: 'QUEUED', label: 'Queued', icon: Clock },
+    { key: 'TEXT_GENERATING', label: 'Text Generation', icon: FileText },
+    { key: 'IMAGE_GENERATING', label: 'Image Generation', icon: Image },
+    { key: 'UPLOADING', label: 'Uploading', icon: Upload },
+    { key: 'COMPLETED', label: 'Completed', icon: CheckCircle2 },
+  ]
+
+  const stageOrder = stages.map((s) => s.key)
+  const currentIndex = stageOrder.indexOf(quote.status)
+
+  function getStageStatus(stageKey: string) {
+    if (isFailed) {
+      const failedIndex = stageOrder.indexOf(stageKey)
+      if (failedIndex < currentIndex) return 'completed'
+      if (failedIndex === currentIndex) return 'failed'
+      return 'pending'
+    }
+    if (isCompleted) return 'completed'
+    const stageIndex = stageOrder.indexOf(stageKey)
+    if (stageIndex < currentIndex) return 'completed'
+    if (stageIndex === currentIndex) return 'active'
+    return 'pending'
   }
 
   return (
@@ -231,8 +261,81 @@ export default async function QuoteDetailPage({ params }: QuoteDetailPageProps) 
           {quote.hashtags && <CopyHashtags hashtags={quote.hashtags} />}
         </div>
 
-        {/* Sidebar — Details only */}
+        {/* Sidebar */}
         <div className="space-y-6">
+          {/* Generation Pipeline */}
+          <div className="rounded-xl border border-white/10 bg-white/5 p-6">
+            <h2 className="text-lg font-semibold text-white mb-6">Generation Pipeline</h2>
+            <div className="space-y-0">
+              {stages.map((stage, idx) => {
+                const status = getStageStatus(stage.key)
+                const Icon = stage.icon
+                const isLast = idx === stages.length - 1
+
+                return (
+                  <div key={stage.key} className="relative flex gap-3">
+                    {!isLast && (
+                      <div
+                        className={`absolute left-[15px] top-[30px] w-0.5 h-[calc(100%-6px)] ${
+                          status === 'completed'
+                            ? 'bg-green-500'
+                            : status === 'active'
+                            ? 'bg-brand-500'
+                            : status === 'failed'
+                            ? 'bg-red-500'
+                            : 'bg-white/10'
+                        }`}
+                      />
+                    )}
+                    <div
+                      className={`relative z-10 flex h-8 w-8 items-center justify-center rounded-full flex-shrink-0 ${
+                        status === 'completed'
+                          ? 'bg-green-500/20 text-green-400'
+                          : status === 'active'
+                          ? 'bg-brand-500/20 text-brand-400'
+                          : status === 'failed'
+                          ? 'bg-red-500/20 text-red-400'
+                          : 'bg-white/5 text-gray-600'
+                      }`}
+                    >
+                      {status === 'completed' ? (
+                        <CheckCircle2 className="h-4 w-4" />
+                      ) : status === 'failed' ? (
+                        <XCircle className="h-4 w-4" />
+                      ) : status === 'active' ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <Icon className="h-4 w-4" />
+                      )}
+                    </div>
+                    <div className="pb-6">
+                      <p
+                        className={`text-sm font-medium ${
+                          status === 'completed'
+                            ? 'text-green-400'
+                            : status === 'active'
+                            ? 'text-brand-400'
+                            : status === 'failed'
+                            ? 'text-red-400'
+                            : 'text-gray-600'
+                        }`}
+                      >
+                        {stage.label}
+                      </p>
+                      {status === 'active' && (
+                        <p className="text-xs text-gray-500 mt-0.5">In progress...</p>
+                      )}
+                      {status === 'failed' && (
+                        <p className="text-xs text-red-400/70 mt-0.5">Error occurred</p>
+                      )}
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+
+          {/* Details */}
           <div className="rounded-xl border border-white/10 bg-white/5 p-6">
             <h2 className="text-lg font-semibold text-white mb-4">Details</h2>
             <dl className="space-y-4">

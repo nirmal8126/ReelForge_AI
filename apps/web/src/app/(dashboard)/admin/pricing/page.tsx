@@ -613,7 +613,7 @@ export default function AdminPricingPage() {
       {/* Module Credit Cost Reference */}
       <div className="rounded-xl border border-yellow-500/10 bg-yellow-500/[0.03] p-5 mb-6">
         <h3 className="text-sm font-semibold text-yellow-400 mb-3">Credit Cost Reference — set credit prices to stay profitable</h3>
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+        <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-3">
           {[
             { name: 'Reels', range: '1-3 cr', detail: 'By duration' },
             { name: 'Quotes', range: '1 cr', detail: 'Flat' },
@@ -621,6 +621,7 @@ export default function AdminPricingPage() {
             { name: 'Gameplay', range: '1-3 cr', detail: 'By duration' },
             { name: 'Long-Form', range: '3-12 cr', detail: 'By duration' },
             { name: 'Cartoon', range: '5 cr', detail: 'Per episode' },
+            { name: 'Image Studio', range: '1-3 cr', detail: 'Images + voice' },
           ].map((m) => (
             <div key={m.name} className="rounded-lg border border-white/5 bg-white/[0.02] px-3 py-2 text-center">
               <p className="text-[10px] text-gray-500 font-medium">{m.name}</p>

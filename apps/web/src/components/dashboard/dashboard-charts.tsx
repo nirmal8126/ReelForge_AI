@@ -38,6 +38,7 @@ const MODULE_COLORS: Record<string, string> = {
   Gameplay: '#EC4899',
   'Long-Form': '#818CF8',
   Cartoon: '#10B981',
+  'Image Studio': '#F59E0B',
 }
 
 export function ModuleBreakdownChart({
@@ -214,12 +215,13 @@ const MODULE_BAR_COLORS = [
   '#EC4899', // gameplay
   '#818CF8', // longform
   '#10B981', // cartoon
+  '#F59E0B', // imagestudio
 ]
 
 export function JobsPerDayChart({
   data,
 }: {
-  data: { date: string; reels: number; quotes: number; challenges: number; gameplay: number; longform: number; cartoon: number }[]
+  data: { date: string; reels: number; quotes: number; challenges: number; gameplay: number; longform: number; cartoon: number; imagestudio: number }[]
 }) {
   if (data.length === 0) {
     return (
@@ -229,7 +231,7 @@ export function JobsPerDayChart({
     )
   }
 
-  const modules = ['reels', 'quotes', 'challenges', 'gameplay', 'longform', 'cartoon']
+  const modules = ['reels', 'quotes', 'challenges', 'gameplay', 'longform', 'cartoon', 'imagestudio']
 
   return (
     <ResponsiveContainer width="100%" height={220}>
@@ -256,7 +258,7 @@ export function JobsPerDayChart({
           <Bar
             key={mod}
             dataKey={mod}
-            name={mod.charAt(0).toUpperCase() + mod.slice(1)}
+            name={mod === 'imagestudio' ? 'Image Studio' : mod === 'longform' ? 'Long-Form' : mod.charAt(0).toUpperCase() + mod.slice(1)}
             stackId="jobs"
             fill={MODULE_BAR_COLORS[i]}
             radius={i === modules.length - 1 ? [3, 3, 0, 0] : [0, 0, 0, 0]}

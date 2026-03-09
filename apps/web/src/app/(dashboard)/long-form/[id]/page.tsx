@@ -24,6 +24,8 @@ import {
 import { PublishDialog } from '@/components/publish/publish-dialog'
 import { getJobStatusLabel, getJobStatusColor } from '@/lib/utils'
 import { RetryButton } from './retry-button'
+import { DeleteLongFormButton } from './delete-button'
+import { AutoRefresh } from './auto-refresh'
 import { CopyHashtags } from '@/components/copy-hashtags'
 
 interface LongFormDetailPageProps {
@@ -56,6 +58,13 @@ export default async function LongFormDetailPage({ params }: LongFormDetailPageP
   const isFailed = job.status === 'FAILED'
   const isRecomposing = job.status === 'RECOMPOSING'
   const isProcessing = !isCompleted && !isFailed
+
+  // Resolve video URL: file:// → API proxy, cloud → direct
+  const videoUrl = job.outputUrl
+    ? job.outputUrl.startsWith('file://')
+      ? `/api/long-form/${job.id}/video`
+      : job.outputUrl
+    : null
 
   // Define the pipeline stages for the status timeline
   const stages = [
@@ -125,10 +134,7 @@ export default async function LongFormDetailPage({ params }: LongFormDetailPageP
 
   return (
     <div>
-      {/* Auto-refresh for processing jobs */}
-      {isProcessing && (
-        <meta httpEquiv="refresh" content="5" />
-      )}
+      <AutoRefresh enabled={isProcessing} />
 
       {/* Back navigation */}
       <Link
@@ -170,16 +176,16 @@ export default async function LongFormDetailPage({ params }: LongFormDetailPageP
               Edit Video
             </Link>
           )}
-          {isCompleted && job.outputUrl && (
+          {isCompleted && videoUrl && (
             <>
               <PublishDialog
                 jobType="long_form"
                 jobId={job.id}
-                videoUrl={job.outputUrl}
+                videoUrl={videoUrl}
                 defaultTitle={job.title}
               />
               <a
-                href={job.outputUrl}
+                href={videoUrl}
                 download
                 target="_blank"
                 rel="noopener noreferrer"
@@ -201,6 +207,8 @@ export default async function LongFormDetailPage({ params }: LongFormDetailPageP
               View on YouTube
             </a>
           )}
+          {isFailed && <RetryButton jobId={job.id} />}
+          <DeleteLongFormButton jobId={job.id} isProcessing={isProcessing} />
         </div>
       </div>
 
@@ -208,12 +216,12 @@ export default async function LongFormDetailPage({ params }: LongFormDetailPageP
         {/* Main content */}
         <div className="lg:col-span-2 space-y-6">
           {/* Video Preview */}
-          {isCompleted && job.outputUrl && (
+          {isCompleted && videoUrl && (
             <div className="rounded-xl border border-white/10 bg-white/5 overflow-hidden">
               <video
                 controls
                 className="w-full aspect-video bg-black"
-                src={job.outputUrl}
+                src={videoUrl}
               >
                 Your browser does not support the video tag.
               </video>
@@ -240,7 +248,7 @@ export default async function LongFormDetailPage({ params }: LongFormDetailPageP
                 </div>
               </div>
               <p className="text-sm text-gray-400 mt-4">
-                This page will auto-refresh every 5 seconds while processing.
+                This page refreshes automatically while processing.
               </p>
             </div>
           )}

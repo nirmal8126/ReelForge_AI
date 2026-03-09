@@ -25,9 +25,9 @@ const MODULE_DEFAULTS: Record<string, { name: string; isFree: boolean; creditCos
   quotes:         { name: 'Quotes',          isFree: false, creditCost: 1 },
   challenges:     { name: 'Challenges',      isFree: false, creditCost: 1 },
   long_form:      { name: 'My Videos',       isFree: false, creditCost: 3 },
-  cartoon_studio: { name: 'Cartoon Studio',  isFree: false, creditCost: 2 },
-  gameplay:       { name: '3D Gameplay',     isFree: false, creditCost: 2 },
-  image_studio:   { name: 'Image Studio',   isFree: false, creditCost: 2 },
+  cartoon_studio: { name: 'Cartoon Studio',  isFree: false, creditCost: 5 },
+  gameplay:       { name: '3D Gameplay',     isFree: false, creditCost: 1 },
+  image_studio:   { name: 'Image Studio',   isFree: false, creditCost: 1 },
 }
 
 // ---------------------------------------------------------------------------

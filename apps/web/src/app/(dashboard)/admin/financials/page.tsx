@@ -35,6 +35,7 @@ const MODULE_AVG_COST_CENTS: Record<string, number> = {
   longform_per_min: 40,
   longform_fallback: 200, // if no durationMinutes
   cartoon: 400,
+  imagestudio: 20, // AI analysis + optional voice + composition
 }
 
 const AVG_CREDIT_PRICE_CENTS = 80 // ~$0.80 per credit
@@ -85,6 +86,7 @@ async function getFinancialData() {
     completedGameplay30d,
     completedLongForm30d,
     completedCartoon30d,
+    completedImageStudio30d,
     // Completed jobs (prev 30d) for growth
     completedReelsPrev,
     completedQuotesPrev,
@@ -92,6 +94,7 @@ async function getFinancialData() {
     completedGameplayPrev,
     completedLongFormPrev,
     completedCartoonPrev,
+    completedImageStudioPrev,
     // All-time completed counts for cost breakdown
     allReels,
     allQuotes,
@@ -100,6 +103,7 @@ async function getFinancialData() {
     allGameplay,
     allLongForm,
     allCartoon,
+    allImageStudio,
     // User growth
     usersThisMonth,
     usersLastMonth,
@@ -110,6 +114,7 @@ async function getFinancialData() {
     dailyGameplay,
     dailyLongForm,
     dailyCartoon,
+    dailyImageStudio,
     // Long-form jobs with estimatedCostCents
     longFormWithCosts,
   ] = await Promise.all([
@@ -139,6 +144,7 @@ async function getFinancialData() {
     prisma.gameplayJob.count({ where: { status: 'COMPLETED', createdAt: { gte: thirtyDaysAgo } } }),
     prisma.longFormJob.count({ where: { status: 'COMPLETED', createdAt: { gte: thirtyDaysAgo } } }),
     prisma.cartoonEpisode.count({ where: { status: 'COMPLETED', createdAt: { gte: thirtyDaysAgo } } }),
+    prisma.imageStudioJob.count({ where: { status: 'COMPLETED', createdAt: { gte: thirtyDaysAgo } } }),
     // Prev 30d completed for growth
     prisma.reelJob.count({ where: { status: 'COMPLETED', createdAt: { gte: sixtyDaysAgo, lt: thirtyDaysAgo } } }),
     prisma.quoteJob.count({ where: { status: 'COMPLETED', createdAt: { gte: sixtyDaysAgo, lt: thirtyDaysAgo } } }),
@@ -146,6 +152,7 @@ async function getFinancialData() {
     prisma.gameplayJob.count({ where: { status: 'COMPLETED', createdAt: { gte: sixtyDaysAgo, lt: thirtyDaysAgo } } }),
     prisma.longFormJob.count({ where: { status: 'COMPLETED', createdAt: { gte: sixtyDaysAgo, lt: thirtyDaysAgo } } }),
     prisma.cartoonEpisode.count({ where: { status: 'COMPLETED', createdAt: { gte: sixtyDaysAgo, lt: thirtyDaysAgo } } }),
+    prisma.imageStudioJob.count({ where: { status: 'COMPLETED', createdAt: { gte: sixtyDaysAgo, lt: thirtyDaysAgo } } }),
     // All-time completed per module (for cost breakdown)
     prisma.reelJob.count({ where: { status: 'COMPLETED' } }),
     prisma.quoteJob.count({ where: { status: 'COMPLETED' } }),
@@ -154,6 +161,7 @@ async function getFinancialData() {
     prisma.gameplayJob.count({ where: { status: 'COMPLETED' } }),
     prisma.longFormJob.count({ where: { status: 'COMPLETED' } }),
     prisma.cartoonEpisode.count({ where: { status: 'COMPLETED' } }),
+    prisma.imageStudioJob.count({ where: { status: 'COMPLETED' } }),
     // User growth
     prisma.user.count({ where: { createdAt: { gte: subDays(now, 30) } } }),
     prisma.user.count({ where: { createdAt: { gte: subDays(now, 60), lt: subDays(now, 30) } } }),
@@ -164,6 +172,7 @@ async function getFinancialData() {
     prisma.gameplayJob.findMany({ where: { status: 'COMPLETED', createdAt: { gte: thirtyDaysAgo } }, select: { createdAt: true } }),
     prisma.longFormJob.findMany({ where: { status: 'COMPLETED', createdAt: { gte: thirtyDaysAgo } }, select: { createdAt: true, durationMinutes: true, estimatedCostCents: true } }),
     prisma.cartoonEpisode.findMany({ where: { status: 'COMPLETED', createdAt: { gte: thirtyDaysAgo } }, select: { createdAt: true } }),
+    prisma.imageStudioJob.findMany({ where: { status: 'COMPLETED', createdAt: { gte: thirtyDaysAgo } }, select: { createdAt: true } }),
     // Long-form jobs with cost data for better estimates
     prisma.longFormJob.findMany({
       where: { status: 'COMPLETED', estimatedCostCents: { not: null } },
@@ -208,7 +217,8 @@ async function getFinancialData() {
     completedChallengesVoice30d * MODULE_AVG_COST_CENTS.challenges_voice +
     completedGameplay30d * MODULE_AVG_COST_CENTS.gameplay +
     completedLongForm30d * avgLongFormCostCents +
-    completedCartoon30d * MODULE_AVG_COST_CENTS.cartoon
+    completedCartoon30d * MODULE_AVG_COST_CENTS.cartoon +
+    completedImageStudio30d * MODULE_AVG_COST_CENTS.imagestudio
 
   const profitCents = totalRevenue30dCents - totalCost30dCents
 
@@ -263,6 +273,10 @@ async function getFinancialData() {
     const key = format(new Date(job.createdAt), 'MMM dd')
     if (key in chartDateMap) chartDateMap[key].cost += MODULE_AVG_COST_CENTS.cartoon / 100
   }
+  for (const job of dailyImageStudio) {
+    const key = format(new Date(job.createdAt), 'MMM dd')
+    if (key in chartDateMap) chartDateMap[key].cost += MODULE_AVG_COST_CENTS.imagestudio / 100
+  }
 
   const revenueVsCostData = Object.entries(chartDateMap).map(([date, vals]) => ({
     date,
@@ -309,6 +323,12 @@ async function getFinancialData() {
       count: allQuotes,
       color: '#06B6D4',
     },
+    {
+      module: 'Image Studio',
+      cost: allImageStudio * MODULE_AVG_COST_CENTS.imagestudio,
+      count: allImageStudio,
+      color: '#F59E0B',
+    },
   ].sort((a, b) => b.cost - a.cost)
 
   // ─── Subscription Revenue Breakdown ───
@@ -335,9 +355,9 @@ async function getFinancialData() {
 
   // ─── Growth Indicators ───
   const totalJobs30d = completedReels30d + completedQuotes30d + completedChallengesNoVoice30d +
-    completedChallengesVoice30d + completedGameplay30d + completedLongForm30d + completedCartoon30d
+    completedChallengesVoice30d + completedGameplay30d + completedLongForm30d + completedCartoon30d + completedImageStudio30d
   const totalJobsPrev = completedReelsPrev + completedQuotesPrev + completedChallengesPrev +
-    completedGameplayPrev + completedLongFormPrev + completedCartoonPrev
+    completedGameplayPrev + completedLongFormPrev + completedCartoonPrev + completedImageStudioPrev
 
   const userGrowth = usersLastMonth > 0
     ? Math.round(((usersThisMonth - usersLastMonth) / usersLastMonth) * 100)

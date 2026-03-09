@@ -47,6 +47,8 @@ export function getJobStatusColor(status: string): string {
     CONFIG_GENERATING: 'text-blue-400',
     RENDERING: 'text-purple-400',
     ENCODING: 'text-yellow-400',
+    // Image Studio pipeline stages
+    ANALYZING: 'text-blue-400',
   }
   return colors[status] || 'text-gray-400'
 }
@@ -77,6 +79,8 @@ export function getJobStatusLabel(status: string): string {
     CONFIG_GENERATING: 'Generating Config',
     RENDERING: 'Rendering Frames',
     ENCODING: 'Encoding Video',
+    // Image Studio pipeline stages
+    ANALYZING: 'Analyzing Images',
   }
   return labels[status] || status
 }

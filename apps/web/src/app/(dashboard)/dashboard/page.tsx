@@ -15,6 +15,7 @@ import {
   Joystick,
   Video,
   Clapperboard,
+  ImageIcon,
   CheckCircle,
   DollarSign,
   Shield,
@@ -52,6 +53,7 @@ const MODULE_META: Record<string, { icon: LucideIcon; label: string; color: stri
   gameplay: { icon: Joystick, label: 'Gameplay', color: 'text-pink-400' },
   longform: { icon: Video, label: 'Long-Form', color: 'text-indigo-400' },
   cartoon: { icon: Clapperboard, label: 'Cartoon', color: 'text-emerald-400' },
+  imagestudio: { icon: ImageIcon, label: 'Image Studio', color: 'text-amber-400' },
 }
 
 /* ─── Helpers ─── */
@@ -95,12 +97,14 @@ async function getUserData(userId: string) {
     gameplayCount,
     longFormCount,
     cartoonCount,
+    imageStudioCount,
     recentReels,
     recentQuotes,
     recentChallenges,
     recentGameplay,
     recentLongForm,
     recentCartoons,
+    recentImageStudio,
     // Last 30 days raw data for timeline
     reels30d,
     quotes30d,
@@ -108,6 +112,7 @@ async function getUserData(userId: string) {
     gameplay30d,
     longForm30d,
     cartoon30d,
+    imageStudio30d,
   ] = await Promise.all([
     prisma.subscription.findUnique({ where: { userId } }),
     prisma.reelJob.count({ where: { userId } }),
@@ -116,6 +121,7 @@ async function getUserData(userId: string) {
     prisma.gameplayJob.count({ where: { userId } }),
     prisma.longFormJob.count({ where: { userId } }),
     prisma.cartoonEpisode.count({ where: { series: { userId } } }),
+    prisma.imageStudioJob.count({ where: { userId } }),
     prisma.reelJob.findMany({
       where: { userId }, orderBy: { createdAt: 'desc' }, take: 5,
       select: { id: true, title: true, status: true, createdAt: true },
@@ -140,6 +146,10 @@ async function getUserData(userId: string) {
       where: { series: { userId } }, orderBy: { createdAt: 'desc' }, take: 5,
       select: { id: true, title: true, status: true, createdAt: true, seriesId: true },
     }),
+    prisma.imageStudioJob.findMany({
+      where: { userId }, orderBy: { createdAt: 'desc' }, take: 5,
+      select: { id: true, title: true, mode: true, status: true, createdAt: true },
+    }),
     // Timeline data — last 30 days (just need createdAt)
     prisma.reelJob.findMany({ where: { userId, createdAt: { gte: thirtyDaysAgo } }, select: { createdAt: true } }),
     prisma.quoteJob.findMany({ where: { userId, createdAt: { gte: thirtyDaysAgo } }, select: { createdAt: true } }),
@@ -147,9 +157,10 @@ async function getUserData(userId: string) {
     prisma.gameplayJob.findMany({ where: { userId, createdAt: { gte: thirtyDaysAgo } }, select: { createdAt: true } }),
     prisma.longFormJob.findMany({ where: { userId, createdAt: { gte: thirtyDaysAgo } }, select: { createdAt: true } }),
     prisma.cartoonEpisode.findMany({ where: { series: { userId }, createdAt: { gte: thirtyDaysAgo } }, select: { createdAt: true } }),
+    prisma.imageStudioJob.findMany({ where: { userId, createdAt: { gte: thirtyDaysAgo } }, select: { createdAt: true } }),
   ])
 
-  const totalContent = reelCount + quoteCount + challengeCount + gameplayCount + longFormCount + cartoonCount
+  const totalContent = reelCount + quoteCount + challengeCount + gameplayCount + longFormCount + cartoonCount + imageStudioCount
 
   // Module breakdown for pie chart
   const moduleBreakdown = [
@@ -159,11 +170,12 @@ async function getUserData(userId: string) {
     { name: 'Gameplay', value: gameplayCount },
     { name: 'Long-Form', value: longFormCount },
     { name: 'Cartoon', value: cartoonCount },
+    { name: 'Image Studio', value: imageStudioCount },
   ]
 
   // Timeline — merge all jobs by date
   const dateMap = buildDateMap(30)
-  const allJobs30d = [...reels30d, ...quotes30d, ...challenges30d, ...gameplay30d, ...longForm30d, ...cartoon30d]
+  const allJobs30d = [...reels30d, ...quotes30d, ...challenges30d, ...gameplay30d, ...longForm30d, ...cartoon30d, ...imageStudio30d]
   const grouped = groupByDate(allJobs30d)
   for (const [key, val] of Object.entries(grouped)) {
     if (key in dateMap) dateMap[key] = val
@@ -200,6 +212,11 @@ async function getUserData(userId: string) {
       status: e.status, createdAt: e.createdAt,
       href: `/cartoon-studio/${e.seriesId}/episodes/${e.id}`,
     })),
+    ...recentImageStudio.map((j) => ({
+      id: j.id, module: 'imagestudio',
+      title: j.title || `${j.mode} job`,
+      status: j.status, createdAt: j.createdAt, href: `/image-studio/${j.id}`,
+    })),
   ]
     .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
     .slice(0, 10)
@@ -217,18 +234,19 @@ async function getAdminData() {
   const [
     totalUsers,
     paidSubs,
-    todayReels, todayQuotes, todayChallenges, todayGameplay, todayLongForm, todayCartoons,
+    todayReels, todayQuotes, todayChallenges, todayGameplay, todayLongForm, todayCartoons, todayImageStudio,
     totalReels, completedReels,
     totalQuotes, completedQuotes,
     totalChallenges, completedChallenges,
     totalGameplay, completedGameplay,
     totalLongForm, completedLongForm,
     totalCartoons, completedCartoons,
+    totalImageStudio, completedImageStudio,
     recentUsers,
-    latestReels, latestQuotes, latestChallenges, latestGameplay, latestLongForm, latestCartoons,
+    latestReels, latestQuotes, latestChallenges, latestGameplay, latestLongForm, latestCartoons, latestImageStudio,
     // Time series data
     users30d,
-    reels30d, quotes30d, challenges30d, gameplay30d, longForm30d, cartoon30d,
+    reels30d, quotes30d, challenges30d, gameplay30d, longForm30d, cartoon30d, imageStudio30d,
   ] = await Promise.all([
     prisma.user.count(),
     prisma.subscription.findMany({ where: { status: 'ACTIVE', plan: { not: 'FREE' } }, select: { plan: true } }),
@@ -239,6 +257,7 @@ async function getAdminData() {
     prisma.gameplayJob.count({ where: { createdAt: { gte: startOfDay } } }),
     prisma.longFormJob.count({ where: { createdAt: { gte: startOfDay } } }),
     prisma.cartoonEpisode.count({ where: { createdAt: { gte: startOfDay } } }),
+    prisma.imageStudioJob.count({ where: { createdAt: { gte: startOfDay } } }),
     // Total + completed
     prisma.reelJob.count(), prisma.reelJob.count({ where: { status: 'COMPLETED' } }),
     prisma.quoteJob.count(), prisma.quoteJob.count({ where: { status: 'COMPLETED' } }),
@@ -246,6 +265,7 @@ async function getAdminData() {
     prisma.gameplayJob.count(), prisma.gameplayJob.count({ where: { status: 'COMPLETED' } }),
     prisma.longFormJob.count(), prisma.longFormJob.count({ where: { status: 'COMPLETED' } }),
     prisma.cartoonEpisode.count(), prisma.cartoonEpisode.count({ where: { status: 'COMPLETED' } }),
+    prisma.imageStudioJob.count(), prisma.imageStudioJob.count({ where: { status: 'COMPLETED' } }),
     // Recent users
     prisma.user.findMany({
       take: 10, orderBy: { createdAt: 'desc' },
@@ -276,6 +296,10 @@ async function getAdminData() {
       take: 5, orderBy: { createdAt: 'desc' },
       select: { id: true, title: true, status: true, createdAt: true, series: { select: { user: { select: { name: true } } } } },
     }),
+    prisma.imageStudioJob.findMany({
+      take: 5, orderBy: { createdAt: 'desc' },
+      select: { id: true, title: true, mode: true, status: true, createdAt: true, user: { select: { name: true } } },
+    }),
     // 30-day time series
     prisma.user.findMany({ where: { createdAt: { gte: thirtyDaysAgo } }, select: { createdAt: true } }),
     prisma.reelJob.findMany({ where: { createdAt: { gte: thirtyDaysAgo } }, select: { createdAt: true } }),
@@ -284,14 +308,15 @@ async function getAdminData() {
     prisma.gameplayJob.findMany({ where: { createdAt: { gte: thirtyDaysAgo } }, select: { createdAt: true } }),
     prisma.longFormJob.findMany({ where: { createdAt: { gte: thirtyDaysAgo } }, select: { createdAt: true } }),
     prisma.cartoonEpisode.findMany({ where: { createdAt: { gte: thirtyDaysAgo } }, select: { createdAt: true } }),
+    prisma.imageStudioJob.findMany({ where: { createdAt: { gte: thirtyDaysAgo } }, select: { createdAt: true } }),
   ])
 
   const planPrices: Record<string, number> = { STARTER: 19, PRO: 49, BUSINESS: 99, ENTERPRISE: 299 }
   const mrr = paidSubs.reduce((sum, s) => sum + (planPrices[s.plan] || 0), 0)
 
-  const jobsToday = todayReels + todayQuotes + todayChallenges + todayGameplay + todayLongForm + todayCartoons
-  const allTotal = totalReels + totalQuotes + totalChallenges + totalGameplay + totalLongForm + totalCartoons
-  const allCompleted = completedReels + completedQuotes + completedChallenges + completedGameplay + completedLongForm + completedCartoons
+  const jobsToday = todayReels + todayQuotes + todayChallenges + todayGameplay + todayLongForm + todayCartoons + todayImageStudio
+  const allTotal = totalReels + totalQuotes + totalChallenges + totalGameplay + totalLongForm + totalCartoons + totalImageStudio
+  const allCompleted = completedReels + completedQuotes + completedChallenges + completedGameplay + completedLongForm + completedCartoons + completedImageStudio
   const successRate = allTotal > 0 ? Math.round((allCompleted / allTotal) * 100) : 0
 
   const moduleStats = [
@@ -301,6 +326,7 @@ async function getAdminData() {
     { key: 'gameplay', label: 'Gameplay', count: totalGameplay, icon: Joystick, color: 'text-pink-400' },
     { key: 'longform', label: 'Long-Form', count: totalLongForm, icon: Video, color: 'text-indigo-400' },
     { key: 'cartoon', label: 'Cartoon', count: totalCartoons, icon: Clapperboard, color: 'text-emerald-400' },
+    { key: 'imagestudio', label: 'Image Studio', count: totalImageStudio, icon: ImageIcon, color: 'text-amber-400' },
   ]
 
   // Merge recent jobs
@@ -312,6 +338,7 @@ async function getAdminData() {
     ...latestGameplay.map((g) => ({ id: g.id, module: 'gameplay', title: g.gameTitle || g.template.replace(/_/g, ' '), userName: g.user.name, status: g.status, createdAt: g.createdAt })),
     ...latestLongForm.map((l) => ({ id: l.id, module: 'longform', title: l.title, userName: l.user.name, status: l.status, createdAt: l.createdAt })),
     ...latestCartoons.map((e) => ({ id: e.id, module: 'cartoon', title: e.title, userName: e.series.user.name, status: e.status, createdAt: e.createdAt })),
+    ...latestImageStudio.map((j) => ({ id: j.id, module: 'imagestudio', title: j.title || `${j.mode} job`, userName: j.user.name, status: j.status, createdAt: j.createdAt })),
   ]
     .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
     .slice(0, 10)
@@ -332,6 +359,7 @@ async function getAdminData() {
   const gameplayGrouped = groupByDate(gameplay30d)
   const longFormGrouped = groupByDate(longForm30d)
   const cartoonGrouped = groupByDate(cartoon30d)
+  const imageStudioGrouped = groupByDate(imageStudio30d)
 
   const jobsPerDay = dateKeys.map((date) => ({
     date,
@@ -341,6 +369,7 @@ async function getAdminData() {
     gameplay: gameplayGrouped[date] || 0,
     longform: longFormGrouped[date] || 0,
     cartoon: cartoonGrouped[date] || 0,
+    imagestudio: imageStudioGrouped[date] || 0,
   }))
 
   // Revenue by plan
@@ -374,6 +403,7 @@ const quickActions = [
   { href: '/gameplay/new', icon: Joystick, label: 'Create Gameplay', desc: '3D gameplay videos', bg: 'bg-pink-500/15', iconColor: 'text-pink-400' },
   { href: '/long-form/new', icon: Video, label: 'Create Long-Form', desc: 'Long-format videos', bg: 'bg-indigo-500/15', iconColor: 'text-indigo-400' },
   { href: '/cartoon-studio', icon: Clapperboard, label: 'Create Cartoon', desc: 'Cartoon series episodes', bg: 'bg-emerald-500/15', iconColor: 'text-emerald-400' },
+  { href: '/image-studio/new', icon: ImageIcon, label: 'Image Studio', desc: 'AI image videos', bg: 'bg-amber-500/15', iconColor: 'text-amber-400' },
 ]
 
 /* ─── Admin quick links ─── */
@@ -452,7 +482,7 @@ export default async function DashboardPage() {
           </div>
           <div className="rounded-xl border border-white/10 bg-white/[0.03] p-6">
             <h3 className="text-sm font-semibold text-white mb-5">Content by Module</h3>
-            <div className="grid grid-cols-3 gap-3">
+            <div className="grid grid-cols-4 gap-3">
               {data.moduleStats.map((mod) => {
                 const Icon = mod.icon
                 return (

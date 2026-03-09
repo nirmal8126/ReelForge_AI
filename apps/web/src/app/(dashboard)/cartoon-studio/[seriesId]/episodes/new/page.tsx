@@ -5,8 +5,9 @@ import { useRouter, useParams } from 'next/navigation'
 import toast from 'react-hot-toast'
 import Link from 'next/link'
 import { ArrowLeft, Loader2, Sparkles, CreditCard, Wand2, RefreshCw } from 'lucide-react'
+import { getCartoonCreditCost } from '@/lib/credit-cost'
 
-const CREDITS_PER_EPISODE = 5
+const CREDITS_PER_EPISODE = getCartoonCreditCost()
 
 export default function NewEpisodePage() {
   const router = useRouter()

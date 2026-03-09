@@ -366,7 +366,7 @@ export default async function BillingPage() {
             <tbody className="divide-y divide-white/5">
               {[
                 { feature: 'Jobs per month', values: ['3', '25', '75', '200'] },
-                { feature: 'Modules included', values: ['All 6', 'All 6', 'All 6', 'All 6'] },
+                { feature: 'Modules included', values: ['All 7', 'All 7', 'All 7', 'All 7'] },
                 { feature: 'Video quality', values: ['720p', '1080p', '1080p', '1080p'] },
                 { feature: 'AI voices', values: ['Basic', '50+', '50+', '50+'] },
                 { feature: 'Channel profiles', values: ['-', '1', '5', 'Unlimited'] },
@@ -429,6 +429,7 @@ export default async function BillingPage() {
                 { module: 'Gameplay', cost: '1-3 credits', factor: 'Duration: 15s = 1, 30s = 2, 45-60s = 3' },
                 { module: 'Long-Form Videos', cost: '3-12 credits', factor: '5min = 3, 10min = 5, 15min = 7, 20min = 9, 30min = 12' },
                 { module: 'Cartoon Studio', cost: '5 credits', factor: 'Flat rate per episode' },
+                { module: 'Image Studio', cost: '1-3 credits', factor: '1 image = 1, 2-3 images or voice = 2, 4-5 images + voice = 3' },
               ].map((row) => (
                 <tr key={row.module} className="hover:bg-white/[0.02] transition">
                   <td className="px-6 py-3 text-sm font-medium text-white">{row.module}</td>
