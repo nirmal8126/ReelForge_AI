@@ -35,6 +35,7 @@ import {
   Sparkles,
   User,
   ListChecks,
+  Pencil,
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { cn } from '@/lib/utils'
@@ -57,6 +58,13 @@ interface Schedule {
   requireApproval: boolean
   publishDelay: number
   customTopics: string[] | null
+  durationSeconds: number
+  durationMinutes: number
+  aspectRatio: string
+  style: string | null
+  voiceId: string | null
+  channelProfileId: string | null
+  moduleSettings: Record<string, unknown> | null
   totalGenerated: number
   totalPublished: number
   totalFailed: number
@@ -153,6 +161,7 @@ export default function AutomationPage() {
   const [channelProfiles, setChannelProfiles] = useState<ChannelProfile[]>([])
   const [cartoonSeries, setCartoonSeries] = useState<CartoonSeriesOption[]>([])
   const [expandedSchedule, setExpandedSchedule] = useState<string | null>(null)
+  const [editingSchedule, setEditingSchedule] = useState<Schedule | null>(null)
 
   // Fetch schedules
   const fetchSchedules = useCallback(async () => {
@@ -245,6 +254,18 @@ export default function AutomationPage() {
     }
   }
 
+  // Run schedule immediately
+  const runScheduleNow = async (id: string) => {
+    try {
+      const res = await fetch(`/api/automation/schedules/${id}/run`, { method: 'POST' })
+      if (!res.ok) throw new Error()
+      toast.success('Schedule queued — job will be created on next scheduler tick (up to 5 min)')
+      fetchSchedules()
+    } catch {
+      toast.error('Failed to trigger schedule')
+    }
+  }
+
   // Approve/reject a log
   const handleLogAction = async (logId: string, action: 'approve' | 'reject') => {
     try {
@@ -275,7 +296,7 @@ export default function AutomationPage() {
           </div>
         </div>
         <button
-          onClick={() => setTab('create')}
+          onClick={() => { setEditingSchedule(null); setTab('create') }}
           className="flex items-center gap-2 rounded-lg bg-brand-500 px-4 py-2.5 text-sm font-medium text-white hover:bg-brand-600 transition-colors"
         >
           <Plus className="h-4 w-4" />
@@ -296,7 +317,7 @@ export default function AutomationPage() {
                 : 'text-gray-400 hover:text-gray-200'
             )}
           >
-            {t === 'schedules' ? 'Schedules' : t === 'logs' ? 'Activity Log' : 'Create New'}
+            {t === 'schedules' ? 'Schedules' : t === 'logs' ? 'Activity Log' : editingSchedule ? 'Edit Schedule' : 'Create New'}
           </button>
         ))}
       </div>
@@ -310,6 +331,11 @@ export default function AutomationPage() {
           onToggleExpand={(id) => setExpandedSchedule(expandedSchedule === id ? null : id)}
           onToggle={toggleSchedule}
           onDelete={deleteSchedule}
+          onEdit={(schedule) => {
+            setEditingSchedule(schedule)
+            setTab('create')
+          }}
+          onRunNow={runScheduleNow}
         />
       )}
 
@@ -324,12 +350,19 @@ export default function AutomationPage() {
 
       {tab === 'create' && (
         <CreateScheduleForm
+          key={editingSchedule?.id || 'new'}
           socialAccounts={socialAccounts}
           channelProfiles={channelProfiles}
           cartoonSeries={cartoonSeries}
+          editingSchedule={editingSchedule}
           onCreated={() => {
             setTab('schedules')
+            setEditingSchedule(null)
             fetchSchedules()
+          }}
+          onCancel={() => {
+            setEditingSchedule(null)
+            setTab('schedules')
           }}
         />
       )}
@@ -348,6 +381,8 @@ function SchedulesList({
   onToggleExpand,
   onToggle,
   onDelete,
+  onEdit,
+  onRunNow,
 }: {
   schedules: Schedule[]
   loading: boolean
@@ -355,6 +390,8 @@ function SchedulesList({
   onToggleExpand: (id: string) => void
   onToggle: (id: string, isActive: boolean) => void
   onDelete: (id: string) => void
+  onEdit: (schedule: Schedule) => void
+  onRunNow: (id: string) => void
 }) {
   if (loading) {
     return (
@@ -445,6 +482,20 @@ function SchedulesList({
 
               {/* Actions */}
               <div className="flex items-center gap-1">
+                <button
+                  onClick={() => onRunNow(schedule.id)}
+                  className="rounded-lg p-2 text-gray-400 hover:bg-green-500/10 hover:text-green-400 transition-colors"
+                  title="Run Now"
+                >
+                  <RotateCcw className="h-4 w-4" />
+                </button>
+                <button
+                  onClick={() => onEdit(schedule)}
+                  className="rounded-lg p-2 text-gray-400 hover:bg-brand-500/10 hover:text-brand-400 transition-colors"
+                  title="Edit"
+                >
+                  <Pencil className="h-4 w-4" />
+                </button>
                 <button
                   onClick={() => onToggle(schedule.id, schedule.isActive)}
                   className="rounded-lg p-2 text-gray-400 hover:bg-white/[0.06] hover:text-white transition-colors"
@@ -682,11 +733,11 @@ const DURATIONS = [
 ]
 
 const LONG_FORM_DURATIONS = [
-  { value: 5, label: '5 min' },
-  { value: 10, label: '10 min' },
-  { value: 15, label: '15 min' },
-  { value: 20, label: '20 min' },
-  { value: 30, label: '30 min' },
+  { value: 5, label: '5 min', desc: 'Quick' },
+  { value: 10, label: '10 min', desc: 'Short' },
+  { value: 15, label: '15 min', desc: 'Medium' },
+  { value: 20, label: '20 min', desc: 'Long' },
+  { value: 30, label: '30 min', desc: 'Extended' },
 ]
 
 const ASPECTS = [
@@ -714,50 +765,94 @@ function CreateScheduleForm({
   socialAccounts,
   channelProfiles,
   cartoonSeries,
+  editingSchedule,
   onCreated,
+  onCancel,
 }: {
   socialAccounts: SocialAccount[]
   channelProfiles: ChannelProfile[]
   cartoonSeries: CartoonSeriesOption[]
+  editingSchedule: Schedule | null
   onCreated: () => void
+  onCancel: () => void
 }) {
+  const isEditing = !!editingSchedule
   const [submitting, setSubmitting] = useState(false)
   const [step, setStep] = useState<1 | 2>(1)
-  const [form, setForm] = useState({
-    name: '',
-    moduleType: 'REEL' as string,
-    channelProfileId: '',
-    frequency: 'DAILY' as string,
-    scheduledTime: '09:00',
-    timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC',
-    language: 'hi',
-    customTopics: '' as string,
-    durationSeconds: 30,
-    durationMinutes: 10,
-    aspectRatio: '9:16',
-    style: 'cinematic',
-    voiceId: 'EXAVITQu4vr4xnSDxMaL',
-    autoPublish: false,
-    publishDelay: 0,
-    requireApproval: false,
-    selectedAccountIds: [] as string[],
 
-    // Module-specific
-    challengeType: 'gk_quiz',
-    category: 'general',
-    difficulty: 'medium',
-    numQuestions: 3,
-    timerSeconds: 5,
-    templateStyle: 'neon',
-    voiceEnabled: false,
-    gameplayTemplate: 'ENDLESS_RUNNER',
-    gameplayTheme: 'neon',
-    musicStyle: 'upbeat',
-    showScore: true,
-    quoteCategory: 'motivational',
-    quoteLength: 'medium',
-    cartoonSeriesId: '',
-  })
+  const buildInitialForm = () => {
+    if (!editingSchedule) {
+      return {
+        name: '',
+        moduleType: 'REEL' as string,
+        channelProfileId: '',
+        frequency: 'DAILY' as string,
+        scheduledTime: '09:00',
+        timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC',
+        language: 'hi',
+        customTopics: '' as string,
+        durationSeconds: 30,
+        durationMinutes: 10,
+        aspectRatio: '9:16',
+        style: 'cinematic',
+        voiceId: 'EXAVITQu4vr4xnSDxMaL',
+        autoPublish: false,
+        publishDelay: 0,
+        requireApproval: false,
+        selectedAccountIds: [] as string[],
+        challengeType: 'gk_quiz',
+        category: 'general',
+        difficulty: 'medium',
+        numQuestions: 3,
+        timerSeconds: 5,
+        templateStyle: 'neon',
+        voiceEnabled: false,
+        gameplayTemplate: 'ENDLESS_RUNNER',
+        gameplayTheme: 'neon',
+        musicStyle: 'upbeat',
+        showScore: true,
+        quoteCategory: 'motivational',
+        quoteLength: 'medium',
+        cartoonSeriesId: '',
+      }
+    }
+    const ms = (editingSchedule.moduleSettings || {}) as Record<string, unknown>
+    return {
+      name: editingSchedule.name,
+      moduleType: editingSchedule.moduleType,
+      channelProfileId: editingSchedule.channelProfileId || '',
+      frequency: editingSchedule.frequency,
+      scheduledTime: editingSchedule.scheduledTime,
+      timezone: editingSchedule.timezone,
+      language: editingSchedule.language,
+      customTopics: (editingSchedule.customTopics || []).join('\n'),
+      durationSeconds: editingSchedule.durationSeconds || 30,
+      durationMinutes: editingSchedule.durationMinutes || 10,
+      aspectRatio: editingSchedule.aspectRatio || '9:16',
+      style: editingSchedule.style || 'cinematic',
+      voiceId: editingSchedule.voiceId || 'EXAVITQu4vr4xnSDxMaL',
+      autoPublish: editingSchedule.autoPublish,
+      publishDelay: editingSchedule.publishDelay,
+      requireApproval: editingSchedule.requireApproval,
+      selectedAccountIds: (editingSchedule.publishTargets || []).map(t => t.socialAccountId),
+      challengeType: (ms.challengeType as string) || 'gk_quiz',
+      category: (ms.category as string) || 'general',
+      difficulty: (ms.difficulty as string) || 'medium',
+      numQuestions: (ms.numQuestions as number) || 3,
+      timerSeconds: (ms.timerSeconds as number) || 5,
+      templateStyle: (ms.templateStyle as string) || 'neon',
+      voiceEnabled: (ms.voiceEnabled as boolean) || false,
+      gameplayTemplate: (ms.template as string) || 'ENDLESS_RUNNER',
+      gameplayTheme: (ms.theme as string) || 'neon',
+      musicStyle: (ms.musicStyle as string) || 'upbeat',
+      showScore: (ms.showScore as boolean) ?? true,
+      quoteCategory: (ms.category as string) || 'motivational',
+      quoteLength: (ms.quoteLength as string) || 'medium',
+      cartoonSeriesId: (ms.seriesId as string) || '',
+    }
+  }
+
+  const [form, setForm] = useState(buildInitialForm)
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -819,42 +914,47 @@ function CreateScheduleForm({
       socialAccountId: id,
     }))
 
+    const payload = {
+      name: form.name,
+      moduleType: form.moduleType,
+      channelProfileId: form.channelProfileId || null,
+      frequency: form.frequency,
+      scheduledTime: form.scheduledTime,
+      timezone: form.timezone,
+      language: form.language,
+      customTopics: topics,
+      durationSeconds: form.durationSeconds,
+      durationMinutes: form.durationMinutes,
+      aspectRatio: form.aspectRatio,
+      style: form.style || null,
+      voiceId: form.voiceId || null,
+      moduleSettings,
+      autoPublish: form.autoPublish,
+      publishDelay: form.publishDelay,
+      requireApproval: form.requireApproval,
+      publishTargets: publishTargets.length > 0 ? publishTargets : null,
+    }
+
     setSubmitting(true)
     try {
-      const res = await fetch('/api/automation/schedules', {
-        method: 'POST',
+      const url = isEditing
+        ? `/api/automation/schedules/${editingSchedule!.id}`
+        : '/api/automation/schedules'
+      const res = await fetch(url, {
+        method: isEditing ? 'PATCH' : 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          name: form.name,
-          moduleType: form.moduleType,
-          channelProfileId: form.channelProfileId || undefined,
-          frequency: form.frequency,
-          scheduledTime: form.scheduledTime,
-          timezone: form.timezone,
-          language: form.language,
-          customTopics: topics,
-          durationSeconds: form.durationSeconds,
-          durationMinutes: form.durationMinutes,
-          aspectRatio: form.aspectRatio,
-          style: form.style || undefined,
-          voiceId: form.voiceId || undefined,
-          moduleSettings,
-          autoPublish: form.autoPublish,
-          publishDelay: form.publishDelay,
-          requireApproval: form.requireApproval,
-          publishTargets: publishTargets.length > 0 ? publishTargets : undefined,
-        }),
+        body: JSON.stringify(payload),
       })
 
       if (!res.ok) {
         const data = await res.json()
-        throw new Error(data.error || 'Failed to create schedule')
+        throw new Error(data.error || `Failed to ${isEditing ? 'update' : 'create'} schedule`)
       }
 
-      toast.success('Automation schedule created!')
+      toast.success(isEditing ? 'Schedule updated!' : 'Automation schedule created!')
       onCreated()
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Failed to create schedule')
+      toast.error(err instanceof Error ? err.message : `Failed to ${isEditing ? 'update' : 'create'} schedule`)
     } finally {
       setSubmitting(false)
     }
@@ -874,6 +974,19 @@ function CreateScheduleForm({
 
   return (
     <form onSubmit={handleSubmit} className="mx-auto space-y-6" style={{ maxWidth: step === 1 ? '100%' : '56rem' }}>
+      {/* ── Edit Banner ── */}
+      {isEditing && (
+        <div className="flex items-center justify-between rounded-xl border border-brand-500/20 bg-brand-500/5 px-4 py-3">
+          <div className="flex items-center gap-2">
+            <Pencil className="h-4 w-4 text-brand-400" />
+            <p className="text-sm text-brand-300">Editing: <span className="font-medium text-white">{editingSchedule!.name}</span></p>
+          </div>
+          <button type="button" onClick={onCancel} className="text-xs text-gray-400 hover:text-white transition">
+            Cancel
+          </button>
+        </div>
+      )}
+
       {/* ── Step Indicator ── */}
       <div className="flex items-center gap-2 mb-2">
         {STEP_LABELS.map((s, i) => (
@@ -1129,21 +1242,24 @@ function CreateScheduleForm({
               {/* Duration (long-form) */}
               {showLongFormDuration && (
                 <div>
-                  <label className="block text-xs font-medium text-gray-400 mb-2">Duration</label>
-                  <div className="flex flex-wrap gap-2">
+                  <label className="block text-xs font-medium text-gray-400 mb-2">
+                    <span className="flex items-center gap-1.5"><Clock className="h-3.5 w-3.5" /> Duration</span>
+                  </label>
+                  <div className="flex gap-2">
                     {LONG_FORM_DURATIONS.map((d) => (
                       <button
                         key={d.value}
                         type="button"
                         onClick={() => setForm({ ...form, durationMinutes: d.value })}
                         className={cn(
-                          'rounded-lg border px-4 py-2 text-xs font-medium transition',
+                          'flex-1 rounded-lg border px-2 py-2 text-center transition',
                           form.durationMinutes === d.value
                             ? 'border-brand-500 bg-brand-500/15 text-brand-400'
                             : 'border-white/10 bg-white/5 text-gray-400 hover:bg-white/10'
                         )}
                       >
-                        {d.label}
+                        <p className="text-sm font-bold">{d.label}</p>
+                        <p className="text-[10px] text-gray-500">{d.desc}</p>
                       </button>
                     ))}
                   </div>
@@ -1638,9 +1754,9 @@ function CreateScheduleForm({
               className="inline-flex items-center justify-center gap-2 rounded-lg bg-gradient-to-r from-purple-600 to-brand-600 px-8 py-3 text-sm font-semibold text-white hover:from-purple-500 hover:to-brand-500 transition disabled:opacity-50 disabled:cursor-not-allowed shadow-lg hover:shadow-brand-500/25"
             >
               {submitting ? (
-                <><Loader2 className="h-4 w-4 animate-spin" /> Creating...</>
+                <><Loader2 className="h-4 w-4 animate-spin" /> {isEditing ? 'Saving...' : 'Creating...'}</>
               ) : (
-                <><Zap className="h-4 w-4" /> Create Schedule</>
+                <><Zap className="h-4 w-4" /> {isEditing ? 'Save Changes' : 'Create Schedule'}</>
               )}
             </button>
           </div>

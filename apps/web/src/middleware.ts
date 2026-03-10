@@ -79,7 +79,7 @@ export async function middleware(request: NextRequest) {
   // Rate limit API routes
   if (pathname.startsWith('/api/') && !pathname.startsWith('/api/auth') && !pathname.startsWith('/api/webhooks')) {
     const ip = request.headers.get('x-forwarded-for') || request.headers.get('x-real-ip') || 'unknown'
-    if (!rateLimit(ip, 100, 15 * 60 * 1000)) { // 100 requests per 15 min
+    if (!rateLimit(ip, 500, 15 * 60 * 1000)) { // 500 requests per 15 min
       return NextResponse.json(
         { error: 'Rate limit exceeded' },
         { status: 429 }
