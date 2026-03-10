@@ -16,6 +16,7 @@ import { checkSequenceTriggers } from './jobs/sequence-trigger-checker';
 import { processBadgeChecker } from './jobs/badge-checker';
 import { processAutopilotScheduler } from './jobs/autopilot-scheduler';
 import { processAutopilotPublisher } from './jobs/autopilot-publisher';
+import { processTokenRefresher } from './jobs/token-refresher';
 
 function loadEnvFiles() {
   const cwd = process.cwd();
@@ -485,6 +486,42 @@ autopilotPublisherQueue.add('publish-jobs', {}, {
 }).catch((err: unknown) => logger.error({ err }, 'Failed to schedule autopilot publisher'));
 
 // ---------------------------------------------------------------------------
+// Token refresher (every 30 minutes) — proactively refreshes expiring OAuth tokens
+// ---------------------------------------------------------------------------
+const tokenRefresherQueue = new Queue('token-refresher', { connection });
+const tokenRefresherWorker = new Worker(
+  'token-refresher',
+  async (job) => {
+    logger.info({ jobId: job.id }, 'Running token refresher');
+    return processTokenRefresher(job);
+  },
+  {
+    connection,
+    concurrency: 1,
+    removeOnComplete: { count: 50 },
+    removeOnFail: { count: 50 },
+  },
+);
+
+tokenRefresherWorker.on('completed', (job) => {
+  logger.info({ jobId: job.id }, 'Token refresher completed');
+});
+
+tokenRefresherWorker.on('failed', (job, err) => {
+  logger.error({ jobId: job?.id, err: err.message }, 'Token refresher failed');
+});
+
+tokenRefresherWorker.on('error', (err) => {
+  logger.error({ err }, 'Token refresher error');
+});
+
+// Run every 30 minutes
+tokenRefresherQueue.add('refresh-tokens', {}, {
+  repeat: { every: 30 * 60 * 1000 },
+  jobId: 'token-refresher-30min',
+}).catch((err: unknown) => logger.error({ err }, 'Failed to schedule token refresher'));
+
+// ---------------------------------------------------------------------------
 // Graceful shutdown
 // ---------------------------------------------------------------------------
 const shutdown = async (signal: string) => {
@@ -504,6 +541,7 @@ const shutdown = async (signal: string) => {
     badgeWorker.close(),
     autopilotSchedulerWorker.close(),
     autopilotPublisherWorker.close(),
+    tokenRefresherWorker.close(),
   ]);
 
   await connection.quit();
@@ -519,8 +557,8 @@ process.on('SIGINT', () => shutdown('SIGINT'));
 // ---------------------------------------------------------------------------
 logger.info(
   {
-    queues: ['reel-jobs', 'long-form-jobs', 'cartoon-episode-jobs', 'quote-jobs', 'challenge-jobs', 'gameplay-jobs', 'image-studio-jobs', 'email-notifications', 'sequence-processor', 'sequence-trigger-checker', 'badge-checker', 'autopilot-scheduler', 'autopilot-publisher'],
-    concurrency: { reelJobs: 5, longFormJobs: 2, cartoonEpisodes: 2, quoteJobs: 5, challengeJobs: 5, gameplayJobs: 3, imageStudioJobs: 3, emailNotifications: 10, sequences: 1, triggers: 1, badges: 1, autopilotScheduler: 1, autopilotPublisher: 1 },
+    queues: ['reel-jobs', 'long-form-jobs', 'cartoon-episode-jobs', 'quote-jobs', 'challenge-jobs', 'gameplay-jobs', 'image-studio-jobs', 'email-notifications', 'sequence-processor', 'sequence-trigger-checker', 'badge-checker', 'autopilot-scheduler', 'autopilot-publisher', 'token-refresher'],
+    concurrency: { reelJobs: 5, longFormJobs: 2, cartoonEpisodes: 2, quoteJobs: 5, challengeJobs: 5, gameplayJobs: 3, imageStudioJobs: 3, emailNotifications: 10, sequences: 1, triggers: 1, badges: 1, autopilotScheduler: 1, autopilotPublisher: 1, tokenRefresher: 1 },
     redis: process.env.REDIS_URL ? '(configured)' : 'redis://localhost:6379',
   },
   'ReelForge worker service started',

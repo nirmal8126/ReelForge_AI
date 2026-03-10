@@ -203,12 +203,12 @@ export default function SocialAccountsPage() {
                     <div className="flex items-center gap-2 mt-0.5">
                       <span className="text-xs text-gray-500">{display?.name || account.platform}</span>
                       {isExpired ? (
-                        <span className="text-xs text-red-400 flex items-center gap-1">
-                          <AlertCircle className="h-3 w-3" /> Token expired
+                        <span className="text-xs text-orange-400 flex items-center gap-1">
+                          <RefreshCw className="h-3 w-3 animate-spin" /> Auto-refreshing
                         </span>
                       ) : expiresSoon ? (
                         <span className="text-xs text-yellow-400 flex items-center gap-1">
-                          <Clock className="h-3 w-3" /> Expires soon
+                          <Clock className="h-3 w-3" /> Renewing soon
                         </span>
                       ) : (
                         <span className="text-xs text-green-400 flex items-center gap-1">
@@ -218,18 +218,21 @@ export default function SocialAccountsPage() {
                     </div>
                     {account.tokenExpiry && (
                       <p className="text-[10px] text-gray-600 mt-0.5">
-                        {isExpired ? 'Expired' : 'Expires'}: {new Date(account.tokenExpiry).toLocaleDateString()}
+                        {isExpired
+                          ? 'Token will be refreshed automatically'
+                          : `Renews: ${new Date(account.tokenExpiry).toLocaleDateString()}`}
                       </p>
                     )}
                   </div>
 
                   {/* Actions */}
                   <div className="flex items-center gap-2">
-                    {/* Reconnect button — shown when expired or expiring soon */}
-                    {(isExpired || expiresSoon) && (
+                    {/* Reconnect button — fallback if auto-refresh fails */}
+                    {isExpired && (
                       <a
                         href={`/api/social-accounts/connect/${account.platform.toLowerCase()}`}
-                        className="flex items-center gap-1.5 text-xs text-brand-400 hover:text-brand-300 px-3 py-1.5 rounded-md border border-brand-500/20 hover:bg-brand-500/10 transition"
+                        className="flex items-center gap-1.5 text-xs text-gray-400 hover:text-white px-3 py-1.5 rounded-md border border-white/10 hover:bg-white/[0.06] transition"
+                        title="Use this if auto-refresh fails"
                       >
                         <RefreshCw className="h-3.5 w-3.5" />
                         Reconnect
@@ -325,7 +328,7 @@ export default function SocialAccountsPage() {
           <span className="text-gray-400 font-medium">How it works:</span>{' '}
           Connect your social media accounts to publish your generated content directly to YouTube, Facebook, and Instagram.
           You can connect multiple accounts and choose which ones to publish to for each job.
-          Your tokens are stored securely and can be disconnected at any time.
+          Your tokens are stored securely, refreshed automatically before they expire, and can be disconnected at any time.
         </p>
       </div>
     </div>
