@@ -126,11 +126,19 @@ export async function processCartoonEpisode(
         language: series.language,
       });
 
-      // Save story script
+      // Generate a proper episode title from the story content
+      const storyTitle = deriveEpisodeTitleFromStory(story.scenes, episode.episodeNumber);
+
+      // Save story script and update title
       await prisma.cartoonEpisode.update({
         where: { id: episodeId },
-        data: { storyScript: story.fullScript },
+        data: {
+          storyScript: story.fullScript,
+          title: storyTitle,
+        },
       });
+
+      log.info({ storyTitle }, 'Episode title derived from story');
 
       // Create scene records
       const sceneData = story.scenes.map((s, i) => ({
@@ -138,6 +146,7 @@ export async function processCartoonEpisode(
         sceneIndex: i,
         description: s.description,
         visualPrompt: s.visualPrompt,
+        visualPrompts: (s.visualPrompts && s.visualPrompts.length > 0 ? s.visualPrompts : [s.visualPrompt]) as any,
         narration: s.narration,
         dialogue: s.dialogue as any,
         status: 'PENDING' as const,
@@ -179,66 +188,83 @@ export async function processCartoonEpisode(
         .join('. ');
       const seriesContext = `${artStyle} style, series "${series.name}"${series.description ? ` — ${series.description}` : ''}. Characters: ${characterContext}`;
 
-      for (let idx = 0; idx < pendingImageScenes.length; idx++) {
-        const scene = pendingImageScenes[idx];
-        const imagePath = path.join(imageDir, `scene-${scene.sceneIndex}.png`);
+      // Count total images across all scenes for progress tracking
+      let totalImages = 0;
+      let generatedImages = 0;
+      for (const scene of pendingImageScenes) {
+        const prompts = (scene.visualPrompts as string[] | null) || [scene.visualPrompt || scene.description || 'cartoon scene'];
+        totalImages += prompts.length;
+      }
 
-        // Delay between API calls to avoid Gemini rate limits (skip first)
-        if (idx > 0) {
-          await new Promise(r => setTimeout(r, 3000));
+      for (const scene of pendingImageScenes) {
+        // Get all visual prompts for this scene (2-3 per scene)
+        const prompts = (scene.visualPrompts as string[] | null) || [scene.visualPrompt || scene.description || 'cartoon scene'];
+        const sceneImageUrls: string[] = [];
+
+        for (let imgIdx = 0; imgIdx < prompts.length; imgIdx++) {
+          const imagePath = path.join(imageDir, `scene-${scene.sceneIndex}-${imgIdx}.png`);
+
+          // Delay between API calls to avoid Gemini rate limits (skip first overall)
+          if (generatedImages > 0) {
+            await new Promise(r => setTimeout(r, 3000));
+          }
+
+          let imageBuffer: Buffer;
+          try {
+            const basePrompt = prompts[imgIdx];
+            const enrichedPrompt = `${basePrompt}. ${seriesContext}. High quality, consistent character design, vibrant colors.`;
+
+            const [generated] = await generateSceneImages({
+              prompt: enrichedPrompt,
+              style: artStyle,
+              count: 1,
+              aspectRatio: job.data.aspectRatio,
+            });
+            imageBuffer = generated;
+            log.info({ sceneIndex: scene.sceneIndex, imgIdx, total: prompts.length }, 'AI image generated');
+          } catch (imgErr) {
+            log.warn({ sceneIndex: scene.sceneIndex, imgIdx, err: imgErr instanceof Error ? imgErr.message : imgErr }, 'Gemini image failed, using placeholder');
+            const res = job.data.aspectRatio === '9:16'
+              ? { w: 1080, h: 1920 }
+              : job.data.aspectRatio === '1:1'
+                ? { w: 1080, h: 1080 }
+                : { w: 1920, h: 1080 };
+            generatePlaceholderPNG(imagePath, res.w, res.h, scene.sceneIndex + imgIdx);
+            imageBuffer = readFileSync(imagePath);
+          }
+
+          // Save locally for FFmpeg composer
+          await fsPromises.writeFile(imagePath, imageBuffer);
+
+          // Upload to storage
+          let sceneImageUrl = imagePath;
+          try {
+            sceneImageUrl = await uploadSceneImage({
+              buffer: imageBuffer,
+              userId,
+              episodeId,
+              sceneIndex: scene.sceneIndex * 10 + imgIdx, // unique index per sub-image
+            });
+          } catch (uploadErr) {
+            log.warn({ sceneIndex: scene.sceneIndex, imgIdx, err: uploadErr instanceof Error ? uploadErr.message : uploadErr }, 'Scene image upload failed, using local path');
+          }
+
+          sceneImageUrls.push(sceneImageUrl);
+          generatedImages++;
+
+          const progress = 20 + Math.round((generatedImages / totalImages) * 25);
+          await setProgress(Math.min(progress, 44));
         }
 
-        let imageBuffer: Buffer;
-        try {
-          // Enrich prompt with series context so images match the series style & characters
-          const basePrompt = scene.visualPrompt || scene.description || 'cartoon scene';
-          const enrichedPrompt = `${basePrompt}. ${seriesContext}. High quality, consistent character design, vibrant colors.`;
-
-          const [generated] = await generateSceneImages({
-            prompt: enrichedPrompt,
-            style: artStyle,
-            count: 1,
-            aspectRatio: job.data.aspectRatio,
-          });
-          imageBuffer = generated;
-          log.info({ sceneIndex: scene.sceneIndex, idx: idx + 1, total: pendingImageScenes.length }, 'AI image generated for scene');
-        } catch (imgErr) {
-          // Fallback to placeholder if Gemini fails
-          log.warn({ sceneIndex: scene.sceneIndex, err: imgErr instanceof Error ? imgErr.message : imgErr }, 'Gemini image failed, using placeholder');
-          const res = job.data.aspectRatio === '9:16'
-            ? { w: 1080, h: 1920 }
-            : job.data.aspectRatio === '1:1'
-              ? { w: 1080, h: 1080 }
-              : { w: 1920, h: 1080 };
-          const placeholderPath = path.join(imageDir, `scene-${scene.sceneIndex}.png`);
-          generatePlaceholderPNG(placeholderPath, res.w, res.h, scene.sceneIndex);
-          // For placeholder, store local path (used by composer) and mark done
-          imageBuffer = readFileSync(placeholderPath);
-        }
-
-        // Save locally for FFmpeg composer
-        await fsPromises.writeFile(imagePath, imageBuffer);
-
-        // Upload to storage so frontend can display scene thumbnails
-        let sceneImageUrl = imagePath; // fallback to local path
-        try {
-          sceneImageUrl = await uploadSceneImage({
-            buffer: imageBuffer,
-            userId,
-            episodeId,
-            sceneIndex: scene.sceneIndex,
-          });
-        } catch (uploadErr) {
-          log.warn({ sceneIndex: scene.sceneIndex, err: uploadErr instanceof Error ? uploadErr.message : uploadErr }, 'Scene image upload failed, using local path');
-        }
-
+        // Update scene: first image as primary imageUrl, all images in imageUrls JSON
         await prisma.cartoonScene.update({
           where: { id: scene.id },
-          data: { imageUrl: sceneImageUrl, status: 'COMPLETED' },
+          data: {
+            imageUrl: sceneImageUrls[0],
+            imageUrls: sceneImageUrls as any,
+            status: 'COMPLETED',
+          },
         });
-
-        const progress = 20 + Math.round((scene.sceneIndex / scenes.length) * 25);
-        await setProgress(Math.min(progress, 44));
       }
 
       // Refresh scenes
@@ -247,7 +273,7 @@ export async function processCartoonEpisode(
         orderBy: { sceneIndex: 'asc' },
       });
 
-      log.info('Scene images generated');
+      log.info({ totalImages: generatedImages }, 'Scene images generated');
     } else {
       log.info('Stage 2: Skipping — images already exist');
     }
@@ -412,18 +438,40 @@ export async function processCartoonEpisode(
     // Use local image paths for FFmpeg composition (not CDN URLs)
     const imageDir = path.join(os.tmpdir(), `cartoon-images-${episodeId}`);
     const sceneInputs: CartoonSceneInput[] = scenes.map((s) => {
-      // Prefer local temp file for composition, fall back to imageUrl
-      const localPath = path.join(imageDir, `scene-${s.sceneIndex}.png`);
-      const localPpmPath = path.join(imageDir, `scene-${s.sceneIndex}.ppm`);
-      let imgPath = s.imageUrl || '';
-      if (existsSync(localPath)) {
-        imgPath = localPath;
-      } else if (existsSync(localPpmPath)) {
-        imgPath = localPpmPath;
+      // Collect all image paths for this scene
+      const imageUrls = (s.imageUrls as string[] | null) || [];
+      const imagePaths: string[] = [];
+
+      if (imageUrls.length > 0) {
+        // Multi-image scene: find local files for each
+        for (let imgIdx = 0; imgIdx < imageUrls.length; imgIdx++) {
+          const localPath = path.join(imageDir, `scene-${s.sceneIndex}-${imgIdx}.png`);
+          if (existsSync(localPath)) {
+            imagePaths.push(localPath);
+          } else if (imageUrls[imgIdx] && !imageUrls[imgIdx].startsWith('http')) {
+            // Might be a local path already
+            if (existsSync(imageUrls[imgIdx])) imagePaths.push(imageUrls[imgIdx]);
+          }
+        }
       }
+
+      // Fallback to single image if multi-image paths not found
+      if (imagePaths.length === 0) {
+        const localPath = path.join(imageDir, `scene-${s.sceneIndex}.png`);
+        const localPath0 = path.join(imageDir, `scene-${s.sceneIndex}-0.png`);
+        if (existsSync(localPath0)) {
+          imagePaths.push(localPath0);
+        } else if (existsSync(localPath)) {
+          imagePaths.push(localPath);
+        } else if (s.imageUrl) {
+          imagePaths.push(s.imageUrl);
+        }
+      }
+
       return {
         sceneIndex: s.sceneIndex,
-        imageUrl: imgPath,
+        imageUrl: imagePaths[0] || s.imageUrl || '',
+        imageUrls: imagePaths,
         durationSeconds: Math.max(3, s.endTime - s.startTime),
         subtitleLines: buildSubtitleLines(s),
       };
@@ -504,6 +552,39 @@ export async function processCartoonEpisode(
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
+
+/**
+ * Derive a proper episode title from the generated story scenes.
+ * Uses the first scene's description as the episode title since it captures
+ * the story's opening/theme, rather than the raw scheduler topic.
+ */
+function deriveEpisodeTitleFromStory(
+  scenes: { description: string; narration: string }[],
+  episodeNumber: number,
+): string {
+  // Use first scene description as the title base
+  let titleBase = scenes[0]?.description || '';
+
+  // If description is too short, try narration
+  if (titleBase.length < 5 && scenes[0]?.narration) {
+    titleBase = scenes[0].narration;
+  }
+
+  // Clean up: take first sentence, trim
+  titleBase = titleBase.split(/[.!?\n]/)[0].trim();
+
+  // Capitalize first letter
+  if (titleBase.length > 0) {
+    titleBase = titleBase.charAt(0).toUpperCase() + titleBase.slice(1);
+  }
+
+  // Truncate to reasonable length
+  if (titleBase.length > 100) {
+    titleBase = titleBase.slice(0, 97).replace(/\s+\S*$/, '') + '...';
+  }
+
+  return titleBase ? `Ep ${episodeNumber}: ${titleBase}` : `Episode ${episodeNumber}`;
+}
 
 function buildSubtitleLines(scene: any): { speaker: string; text: string; color?: string }[] {
   const lines: { speaker: string; text: string; color?: string }[] = [];

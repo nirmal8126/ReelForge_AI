@@ -12,7 +12,8 @@ const log = logger.child({ service: 'cartoon-composer' });
 
 export interface CartoonSceneInput {
   sceneIndex: number;
-  imageUrl: string; // local file path or URL
+  imageUrl: string; // local file path or URL (primary/first image)
+  imageUrls?: string[]; // multiple image paths for the scene
   durationSeconds: number;
   subtitleLines: { speaker: string; text: string; color?: string }[];
 }
@@ -72,11 +73,25 @@ export async function composeCartoonEpisode(opts: ComposeCartoonOptions): Promis
 
     const sceneVideos: string[] = [];
 
-    // Stage 1: Generate video for each scene (Ken Burns on image)
+    // Stage 1: Generate video for each scene
+    // If scene has multiple images, split duration and create sub-clips for each image
+    let subClipIndex = 0;
     for (const scene of scenes) {
-      const sceneVideo = path.join(tmpDir, `scene-${scene.sceneIndex}.mp4`);
-      await generateSceneVideo(scene, sceneVideo, res, tmpDir);
-      sceneVideos.push(sceneVideo);
+      const images = (scene.imageUrls && scene.imageUrls.length > 1) ? scene.imageUrls : [scene.imageUrl];
+      const perImageDuration = Math.max(3, Math.round(scene.durationSeconds / images.length));
+
+      for (let imgIdx = 0; imgIdx < images.length; imgIdx++) {
+        const subScene: CartoonSceneInput = {
+          sceneIndex: subClipIndex,
+          imageUrl: images[imgIdx],
+          durationSeconds: perImageDuration,
+          subtitleLines: imgIdx === 0 ? scene.subtitleLines : [], // subtitles on first image only
+        };
+        const clipPath = path.join(tmpDir, `clip-${subClipIndex}.mp4`);
+        await generateSceneVideo(subScene, clipPath, res, tmpDir);
+        sceneVideos.push(clipPath);
+        subClipIndex++;
+      }
     }
 
     // Stage 2: Concatenate all scene videos

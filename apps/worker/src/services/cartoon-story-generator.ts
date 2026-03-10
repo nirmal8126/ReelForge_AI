@@ -16,6 +16,7 @@ export interface CartoonCharacterInfo {
 export interface CartoonStoryScene {
   description: string;
   visualPrompt: string;
+  visualPrompts?: string[];
   narration: string;
   dialogue: { characterName: string; text: string }[];
 }
@@ -119,6 +120,30 @@ function getLanguageName(code: string): string {
   return LANGUAGE_MAP[code] || code;
 }
 
+/**
+ * Normalize AI output scenes — ensure visualPrompts array exists.
+ * Handles both old format (single visualPrompt) and new format (visualPrompts array).
+ */
+function normalizeScenes(scenes: any[]): CartoonStoryScene[] {
+  return scenes.map((s) => {
+    let visualPrompts: string[] = [];
+
+    if (Array.isArray(s.visualPrompts) && s.visualPrompts.length > 0) {
+      visualPrompts = s.visualPrompts;
+    } else if (s.visualPrompt) {
+      visualPrompts = [s.visualPrompt];
+    }
+
+    return {
+      description: s.description || '',
+      visualPrompt: visualPrompts[0] || s.visualPrompt || '',
+      visualPrompts,
+      narration: s.narration || '',
+      dialogue: Array.isArray(s.dialogue) ? s.dialogue : [],
+    };
+  });
+}
+
 async function generateWithAnthropic(opts: {
   seriesName: string;
   seriesDescription?: string | null;
@@ -158,7 +183,7 @@ IMPORTANT RULES:
 3. Use the characters by their exact names
 4. Make dialogue natural and match each character's personality
 5. Include a moral or lesson appropriate for the target audience
-6. The visual prompt MUST be very detailed and include: character appearance details, the art style "${opts.artStyle || 'cartoon'}", background/setting details, lighting, mood, camera angle
+6. Each visual prompt MUST be very detailed and include: character appearance details, the art style "${opts.artStyle || 'cartoon'}", background/setting details, lighting, mood, camera angle
 7. Each visual prompt should describe the characters by their physical appearance (not just name) so the image AI knows what to draw
 8. The LAST scene MUST be a CTA (Call to Action) scene — the narration should ask viewers to like, subscribe, share, and follow for more episodes of "${opts.seriesName}"
 
@@ -168,14 +193,24 @@ CRITICAL LENGTH RULES (for voice clarity):
 - Description: Keep brief (1 short sentence)
 - Viewers listen to AI voice narration — long text sounds robotic and confusing. SHORT IS BETTER.
 
-REMINDER: description, narration, and dialogue text MUST be in ${languageName}. Only visualPrompt should be in English.
+MULTIPLE IMAGES PER SCENE:
+- Each scene MUST have a "visualPrompts" array with 2-3 different image prompts showing different angles/moments of that scene
+- This creates visual variety — viewers see multiple images per scene instead of one static image
+- Each prompt should show a different camera angle, zoom level, or moment within the same scene action
+- Example: Scene about a character finding something → [wide shot of garden, close-up of character's surprised face, close-up of the object]
+
+REMINDER: description, narration, and dialogue text MUST be in ${languageName}. Only visualPrompts should be in English.
 
 OUTPUT FORMAT: Return ONLY valid JSON (no markdown, no code blocks) with this structure:
 {
   "scenes": [
     {
       "description": "Brief scene description in ${languageName}",
-      "visualPrompt": "Detailed image generation prompt in English — include character appearance, art style, setting, mood, camera angle",
+      "visualPrompts": [
+        "First image: wide/establishing shot — detailed prompt in English",
+        "Second image: different angle/moment — detailed prompt in English",
+        "Third image (optional): close-up/reaction — detailed prompt in English"
+      ],
       "narration": "Short narrator text in ${languageName} (1-2 sentences, under 25 words)",
       "dialogue": [
         { "characterName": "ExactName", "text": "Short line in ${languageName} (under 15 words)" }
@@ -189,7 +224,7 @@ OUTPUT FORMAT: Return ONLY valid JSON (no markdown, no code blocks) with this st
     max_tokens: 4096,
     system: systemPrompt,
     messages: [
-      { role: 'user', content: `Write an episode about: ${opts.episodePrompt}\n\nIMPORTANT: Write all narration, dialogue, and descriptions in ${languageName}. Only visualPrompt should be in English. Write EXACTLY 5-7 scenes (NOT more). Keep narration SHORT (1-2 sentences, under 25 words). Keep dialogue SHORT (1-2 lines per scene, under 15 words each). The LAST scene must be a CTA asking viewers to like, subscribe, and follow for more "${opts.seriesName}" episodes.` },
+      { role: 'user', content: `Write an episode about: ${opts.episodePrompt}\n\nIMPORTANT: Write all narration, dialogue, and descriptions in ${languageName}. Only visualPrompts should be in English. Write EXACTLY 5-7 scenes (NOT more). Each scene MUST have "visualPrompts" array with 2-3 different image prompts. Keep narration SHORT (1-2 sentences, under 25 words). Keep dialogue SHORT (1-2 lines per scene, under 15 words each). The LAST scene must be a CTA asking viewers to like, subscribe, and follow for more "${opts.seriesName}" episodes.` },
     ],
   });
 
@@ -210,8 +245,11 @@ OUTPUT FORMAT: Return ONLY valid JSON (no markdown, no code blocks) with this st
     throw new Error('Invalid story format: missing scenes array');
   }
 
+  // Normalize scenes: ensure visualPrompts array exists
+  const normalizedScenes = normalizeScenes(parsed.scenes);
+
   // Build full script from narration + dialogue
-  const fullScript = parsed.scenes
+  const fullScript = normalizedScenes
     .map((s: CartoonStoryScene, i: number) => {
       const lines = [`[Scene ${i + 1}: ${s.description}]`];
       if (s.narration) lines.push(`Narrator: ${s.narration}`);
@@ -222,9 +260,9 @@ OUTPUT FORMAT: Return ONLY valid JSON (no markdown, no code blocks) with this st
     })
     .join('\n\n');
 
-  log.info({ sceneCount: parsed.scenes.length }, 'Cartoon story generated via Anthropic');
+  log.info({ sceneCount: normalizedScenes.length }, 'Cartoon story generated via Anthropic');
 
-  return { scenes: parsed.scenes, fullScript };
+  return { scenes: normalizedScenes, fullScript };
 }
 
 // ---------------------------------------------------------------------------
@@ -270,7 +308,7 @@ IMPORTANT RULES:
 3. Use the characters by their exact names
 4. Make dialogue natural and match each character's personality
 5. Include a moral or lesson appropriate for the target audience
-6. The visual prompt MUST be very detailed and include: character appearance details, the art style "${opts.artStyle || 'cartoon'}", background/setting details, lighting, mood, camera angle
+6. Each visual prompt MUST be very detailed and include: character appearance details, the art style "${opts.artStyle || 'cartoon'}", background/setting details, lighting, mood, camera angle
 7. Each visual prompt should describe the characters by their physical appearance (not just name) so the image AI knows what to draw
 8. The LAST scene MUST be a CTA (Call to Action) scene — the narration should ask viewers to like, subscribe, share, and follow for more episodes of "${opts.seriesName}"
 
@@ -280,14 +318,24 @@ CRITICAL LENGTH RULES (for voice clarity):
 - Description: Keep brief (1 short sentence)
 - Viewers listen to AI voice narration — long text sounds robotic and confusing. SHORT IS BETTER.
 
-REMINDER: description, narration, and dialogue text MUST be in ${languageName}. Only visualPrompt should be in English.
+MULTIPLE IMAGES PER SCENE:
+- Each scene MUST have a "visualPrompts" array with 2-3 different image prompts showing different angles/moments of that scene
+- This creates visual variety — viewers see multiple images per scene instead of one static image
+- Each prompt should show a different camera angle, zoom level, or moment within the same scene action
+- Example: Scene about a character finding something → [wide shot of garden, close-up of character's surprised face, close-up of the object]
+
+REMINDER: description, narration, and dialogue text MUST be in ${languageName}. Only visualPrompts should be in English.
 
 OUTPUT FORMAT: Return ONLY valid JSON with this structure:
 {
   "scenes": [
     {
       "description": "Brief scene description in ${languageName}",
-      "visualPrompt": "Detailed image generation prompt in English — include character appearance, art style, setting, mood, camera angle",
+      "visualPrompts": [
+        "First image: wide/establishing shot — detailed prompt in English",
+        "Second image: different angle/moment — detailed prompt in English",
+        "Third image (optional): close-up/reaction — detailed prompt in English"
+      ],
       "narration": "Short narrator text in ${languageName} (1-2 sentences, under 25 words)",
       "dialogue": [
         { "characterName": "ExactName", "text": "Short line in ${languageName} (under 15 words)" }
@@ -303,7 +351,7 @@ OUTPUT FORMAT: Return ONLY valid JSON with this structure:
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         system_instruction: { parts: [{ text: systemPrompt }] },
-        contents: [{ role: 'user', parts: [{ text: `Write an episode about: ${opts.episodePrompt}\n\nIMPORTANT: Write all narration, dialogue, and descriptions in ${languageName}. Only visualPrompt should be in English. Write EXACTLY 5-7 scenes (NOT more). Keep narration SHORT (1-2 sentences, under 25 words). Keep dialogue SHORT (1-2 lines per scene, under 15 words each). The LAST scene must be a CTA asking viewers to like, subscribe, and follow for more "${opts.seriesName}" episodes.` }] }],
+        contents: [{ role: 'user', parts: [{ text: `Write an episode about: ${opts.episodePrompt}\n\nIMPORTANT: Write all narration, dialogue, and descriptions in ${languageName}. Only visualPrompts should be in English. Write EXACTLY 5-7 scenes (NOT more). Each scene MUST have "visualPrompts" array with 2-3 different image prompts. Keep narration SHORT (1-2 sentences, under 25 words). Keep dialogue SHORT (1-2 lines per scene, under 15 words each). The LAST scene must be a CTA asking viewers to like, subscribe, and follow for more "${opts.seriesName}" episodes.` }] }],
         generationConfig: {
           temperature: 0.75,
           maxOutputTokens: 4096,
@@ -333,7 +381,9 @@ OUTPUT FORMAT: Return ONLY valid JSON with this structure:
     throw new Error('Invalid story format: missing scenes array');
   }
 
-  const fullScript = parsed.scenes
+  const normalizedScenes = normalizeScenes(parsed.scenes);
+
+  const fullScript = normalizedScenes
     .map((s: CartoonStoryScene, i: number) => {
       const lines = [`[Scene ${i + 1}: ${s.description}]`];
       if (s.narration) lines.push(`Narrator: ${s.narration}`);
@@ -344,9 +394,9 @@ OUTPUT FORMAT: Return ONLY valid JSON with this structure:
     })
     .join('\n\n');
 
-  log.info({ sceneCount: parsed.scenes.length }, 'Cartoon story generated via Gemini');
+  log.info({ sceneCount: normalizedScenes.length }, 'Cartoon story generated via Gemini');
 
-  return { scenes: parsed.scenes, fullScript };
+  return { scenes: normalizedScenes, fullScript };
 }
 
 // ---------------------------------------------------------------------------
@@ -359,6 +409,11 @@ const MOCK_STORIES: Record<string, (char1: string, char2: string) => CartoonStor
     {
       description: `${char1} को बगीचे में जादुई क्रिस्टल मिलता है`,
       visualPrompt: `Cartoon illustration of ${char1} looking surprised at a glowing magical crystal in a beautiful Indian garden, colorful flowers, morning sunlight, wide shot, child-friendly art style`,
+      visualPrompts: [
+        `Wide cartoon illustration of a beautiful Indian garden with colorful flowers, morning sunlight, ${char1} walking in the distance, child-friendly art style`,
+        `Cartoon close-up of ${char1} looking surprised at a glowing magical crystal on the ground, sparkles, wonder on face, warm lighting`,
+        `Cartoon close-up of a glowing multicolored crystal in green grass, magical sparkles, soft golden light`,
+      ],
       narration: `एक सुबह ${char1} को बगीचे में एक चमकता क्रिस्टल मिला।`,
       dialogue: [
         { characterName: char1, text: 'वाह, ये क्या है? कितना सुंदर!' },
@@ -367,6 +422,10 @@ const MOCK_STORIES: Record<string, (char1: string, char2: string) => CartoonStor
     {
       description: `${char1} ${char2} को दिखाता है`,
       visualPrompt: `Cartoon illustration of ${char1} showing a glowing crystal to ${char2}, both excited, lush garden background, warm golden lighting, medium shot`,
+      visualPrompts: [
+        `Cartoon illustration of ${char1} excitedly waving and calling ${char2} who is running towards them, garden background, warm golden lighting, medium shot`,
+        `Cartoon illustration of ${char1} showing a glowing crystal to ${char2}, both excited, close-up of their amazed faces, warm lighting`,
+      ],
       narration: `${char1} ने तुरंत अपने दोस्त ${char2} को बुलाया।`,
       dialogue: [
         { characterName: char1, text: `${char2}, जल्दी आओ! देखो क्या मिला!` },
@@ -376,6 +435,10 @@ const MOCK_STORIES: Record<string, (char1: string, char2: string) => CartoonStor
     {
       description: `क्रिस्टल हवा में तैरने लगता है`,
       visualPrompt: `Cartoon illustration of a magical crystal floating between two amazed children, rainbow glow, magical swirls, dramatic lighting, low angle shot`,
+      visualPrompts: [
+        `Cartoon illustration of a magical crystal glowing brighter in ${char1}'s hands, rainbow light rays, dramatic lighting, close-up`,
+        `Cartoon illustration of a crystal floating in the air between two amazed children, rainbow glow, magical swirls, low angle shot`,
+      ],
       narration: `अचानक क्रिस्टल चमका और हवा में तैरने लगा!`,
       dialogue: [
         { characterName: char2, text: 'जल्दी इच्छा मांगो!' },
@@ -384,6 +447,11 @@ const MOCK_STORIES: Record<string, (char1: string, char2: string) => CartoonStor
     {
       description: `दोनों सबकी खुशी की इच्छा मांगते हैं`,
       visualPrompt: `Cartoon illustration of two friends holding crystal up high together, determined heroic expressions, golden hour lighting, medium wide shot`,
+      visualPrompts: [
+        `Cartoon illustration of two friends looking at each other with determined expressions, thinking deeply, soft golden lighting, medium shot`,
+        `Cartoon illustration of ${char1} and ${char2} holding crystal up high together, heroic pose, golden hour lighting, wide shot`,
+        `Cartoon close-up of the crystal bursting with rainbow light, magical sparkles radiating outward, bright warm glow`,
+      ],
       narration: `दोनों ने सोचा और सबकी खुशी की इच्छा मांगी।`,
       dialogue: [
         { characterName: char1, text: 'मैं चाहता हूँ सबका दिन शानदार हो!' },
@@ -393,6 +461,10 @@ const MOCK_STORIES: Record<string, (char1: string, char2: string) => CartoonStor
     {
       description: `पूरा मोहल्ला खुशियों से भर जाता है`,
       visualPrompt: `Cartoon illustration of happy Indian neighbors in a colorful street, children playing, flowers blooming, bright sunny day, wide shot`,
+      visualPrompts: [
+        `Cartoon aerial illustration of magical rainbow sparkles spreading across a colorful Indian neighborhood, houses glowing, fantasy atmosphere`,
+        `Cartoon illustration of happy Indian neighbors waving and smiling in a colorful street, children playing, flowers blooming, bright sunny day, wide shot`,
+      ],
       narration: `क्रिस्टल की रोशनी फैली और सब खुश हो गए!`,
       dialogue: [
         { characterName: char1, text: 'दयालुता सबसे बड़ा जादू है!' },
@@ -401,6 +473,9 @@ const MOCK_STORIES: Record<string, (char1: string, char2: string) => CartoonStor
     {
       description: `CTA — सब्सक्राइब करें`,
       visualPrompt: `Colorful cartoon end screen with cute animated characters waving at camera, subscribe and like button icons, bright cheerful background with stars and sparkles`,
+      visualPrompts: [
+        `Colorful cartoon end screen with cute animated characters waving at camera, subscribe and like button icons, bright cheerful background with stars and sparkles`,
+      ],
       narration: `कहानी पसंद आई? लाइक और सब्सक्राइब करें!`,
       dialogue: [
         { characterName: char1, text: 'अगली कहानी में मिलते हैं!' },
@@ -411,6 +486,11 @@ const MOCK_STORIES: Record<string, (char1: string, char2: string) => CartoonStor
     {
       description: `${char1} finds a magic crystal in the garden`,
       visualPrompt: `Cartoon illustration of ${char1} looking surprised at a glowing crystal in a beautiful garden, colorful flowers, morning sunlight, wide shot, child-friendly art style`,
+      visualPrompts: [
+        `Wide cartoon illustration of a beautiful garden with colorful flowers, morning sunlight, ${char1} walking, child-friendly art style`,
+        `Cartoon close-up of ${char1} looking surprised at a glowing crystal on the ground, sparkles, wonder on face`,
+        `Cartoon close-up of a glowing crystal in green grass, magical sparkles, warm golden light`,
+      ],
       narration: `One morning, ${char1} found a glowing crystal in the garden.`,
       dialogue: [
         { characterName: char1, text: 'Wow, what is this? So beautiful!' },
@@ -419,6 +499,10 @@ const MOCK_STORIES: Record<string, (char1: string, char2: string) => CartoonStor
     {
       description: `${char1} shows ${char2} the crystal`,
       visualPrompt: `Cartoon illustration of ${char1} showing a glowing crystal to ${char2}, both excited, garden background, warm golden lighting, medium shot`,
+      visualPrompts: [
+        `Cartoon illustration of ${char1} excitedly waving and calling ${char2} who is running towards them, garden background, medium shot`,
+        `Cartoon illustration of ${char1} showing a glowing crystal to ${char2}, both excited, close-up of amazed faces`,
+      ],
       narration: `${char1} called their best friend ${char2} to see it.`,
       dialogue: [
         { characterName: char1, text: `${char2}, come quick! Look what I found!` },
@@ -428,6 +512,10 @@ const MOCK_STORIES: Record<string, (char1: string, char2: string) => CartoonStor
     {
       description: `The crystal floats into the air`,
       visualPrompt: `Cartoon illustration of a magical crystal floating between two amazed children, rainbow glow, magical swirls, dramatic lighting, low angle shot`,
+      visualPrompts: [
+        `Cartoon close-up of a crystal glowing brighter in ${char1}'s hands, rainbow light rays, dramatic lighting`,
+        `Cartoon illustration of a crystal floating between two amazed children, rainbow glow, magical swirls, low angle shot`,
+      ],
       narration: `Suddenly the crystal glowed bright and floated up!`,
       dialogue: [
         { characterName: char2, text: 'Quick, make a wish!' },
@@ -436,6 +524,11 @@ const MOCK_STORIES: Record<string, (char1: string, char2: string) => CartoonStor
     {
       description: `They wish for everyone's happiness`,
       visualPrompt: `Cartoon illustration of two friends holding crystal up high together, determined expressions, golden hour lighting, heroic pose, medium wide shot`,
+      visualPrompts: [
+        `Cartoon illustration of two friends looking at each other thinking deeply, soft golden lighting, medium shot`,
+        `Cartoon illustration of ${char1} and ${char2} holding crystal up high, heroic pose, golden hour lighting, wide shot`,
+        `Cartoon close-up of crystal bursting with rainbow light, magical sparkles radiating outward`,
+      ],
       narration: `They decided to wish for everyone's happiness.`,
       dialogue: [
         { characterName: char1, text: 'I wish everyone has a wonderful day!' },
@@ -445,6 +538,10 @@ const MOCK_STORIES: Record<string, (char1: string, char2: string) => CartoonStor
     {
       description: `The whole neighborhood lights up with joy`,
       visualPrompt: `Cartoon illustration of happy diverse neighbors in a colorful street, children playing, flowers blooming, bright sunny day, wide shot`,
+      visualPrompts: [
+        `Cartoon aerial illustration of magical rainbow sparkles spreading across a colorful neighborhood, houses glowing, fantasy atmosphere`,
+        `Cartoon illustration of happy diverse neighbors waving and smiling in a colorful street, children playing, flowers blooming, wide shot`,
+      ],
       narration: `The crystal's magic spread and everyone was happy!`,
       dialogue: [
         { characterName: char1, text: 'Kindness is the best magic of all!' },
@@ -453,6 +550,9 @@ const MOCK_STORIES: Record<string, (char1: string, char2: string) => CartoonStor
     {
       description: `CTA — Subscribe for more`,
       visualPrompt: `Colorful cartoon end screen with cute characters waving at camera, Subscribe and Like icons, bright cheerful background with stars and sparkles`,
+      visualPrompts: [
+        `Colorful cartoon end screen with cute characters waving at camera, Subscribe and Like icons, bright cheerful background with stars and sparkles`,
+      ],
       narration: `Enjoyed the story? Like and subscribe for more!`,
       dialogue: [
         { characterName: char1, text: 'See you in the next episode!' },

@@ -54,7 +54,8 @@
       "Bash(dotenv -e ../../.env.local -- npx prisma db push)",
       "Bash(DATABASE_URL=\"mysql://root:root@localhost:3306/reelforge_ai\" npx prisma db push)",
       "Bash(DATABASE_URL=\"mysql://root:root@localhost:3306/reelforge_ai\" npx prisma db push --accept-data-loss)",
-      "Bash(DATABASE_URL=\"mysql://root:root@localhost:3306/reelforge_ai\" npx prisma db pull --print)"
+      "Bash(DATABASE_URL=\"mysql://root:root@localhost:3306/reelforge_ai\" npx prisma db pull --print)",
+      "Bash(DATABASE_URL=\"mysql://root:root@localhost:3306/reelforge_ai\" npx prisma db push --skip-generate)"
     ]
   }
 }

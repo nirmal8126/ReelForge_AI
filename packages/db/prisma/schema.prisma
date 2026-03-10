@@ -839,8 +839,10 @@ model CartoonScene {
   episodeId    String             @map("episode_id")
   sceneIndex   Int                @map("scene_index")
   description  String             @db.Text
-  visualPrompt String?            @map("visual_prompt") @db.Text
-  imageUrl     String?            @map("image_url") @db.VarChar(500)
+  visualPrompt  String?            @map("visual_prompt") @db.Text
+  visualPrompts Json?             @map("visual_prompts") @db.Json
+  imageUrl      String?           @map("image_url") @db.VarChar(500)
+  imageUrls     Json?             @map("image_urls") @db.Json
   narration    String?            @db.Text
   dialogue     Json?              @db.Json
   startTime    Float              @default(0) @map("start_time")

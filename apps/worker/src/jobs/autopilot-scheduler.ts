@@ -113,14 +113,6 @@ function generateTitle(topic: string, maxLen = 80): string {
   return title || 'Untitled';
 }
 
-/**
- * Generate a cartoon episode title with episode number
- */
-function generateEpisodeTitle(topic: string, episodeNumber: number): string {
-  const base = generateTitle(topic, 250);
-  return `Ep ${episodeNumber}: ${base}`;
-}
-
 // ---------------------------------------------------------------------------
 // Module-specific job creators
 // ---------------------------------------------------------------------------
@@ -389,13 +381,14 @@ async function createCartoonJob(schedule: NonNullable<ScheduleWithUser>, topic: 
 
   const episodeNumber = series._count.episodes + 1;
 
-  // Generate a proper episode title from the topic/prompt
-  const episodeTitle = generateEpisodeTitle(topic, episodeNumber);
+  // Use a placeholder title — the processor will replace it with a proper title
+  // derived from the AI-generated story scenes
+  const placeholderTitle = `Episode ${episodeNumber}`;
 
   const episode = await prisma.cartoonEpisode.create({
     data: {
       seriesId,
-      title: episodeTitle,
+      title: placeholderTitle,
       prompt: topic,
       episodeNumber,
       status: 'QUEUED',
@@ -412,7 +405,7 @@ async function createCartoonJob(schedule: NonNullable<ScheduleWithUser>, topic: 
       episodeId: episode.id,
       seriesId,
       prompt: topic,
-      title: episodeTitle,
+      title: placeholderTitle,
       language: series.language || schedule.language,
       aspectRatio: series.aspectRatio || '16:9',
       narratorVoiceId: series.narratorVoiceId || (settings.narratorVoiceId as string) || undefined,
