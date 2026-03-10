@@ -29,12 +29,10 @@ function calculateNextRunAt(
 
   switch (frequency) {
     case 'HOURLY': {
-      // Next run = now + hourlyInterval hours, aligned to the start of the hour
+      // Next run = now + hourlyInterval hours
       const interval = Math.max(1, hourlyInterval);
-      const nextHour = new Date(now);
-      nextHour.setUTCMinutes(0, 0, 0);
-      nextHour.setUTCHours(nextHour.getUTCHours() + interval);
-      return nextHour;
+      const nextRun = new Date(now.getTime() + interval * 60 * 60 * 1000);
+      return nextRun;
     }
     case 'DAILY':
       // Already set to next occurrence
