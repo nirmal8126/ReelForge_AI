@@ -51,6 +51,7 @@ interface Schedule {
   moduleType: string
   isActive: boolean
   frequency: string
+  hourlyInterval: number
   scheduledTime: string
   timezone: string
   language: string
@@ -129,6 +130,7 @@ const MODULE_LABELS: Record<string, { label: string; icon: React.ComponentType<{
 }
 
 const FREQUENCY_LABELS: Record<string, string> = {
+  HOURLY: 'Hourly',
   DAILY: 'Daily',
   WEEKLY: 'Weekly',
   BIWEEKLY: 'Every 2 Weeks',
@@ -446,11 +448,17 @@ function SchedulesList({
                 <div className="mt-1 flex items-center gap-3 text-xs text-gray-500">
                   <span>{module.label}</span>
                   <span>·</span>
-                  <span>{FREQUENCY_LABELS[schedule.frequency] || schedule.frequency}</span>
+                  <span>
+                    {schedule.frequency === 'HOURLY'
+                      ? schedule.hourlyInterval === 1 ? 'Every Hour' : `Every ${schedule.hourlyInterval}h`
+                      : FREQUENCY_LABELS[schedule.frequency] || schedule.frequency}
+                  </span>
                   <span>·</span>
                   <span className="flex items-center gap-1">
                     <Clock className="h-3 w-3" />
-                    {schedule.scheduledTime} {schedule.timezone}
+                    {schedule.frequency === 'HOURLY'
+                      ? schedule.timezone
+                      : `${schedule.scheduledTime} ${schedule.timezone}`}
                   </span>
                   {schedule.autoPublish && (
                     <>
@@ -787,6 +795,7 @@ function CreateScheduleForm({
         moduleType: 'REEL' as string,
         channelProfileId: '',
         frequency: 'DAILY' as string,
+        hourlyInterval: 1,
         scheduledTime: '09:00',
         timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC',
         language: 'hi',
@@ -822,6 +831,7 @@ function CreateScheduleForm({
       moduleType: editingSchedule.moduleType,
       channelProfileId: editingSchedule.channelProfileId || '',
       frequency: editingSchedule.frequency,
+      hourlyInterval: editingSchedule.hourlyInterval || 1,
       scheduledTime: editingSchedule.scheduledTime,
       timezone: editingSchedule.timezone,
       language: editingSchedule.language,
@@ -919,6 +929,7 @@ function CreateScheduleForm({
       moduleType: form.moduleType,
       channelProfileId: form.channelProfileId || null,
       frequency: form.frequency,
+      hourlyInterval: form.frequency === 'HOURLY' ? form.hourlyInterval : 1,
       scheduledTime: form.scheduledTime,
       timezone: form.timezone,
       language: form.language,
@@ -1594,7 +1605,32 @@ function CreateScheduleForm({
               </div>
             </div>
 
-            {/* Time */}
+            {/* Hourly Interval — only visible when HOURLY selected */}
+            {form.frequency === 'HOURLY' && (
+              <div>
+                <label className="block text-xs font-medium text-gray-400 mb-2">Run Every</label>
+                <div className="flex flex-wrap gap-2">
+                  {[1, 2, 3, 4, 6, 8, 12].map((hr) => (
+                    <button
+                      key={hr}
+                      type="button"
+                      onClick={() => setForm({ ...form, hourlyInterval: hr })}
+                      className={cn(
+                        'rounded-lg border px-4 py-2.5 text-xs font-medium transition',
+                        form.hourlyInterval === hr
+                          ? 'border-brand-500 bg-brand-500/15 text-brand-400'
+                          : 'border-white/10 bg-white/5 text-gray-400 hover:bg-white/10'
+                      )}
+                    >
+                      {hr === 1 ? 'Every Hour' : `Every ${hr} Hours`}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Time — hidden for hourly since it runs on interval */}
+            {form.frequency !== 'HOURLY' && (
             <div>
               <label className="block text-xs font-medium text-gray-400 mb-1.5">
                 <span className="flex items-center gap-1.5"><Clock className="h-3.5 w-3.5" /> Time of Day</span>
@@ -1607,6 +1643,7 @@ function CreateScheduleForm({
               />
               <p className="text-[11px] text-gray-600 mt-1">{form.timezone}</p>
             </div>
+            )}
           </div>
 
           {/* ── Auto-Publish ── */}
@@ -1706,7 +1743,11 @@ function CreateScheduleForm({
               </div>
               <div>
                 <p className="text-gray-500">Frequency</p>
-                <p className="text-white font-medium">{FREQUENCY_LABELS[form.frequency]} at {form.scheduledTime}</p>
+                <p className="text-white font-medium">
+                  {form.frequency === 'HOURLY'
+                    ? form.hourlyInterval === 1 ? 'Every Hour' : `Every ${form.hourlyInterval} Hours`
+                    : `${FREQUENCY_LABELS[form.frequency]} at ${form.scheduledTime}`}
+                </p>
               </div>
               <div>
                 <p className="text-gray-500">Topics</p>

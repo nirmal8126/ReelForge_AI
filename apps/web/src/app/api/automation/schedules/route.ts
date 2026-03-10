@@ -10,29 +10,30 @@ import { z } from 'zod'
 const createScheduleSchema = z.object({
   name: z.string().min(1).max(150),
   moduleType: z.enum(['REEL', 'LONG_FORM', 'QUOTE', 'CHALLENGE', 'GAMEPLAY', 'IMAGE_STUDIO', 'CARTOON']),
-  channelProfileId: z.string().optional(),
+  channelProfileId: z.string().nullable().optional(),
 
   // Schedule
-  frequency: z.enum(['DAILY', 'WEEKLY', 'BIWEEKLY', 'MONTHLY', 'CUSTOM']).default('WEEKLY'),
-  cronExpression: z.string().max(100).optional(),
+  frequency: z.enum(['HOURLY', 'DAILY', 'WEEKLY', 'BIWEEKLY', 'MONTHLY', 'CUSTOM']).default('WEEKLY'),
+  hourlyInterval: z.number().int().min(1).max(12).default(1),
+  cronExpression: z.string().max(100).nullable().optional(),
   timezone: z.string().max(50).default('UTC'),
   scheduledTime: z.string().regex(/^\d{2}:\d{2}$/).default('09:00'),
 
   // Topics
   useTrendingTopics: z.boolean().default(false),
-  trendingCategories: z.array(z.string()).optional(),
-  customTopics: z.array(z.string().min(1)).optional(),
+  trendingCategories: z.array(z.string()).nullable().optional(),
+  customTopics: z.array(z.string().min(1)).nullable().optional(),
 
   // Video settings
   durationSeconds: z.number().int().min(15).max(90).default(30),
   durationMinutes: z.number().int().min(5).max(30).default(10),
   aspectRatio: z.string().max(10).default('9:16'),
-  style: z.string().max(100).optional(),
+  style: z.string().max(100).nullable().optional(),
   language: z.string().regex(/^[a-z]{2}$/).default('hi'),
-  voiceId: z.string().max(100).optional(),
+  voiceId: z.string().max(100).nullable().optional(),
 
   // Module-specific settings
-  moduleSettings: z.record(z.unknown()).optional(),
+  moduleSettings: z.record(z.unknown()).nullable().optional(),
 
   // Auto-publish
   autoPublish: z.boolean().default(false),
@@ -41,7 +42,7 @@ const createScheduleSchema = z.object({
   publishTargets: z.array(z.object({
     socialAccountId: z.string(),
     format: z.string().optional(),
-  })).optional(),
+  })).nullable().optional(),
 })
 
 // ---------------------------------------------------------------------------
@@ -81,11 +82,19 @@ export async function POST(req: NextRequest) {
 
     // Calculate first run time
     const now = new Date()
-    const [hours, minutes] = data.scheduledTime.split(':').map(Number)
-    const nextRunAt = new Date(now)
-    nextRunAt.setUTCHours(hours, minutes, 0, 0)
-    if (nextRunAt <= now) {
-      nextRunAt.setUTCDate(nextRunAt.getUTCDate() + 1)
+    let nextRunAt: Date
+    if (data.frequency === 'HOURLY') {
+      // First run = now + hourlyInterval hours, aligned to top of hour
+      nextRunAt = new Date(now)
+      nextRunAt.setUTCMinutes(0, 0, 0)
+      nextRunAt.setUTCHours(nextRunAt.getUTCHours() + data.hourlyInterval)
+    } else {
+      const [hours, minutes] = data.scheduledTime.split(':').map(Number)
+      nextRunAt = new Date(now)
+      nextRunAt.setUTCHours(hours, minutes, 0, 0)
+      if (nextRunAt <= now) {
+        nextRunAt.setUTCDate(nextRunAt.getUTCDate() + 1)
+      }
     }
 
     const schedule = await prisma.autopilotSchedule.create({
@@ -95,6 +104,7 @@ export async function POST(req: NextRequest) {
         name: data.name,
         moduleType: data.moduleType,
         frequency: data.frequency,
+        hourlyInterval: data.hourlyInterval,
         cronExpression: data.cronExpression || null,
         timezone: data.timezone,
         scheduledTime: data.scheduledTime,
@@ -129,8 +139,8 @@ export async function POST(req: NextRequest) {
     if (error instanceof z.ZodError) {
       return NextResponse.json({ error: error.errors[0].message }, { status: 400 })
     }
-    console.error('POST /api/automation/schedules error:', error)
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+    console.error('POST /api/automation/schedules error:', error instanceof Error ? error.message : error)
+    return NextResponse.json({ error: error instanceof Error ? error.message : 'Internal server error' }, { status: 500 })
   }
 }
 

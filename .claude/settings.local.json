@@ -48,7 +48,13 @@
       "Bash(ls -la /Users/mac/Desktop/ReelForge_AI/apps/web/src/app/\\\\\\(marketing\\\\\\)/)",
       "Bash(grep -n \"session.user.role\\\\|session.user.id\\\\|session.user.creditsBalance\\\\|session.user.name\\\\|session.user.referralCode\" /Users/mac/Desktop/ReelForge_AI/apps/web/src/app/\\\\\\(dashboard\\\\\\)/*/page.tsx)",
       "Bash(grep \"session.user.role === ''ADMIN''\" /Users/mac/Desktop/ReelForge_AI/apps/web/src/app/\\\\\\(dashboard\\\\\\)/dashboard/page.tsx)",
-      "Bash(done)"
+      "Bash(done)",
+      "Bash(ls -la \"apps/web/src/app/\\(dashboard\\)/automation/\")",
+      "Bash(cat \"apps/web/src/app/\\(dashboard\\)/automation/page.tsx\")",
+      "Bash(dotenv -e ../../.env.local -- npx prisma db push)",
+      "Bash(DATABASE_URL=\"mysql://root:root@localhost:3306/reelforge_ai\" npx prisma db push)",
+      "Bash(DATABASE_URL=\"mysql://root:root@localhost:3306/reelforge_ai\" npx prisma db push --accept-data-loss)",
+      "Bash(DATABASE_URL=\"mysql://root:root@localhost:3306/reelforge_ai\" npx prisma db pull --print)"
     ]
   }
 }

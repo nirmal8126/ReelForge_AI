@@ -10,7 +10,8 @@ function calculateNextRunAt(
   frequency: string,
   timezone: string,
   scheduledTime: string,
-  cronExpression?: string | null
+  cronExpression?: string | null,
+  hourlyInterval: number = 1
 ): Date {
   const now = new Date();
 
@@ -27,6 +28,14 @@ function calculateNextRunAt(
   }
 
   switch (frequency) {
+    case 'HOURLY': {
+      // Next run = now + hourlyInterval hours, aligned to the start of the hour
+      const interval = Math.max(1, hourlyInterval);
+      const nextHour = new Date(now);
+      nextHour.setUTCMinutes(0, 0, 0);
+      nextHour.setUTCHours(nextHour.getUTCHours() + interval);
+      return nextHour;
+    }
     case 'DAILY':
       // Already set to next occurrence
       break;
@@ -492,7 +501,8 @@ export async function processAutopilotScheduler(job: Job) {
         schedule.frequency,
         schedule.timezone,
         schedule.scheduledTime,
-        schedule.cronExpression
+        schedule.cronExpression,
+        schedule.hourlyInterval
       );
 
       await prisma.autopilotSchedule.update({
