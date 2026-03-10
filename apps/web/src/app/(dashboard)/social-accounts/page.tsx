@@ -12,6 +12,9 @@ import {
   ExternalLink,
   Trash2,
   AlertCircle,
+  RefreshCw,
+  CheckCircle2,
+  Clock,
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 
@@ -161,14 +164,22 @@ export default function SocialAccountsPage() {
               const Icon = display?.icon || Share2
               const isDisconnecting = disconnecting === account.id
               const isExpired = account.tokenExpiry && new Date(account.tokenExpiry) < new Date()
+              const expiresSoon = !isExpired && account.tokenExpiry &&
+                new Date(account.tokenExpiry).getTime() - Date.now() < 3 * 24 * 60 * 60 * 1000 // 3 days
 
               return (
                 <div
                   key={account.id}
-                  className="rounded-xl border border-white/10 bg-white/[0.03] p-4 flex items-center gap-4"
+                  className={`rounded-xl border p-4 flex items-center gap-4 ${
+                    isExpired
+                      ? 'border-red-500/30 bg-red-500/[0.03]'
+                      : expiresSoon
+                        ? 'border-yellow-500/20 bg-yellow-500/[0.02]'
+                        : 'border-white/10 bg-white/[0.03]'
+                  }`}
                 >
                   {/* Avatar / Icon */}
-                  <div className="flex-shrink-0">
+                  <div className="flex-shrink-0 relative">
                     {account.accountAvatar ? (
                       <img
                         src={account.accountAvatar}
@@ -180,6 +191,10 @@ export default function SocialAccountsPage() {
                         <Icon className="h-5 w-5 text-brand-400" />
                       </div>
                     )}
+                    {/* Status dot */}
+                    <div className={`absolute -bottom-0.5 -right-0.5 h-3.5 w-3.5 rounded-full border-2 border-[#0a0a0f] ${
+                      isExpired ? 'bg-red-500' : expiresSoon ? 'bg-yellow-500' : 'bg-green-500'
+                    }`} />
                   </div>
 
                   {/* Info */}
@@ -187,27 +202,53 @@ export default function SocialAccountsPage() {
                     <h3 className="text-sm font-semibold text-white truncate">{account.accountName}</h3>
                     <div className="flex items-center gap-2 mt-0.5">
                       <span className="text-xs text-gray-500">{display?.name || account.platform}</span>
-                      {isExpired && (
-                        <span className="text-xs text-yellow-400 flex items-center gap-1">
+                      {isExpired ? (
+                        <span className="text-xs text-red-400 flex items-center gap-1">
                           <AlertCircle className="h-3 w-3" /> Token expired
+                        </span>
+                      ) : expiresSoon ? (
+                        <span className="text-xs text-yellow-400 flex items-center gap-1">
+                          <Clock className="h-3 w-3" /> Expires soon
+                        </span>
+                      ) : (
+                        <span className="text-xs text-green-400 flex items-center gap-1">
+                          <CheckCircle2 className="h-3 w-3" /> Connected
                         </span>
                       )}
                     </div>
+                    {account.tokenExpiry && (
+                      <p className="text-[10px] text-gray-600 mt-0.5">
+                        {isExpired ? 'Expired' : 'Expires'}: {new Date(account.tokenExpiry).toLocaleDateString()}
+                      </p>
+                    )}
                   </div>
 
-                  {/* Disconnect */}
-                  <button
-                    onClick={() => disconnectAccount(account.id)}
-                    disabled={isDisconnecting}
-                    className="flex items-center gap-1.5 text-xs text-red-400 hover:text-red-300 px-3 py-1.5 rounded-md border border-red-500/20 hover:bg-red-500/10 transition"
-                  >
-                    {isDisconnecting ? (
-                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                    ) : (
-                      <Trash2 className="h-3.5 w-3.5" />
+                  {/* Actions */}
+                  <div className="flex items-center gap-2">
+                    {/* Reconnect button — shown when expired or expiring soon */}
+                    {(isExpired || expiresSoon) && (
+                      <a
+                        href={`/api/social-accounts/connect/${account.platform.toLowerCase()}`}
+                        className="flex items-center gap-1.5 text-xs text-brand-400 hover:text-brand-300 px-3 py-1.5 rounded-md border border-brand-500/20 hover:bg-brand-500/10 transition"
+                      >
+                        <RefreshCw className="h-3.5 w-3.5" />
+                        Reconnect
+                      </a>
                     )}
-                    Disconnect
-                  </button>
+                    {/* Disconnect */}
+                    <button
+                      onClick={() => disconnectAccount(account.id)}
+                      disabled={isDisconnecting}
+                      className="flex items-center gap-1.5 text-xs text-red-400 hover:text-red-300 px-3 py-1.5 rounded-md border border-red-500/20 hover:bg-red-500/10 transition"
+                    >
+                      {isDisconnecting ? (
+                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                      ) : (
+                        <Trash2 className="h-3.5 w-3.5" />
+                      )}
+                      Disconnect
+                    </button>
+                  </div>
                 </div>
               )
             })}
