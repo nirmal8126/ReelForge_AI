@@ -305,6 +305,64 @@ async function createGameplayJob(schedule: NonNullable<ScheduleWithUser>, topic:
   return gameplayJob.id;
 }
 
+async function createCartoonJob(schedule: NonNullable<ScheduleWithUser>, topic: string) {
+  const plan = schedule.user.subscription?.plan || 'FREE';
+  const settings = (schedule.moduleSettings || {}) as Record<string, unknown>;
+
+  const seriesId = settings.seriesId as string | undefined;
+
+  if (!seriesId) {
+    throw new Error('CARTOON schedule missing seriesId in moduleSettings');
+  }
+
+  // Fetch the series to get language, aspectRatio, narratorVoiceId
+  const series = await prisma.cartoonSeries.findUnique({
+    where: { id: seriesId },
+    select: {
+      id: true,
+      language: true,
+      aspectRatio: true,
+      narratorVoiceId: true,
+      _count: { select: { episodes: true } },
+    },
+  });
+
+  if (!series) {
+    throw new Error(`Cartoon series ${seriesId} not found`);
+  }
+
+  const episodeNumber = series._count.episodes + 1;
+
+  const episode = await prisma.cartoonEpisode.create({
+    data: {
+      seriesId,
+      title: topic.slice(0, 300),
+      prompt: topic,
+      episodeNumber,
+      status: 'QUEUED',
+      creditsCost: 5,
+    },
+  });
+
+  await callInternalApi('/api/internal/autopilot/enqueue', {
+    moduleType: 'CARTOON',
+    jobId: episode.id,
+    userId: schedule.userId,
+    plan,
+    scheduleData: {
+      episodeId: episode.id,
+      seriesId,
+      prompt: topic,
+      title: topic.slice(0, 300),
+      language: series.language || schedule.language,
+      aspectRatio: series.aspectRatio || '16:9',
+      narratorVoiceId: series.narratorVoiceId || (settings.narratorVoiceId as string) || undefined,
+    },
+  });
+
+  return episode.id;
+}
+
 // ---------------------------------------------------------------------------
 // Internal API caller (worker → web app)
 // ---------------------------------------------------------------------------
@@ -398,6 +456,9 @@ export async function processAutopilotScheduler(job: Job) {
           break;
         case 'GAMEPLAY':
           jobId = await createGameplayJob(schedule as NonNullable<ScheduleWithUser>, topic);
+          break;
+        case 'CARTOON':
+          jobId = await createCartoonJob(schedule as NonNullable<ScheduleWithUser>, topic);
           break;
         default:
           logger.warn({ moduleType: schedule.moduleType }, 'Unsupported module type');

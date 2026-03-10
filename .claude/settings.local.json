@@ -38,7 +38,10 @@
       "Bash(npx turbo dev --filter=@reelforge/web --filter=@reelforge/admin)",
       "Bash(npm run dev)",
       "Bash(npx prisma:*)",
-      "WebFetch(domain:ai.google.dev)"
+      "WebFetch(domain:ai.google.dev)",
+      "Bash(ls -la /Users/mac/Desktop/ReelForge_AI/apps/web/src/app/\\\\\\(dashboard\\\\\\)/)",
+      "Bash(wc -l /Users/mac/Desktop/ReelForge_AI/apps/web/src/app/\\\\\\(dashboard\\\\\\)/automation/page.tsx)",
+      "Bash(ls -la /Users/mac/Desktop/ReelForge_AI/apps/web/src/app/\\\\\\(dashboard\\\\\\)/image-studio/)"
     ]
   }
 }

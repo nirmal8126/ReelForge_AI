@@ -5,6 +5,7 @@ import {
   enqueueQuoteJob,
   enqueueChallengeJob,
   enqueueGameplayJob,
+  enqueueCartoonEpisode,
 } from '@/lib/queue'
 
 export async function POST(req: NextRequest) {
@@ -99,6 +100,20 @@ export async function POST(req: NextRequest) {
           gameTitle: scheduleData.gameTitle,
           showScore: scheduleData.showScore,
           ctaText: scheduleData.ctaText,
+          plan,
+        })
+        break
+
+      case 'CARTOON':
+        queueJobId = await enqueueCartoonEpisode({
+          episodeId: scheduleData.episodeId,
+          seriesId: scheduleData.seriesId,
+          userId,
+          prompt: scheduleData.prompt,
+          title: scheduleData.title,
+          language: scheduleData.language,
+          aspectRatio: scheduleData.aspectRatio,
+          narratorVoiceId: scheduleData.narratorVoiceId,
           plan,
         })
         break
