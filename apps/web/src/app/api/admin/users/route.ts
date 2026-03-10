@@ -74,6 +74,8 @@ export async function GET(req: NextRequest) {
             quoteJobs: true,
             challengeJobs: true,
             longFormJobs: true,
+            gameplayJobs: true,
+            imageStudioJobs: true,
             cartoonSeries: true,
           },
         },

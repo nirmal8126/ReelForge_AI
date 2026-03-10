@@ -51,6 +51,7 @@ export async function processGameplayJob(job: Job<GameplayJobData>): Promise<Gam
 
   // Create temp directory for frames
   const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'gameplay-'));
+  let musicFilePath: string | null = null;
 
   try {
     // ------------------------------------------------------------------
@@ -78,7 +79,6 @@ export async function processGameplayJob(job: Job<GameplayJobData>): Promise<Gam
     await job.updateProgress(12);
 
     // Generate background music (if not 'none')
-    let musicFilePath: string | null = null;
     try {
       musicFilePath = await generateBackgroundMusic({
         musicStyle,

@@ -77,16 +77,17 @@ export async function DELETE(req: NextRequest) {
 
   const profile = await prisma.channelProfile.findUnique({
     where: { id },
-    include: { _count: { select: { reelJobs: true } } },
+    include: { _count: { select: { reelJobs: true, longFormJobs: true } } },
   })
 
   if (!profile) {
     return NextResponse.json({ error: 'Profile not found' }, { status: 404 })
   }
 
-  if (profile._count.reelJobs > 0) {
+  const totalJobs = profile._count.reelJobs + profile._count.longFormJobs
+  if (totalJobs > 0) {
     return NextResponse.json(
-      { error: `Cannot delete — profile has ${profile._count.reelJobs} reel(s) attached` },
+      { error: `Cannot delete — profile has ${totalJobs} job(s) attached` },
       { status: 400 }
     )
   }

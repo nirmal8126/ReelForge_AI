@@ -208,7 +208,7 @@ export async function processLongFormJob(job: Job<LongFormJobData>): Promise<Lon
       await setProgress(5);
 
       outline = await generateOutline({ prompt, title, durationMinutes, language: job.data.language || 'hi' });
-      await prisma.longFormJob.update({ where: { id: longFormJobId }, data: { outline } });
+      await prisma.longFormJob.update({ where: { id: longFormJobId }, data: { outline: outline as unknown as import('@prisma/client').Prisma.InputJsonValue } });
       log.info({ segmentCount: outline.segments.length }, 'Outline generated');
     }
     await setProgress(10);

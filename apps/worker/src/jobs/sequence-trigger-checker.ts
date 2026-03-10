@@ -36,7 +36,7 @@ export async function checkSequenceTriggers(_job: Job) {
         const inactiveUsers = await prisma.user.findMany({
           where: {
             lastLoginAt: { lt: cutoff },
-            email: { not: null },
+            email: { not: undefined },
           },
           select: { id: true },
           take: 200,
@@ -67,8 +67,8 @@ export async function checkSequenceTriggers(_job: Job) {
         const expiryWindow = new Date(now.getTime() + 3 * 24 * 60 * 60 * 1000);
         const expiringUsers = await prisma.user.findMany({
           where: {
-            subscriptionEndDate: { lte: expiryWindow, gte: now },
-            email: { not: null },
+            subscription: { currentPeriodEnd: { lte: expiryWindow, gte: now } },
+            email: { not: undefined },
           },
           select: { id: true },
           take: 200,

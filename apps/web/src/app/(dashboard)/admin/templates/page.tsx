@@ -1,6 +1,8 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
+import { useSession } from 'next-auth/react'
+import { useRouter } from 'next/navigation'
 import {
   Layers,
   Loader2,
@@ -46,9 +48,19 @@ const MODULE_ICONS: Record<string, React.ComponentType<{ className?: string }>> 
 }
 
 export default function AdminTemplatesPage() {
+  const { data: session, status } = useSession()
+  const router = useRouter()
   const [templates, setTemplates] = useState<Template[]>([])
   const [loading, setLoading] = useState(true)
   const [seeding, setSeeding] = useState(false)
+
+  useEffect(() => {
+    if (status === 'loading') return
+    if (!session?.user || session.user.role !== 'ADMIN') {
+      toast.error('Super Admin access required')
+      router.push('/dashboard')
+    }
+  }, [session, status, router])
 
   const fetchTemplates = useCallback(async () => {
     setLoading(true)
@@ -64,8 +76,8 @@ export default function AdminTemplatesPage() {
   }, [])
 
   useEffect(() => {
-    fetchTemplates()
-  }, [fetchTemplates])
+    if (session?.user?.role === 'ADMIN') fetchTemplates()
+  }, [fetchTemplates, session])
 
   const seedTemplates = async () => {
     setSeeding(true)

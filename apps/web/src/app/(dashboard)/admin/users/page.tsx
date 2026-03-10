@@ -12,6 +12,8 @@ import {
   Film,
   Quote,
   Gamepad2,
+  Joystick,
+  ImageIcon,
   Video,
   Clapperboard,
   ChevronLeft,
@@ -44,6 +46,8 @@ interface UserData {
     quoteJobs: number
     challengeJobs: number
     longFormJobs: number
+    gameplayJobs: number
+    imageStudioJobs: number
     cartoonSeries: number
   }
 }
@@ -176,7 +180,7 @@ export default function AdminUsersPage() {
 
   const totalPages = Math.ceil(total / limit)
   const totalJobs = (u: UserData) =>
-    u._count.reelJobs + u._count.quoteJobs + u._count.challengeJobs + u._count.longFormJobs + u._count.cartoonSeries
+    u._count.reelJobs + u._count.quoteJobs + u._count.challengeJobs + u._count.longFormJobs + u._count.gameplayJobs + u._count.imageStudioJobs + u._count.cartoonSeries
 
   if (loading && users.length === 0) {
     return (
@@ -323,6 +327,18 @@ export default function AdminUsersPage() {
                           <span className="flex items-center gap-0.5 text-xs text-gray-500" title="Challenges">
                             <Gamepad2 className="h-3 w-3" />
                             {user._count.challengeJobs}
+                          </span>
+                        )}
+                        {user._count.gameplayJobs > 0 && (
+                          <span className="flex items-center gap-0.5 text-xs text-gray-500" title="Gameplay">
+                            <Joystick className="h-3 w-3" />
+                            {user._count.gameplayJobs}
+                          </span>
+                        )}
+                        {user._count.imageStudioJobs > 0 && (
+                          <span className="flex items-center gap-0.5 text-xs text-gray-500" title="Images">
+                            <ImageIcon className="h-3 w-3" />
+                            {user._count.imageStudioJobs}
                           </span>
                         )}
                         {totalJobs(user) === 0 && (

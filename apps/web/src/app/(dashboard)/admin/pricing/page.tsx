@@ -423,6 +423,7 @@ export default function AdminPricingPage() {
       return
     }
     if ((session.user as Record<string, unknown>).role !== 'ADMIN') {
+      toast.error('Super Admin access required')
       router.push('/dashboard')
     }
   }, [session, status, router])

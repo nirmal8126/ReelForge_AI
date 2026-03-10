@@ -248,6 +248,7 @@ export default async function BillingPage() {
                         currentPlan={currentPlan}
                         targetPlan={plan.key}
                         hasStripeCustomer={!!user?.stripeCustomerId}
+                        regionId={region.id}
                         buttonOnly
                       />
                     )}
