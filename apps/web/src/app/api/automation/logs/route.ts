@@ -57,14 +57,44 @@ export async function PATCH(req: NextRequest) {
   const body = await req.json()
   const { logId, action, reviewNote } = body as {
     logId: string
-    action: 'approve' | 'reject'
+    action: 'approve' | 'reject' | 'retry'
     reviewNote?: string
   }
 
-  if (!logId || !['approve', 'reject'].includes(action)) {
+  if (!logId || !['approve', 'reject', 'retry'].includes(action)) {
     return NextResponse.json({ error: 'Invalid request' }, { status: 400 })
   }
 
+  // --- Retry: re-trigger the schedule for a failed log ---
+  if (action === 'retry') {
+    const log = await prisma.autopilotLog.findFirst({
+      where: { id: logId, userId: session.user.id, status: 'FAILED' },
+      include: { autopilotSchedule: true },
+    })
+
+    if (!log) {
+      return NextResponse.json({ error: 'Log not found or not in failed state' }, { status: 404 })
+    }
+
+    // Mark old log as retried
+    await prisma.autopilotLog.update({
+      where: { id: logId },
+      data: { publishStatus: 'SKIPPED', reviewNote: 'Retried by user' },
+    })
+
+    // Set the schedule's nextRunAt to now so the scheduler picks it up immediately
+    await prisma.autopilotSchedule.update({
+      where: { id: log.autopilotScheduleId },
+      data: {
+        nextRunAt: new Date(),
+        isActive: true,
+      },
+    })
+
+    return NextResponse.json({ success: true })
+  }
+
+  // --- Approve / Reject ---
   const log = await prisma.autopilotLog.findFirst({
     where: { id: logId, userId: session.user.id, publishStatus: 'AWAITING_APPROVAL' },
   })

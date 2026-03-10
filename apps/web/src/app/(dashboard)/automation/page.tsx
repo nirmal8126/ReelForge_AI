@@ -269,7 +269,7 @@ export default function AutomationPage() {
   }
 
   // Approve/reject a log
-  const handleLogAction = async (logId: string, action: 'approve' | 'reject') => {
+  const handleLogAction = async (logId: string, action: 'approve' | 'reject' | 'retry') => {
     try {
       const res = await fetch('/api/automation/logs', {
         method: 'PATCH',
@@ -277,8 +277,14 @@ export default function AutomationPage() {
         body: JSON.stringify({ logId, action }),
       })
       if (!res.ok) throw new Error()
-      toast.success(action === 'approve' ? 'Approved for publishing' : 'Publishing skipped')
+      const messages = {
+        approve: 'Approved for publishing',
+        reject: 'Publishing skipped',
+        retry: 'Retrying — new job queued',
+      }
+      toast.success(messages[action])
       fetchLogs()
+      if (action === 'retry') fetchSchedules()
     } catch {
       toast.error('Failed to update')
     }
@@ -600,7 +606,7 @@ function LogsList({
 }: {
   logs: AutopilotLog[]
   loading: boolean
-  onAction: (logId: string, action: 'approve' | 'reject') => void
+  onAction: (logId: string, action: 'approve' | 'reject' | 'retry') => void
   onRefresh: () => void
 }) {
   if (loading) {
@@ -647,14 +653,14 @@ function LogsList({
                   'flex h-9 w-9 items-center justify-center rounded-lg',
                   log.status === 'COMPLETED' ? 'bg-green-500/10' :
                   log.status === 'FAILED' ? 'bg-red-500/10' :
-                  'bg-yellow-500/10'
+                  'bg-brand-500/10'
                 )}>
                   {log.status === 'COMPLETED' ? (
                     <CheckCircle2 className="h-4 w-4 text-green-400" />
                   ) : log.status === 'FAILED' ? (
                     <XCircle className="h-4 w-4 text-red-400" />
                   ) : (
-                    <Loader2 className="h-4 w-4 animate-spin text-yellow-400" />
+                    <Clock className="h-4 w-4 text-brand-400" />
                   )}
                 </div>
 
@@ -697,6 +703,16 @@ function LogsList({
                       Skip
                     </button>
                   </div>
+                )}
+
+                {/* Retry for failed */}
+                {log.status === 'FAILED' && (
+                  <button
+                    onClick={() => onAction(log.id, 'retry')}
+                    className="rounded-lg bg-brand-500/10 px-3 py-1.5 text-xs font-medium text-brand-400 hover:bg-brand-500/20 transition-colors"
+                  >
+                    Retry
+                  </button>
                 )}
 
                 {/* Error message */}
