@@ -80,6 +80,48 @@ function getNextTopic(schedule: {
 }
 
 // ---------------------------------------------------------------------------
+// Title generation helpers
+// ---------------------------------------------------------------------------
+
+/**
+ * Generate a clean, concise title from a topic/prompt.
+ * - Strips leading "Create a...", "Make a...", etc.
+ * - Capitalizes first letter of each major word
+ * - Truncates to maxLen characters
+ */
+function generateTitle(topic: string, maxLen = 80): string {
+  // Remove common prompt prefixes
+  let title = topic
+    .replace(/^(create|make|generate|write|produce|build)\s+(a|an|the)?\s*/i, '')
+    .replace(/^(about|on|regarding)\s+/i, '')
+    .trim();
+
+  // Take the first sentence if it's a long prompt
+  const firstSentence = title.split(/[.!?\n]/)[0].trim();
+  if (firstSentence.length > 10) {
+    title = firstSentence;
+  }
+
+  // Capitalize first letter
+  title = title.charAt(0).toUpperCase() + title.slice(1);
+
+  // Truncate
+  if (title.length > maxLen) {
+    title = title.slice(0, maxLen - 3).replace(/\s+\S*$/, '') + '...';
+  }
+
+  return title || 'Untitled';
+}
+
+/**
+ * Generate a cartoon episode title with episode number
+ */
+function generateEpisodeTitle(topic: string, episodeNumber: number): string {
+  const base = generateTitle(topic, 250);
+  return `Ep ${episodeNumber}: ${base}`;
+}
+
+// ---------------------------------------------------------------------------
 // Module-specific job creators
 // ---------------------------------------------------------------------------
 
@@ -104,11 +146,13 @@ async function getScheduleWithUser(scheduleId: string) {
 async function createReelJob(schedule: NonNullable<ScheduleWithUser>, topic: string) {
   const plan = schedule.user.subscription?.plan || 'FREE';
 
+  const reelTitle = generateTitle(topic, 80);
+
   const reelJob = await prisma.reelJob.create({
     data: {
       userId: schedule.userId,
       channelProfileId: schedule.channelProfileId || null,
-      title: topic.slice(0, 80),
+      title: reelTitle,
       prompt: topic,
       style: schedule.style || null,
       language: schedule.language,
@@ -128,6 +172,7 @@ async function createReelJob(schedule: NonNullable<ScheduleWithUser>, topic: str
     plan,
     scheduleData: {
       prompt: topic,
+      title: reelTitle,
       style: schedule.style,
       language: schedule.language,
       voiceId: schedule.voiceId,
@@ -144,12 +189,14 @@ async function createLongFormJob(schedule: NonNullable<ScheduleWithUser>, topic:
   const plan = schedule.user.subscription?.plan || 'FREE';
   const settings = (schedule.moduleSettings || {}) as Record<string, unknown>;
 
+  const longFormTitle = generateTitle(topic, 80);
+
   const longFormJob = await prisma.longFormJob.create({
     data: {
       userId: schedule.userId,
       channelProfileId: schedule.channelProfileId || null,
       autopilotScheduleId: schedule.id,
-      title: topic.slice(0, 80),
+      title: longFormTitle,
       prompt: topic,
       durationMinutes: schedule.durationMinutes,
       style: schedule.style || null,
@@ -172,7 +219,7 @@ async function createLongFormJob(schedule: NonNullable<ScheduleWithUser>, topic:
     plan,
     scheduleData: {
       prompt: topic,
-      title: topic.slice(0, 80),
+      title: longFormTitle,
       durationMinutes: schedule.durationMinutes,
       style: schedule.style,
       language: schedule.language,
@@ -342,10 +389,13 @@ async function createCartoonJob(schedule: NonNullable<ScheduleWithUser>, topic: 
 
   const episodeNumber = series._count.episodes + 1;
 
+  // Generate a proper episode title from the topic/prompt
+  const episodeTitle = generateEpisodeTitle(topic, episodeNumber);
+
   const episode = await prisma.cartoonEpisode.create({
     data: {
       seriesId,
-      title: topic.slice(0, 300),
+      title: episodeTitle,
       prompt: topic,
       episodeNumber,
       status: 'QUEUED',
@@ -362,7 +412,7 @@ async function createCartoonJob(schedule: NonNullable<ScheduleWithUser>, topic: 
       episodeId: episode.id,
       seriesId,
       prompt: topic,
-      title: topic.slice(0, 300),
+      title: episodeTitle,
       language: series.language || schedule.language,
       aspectRatio: series.aspectRatio || '16:9',
       narratorVoiceId: series.narratorVoiceId || (settings.narratorVoiceId as string) || undefined,

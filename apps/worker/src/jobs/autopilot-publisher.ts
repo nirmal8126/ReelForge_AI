@@ -33,39 +33,79 @@ const MODULE_TO_JOB_TYPE: Record<string, string> = {
 async function getJobMedia(moduleType: string, jobId: string): Promise<{
   mediaUrl: string | null;
   title: string;
+  description: string;
+  hashtags: string;
   isImage: boolean;
   textContent: string | null;
 }> {
+  const empty = { mediaUrl: null, title: '', description: '', hashtags: '', isImage: false, textContent: null };
   const modelName = MODULE_TO_MODEL[moduleType];
-  if (!modelName) return { mediaUrl: null, title: '', isImage: false, textContent: null };
+  if (!modelName) return empty;
+
+  // Build select based on module type — fetch title, description, hashtags, media
+  const baseSelect: Record<string, boolean> = { status: true, hashtags: true };
+
+  if (moduleType === 'QUOTE') {
+    Object.assign(baseSelect, { imageUrl: true, videoUrl: true, quoteText: true });
+  } else if (moduleType === 'CARTOON') {
+    Object.assign(baseSelect, { outputUrl: true, title: true, synopsis: true, seriesId: true });
+  } else {
+    // REEL, LONG_FORM, CHALLENGE, GAMEPLAY, IMAGE_STUDIO
+    Object.assign(baseSelect, { outputUrl: true, title: true, prompt: true });
+  }
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const job = await (prisma as any)[modelName].findUnique({
     where: { id: jobId },
-    select: {
-      status: true,
-      ...(moduleType === 'QUOTE'
-        ? { imageUrl: true, videoUrl: true, quoteText: true }
-        : { outputUrl: true, title: true, thumbnailUrl: true }),
-    },
+    select: baseSelect,
   });
 
-  if (!job || job.status !== 'COMPLETED') {
-    return { mediaUrl: null, title: '', isImage: false, textContent: null };
-  }
+  if (!job || job.status !== 'COMPLETED') return empty;
+
+  const hashtags = job.hashtags || '';
 
   if (moduleType === 'QUOTE') {
     return {
       mediaUrl: job.videoUrl || job.imageUrl || null,
-      title: job.quoteText || '',
+      title: job.quoteText?.slice(0, 100) || 'Quote',
+      description: job.quoteText || '',
+      hashtags,
       isImage: !!job.imageUrl && !job.videoUrl,
       textContent: !job.videoUrl && !job.imageUrl ? job.quoteText : null,
     };
   }
 
+  if (moduleType === 'CARTOON') {
+    // Fetch series name for a richer title
+    let seriesName = '';
+    if (job.seriesId) {
+      const series = await prisma.cartoonSeries.findUnique({
+        where: { id: job.seriesId },
+        select: { name: true },
+      });
+      seriesName = series?.name || '';
+    }
+    const title = job.title || 'Cartoon Episode';
+    const description = seriesName
+      ? `${seriesName} | ${job.synopsis || job.title || ''}`
+      : job.synopsis || job.title || '';
+
+    return {
+      mediaUrl: job.outputUrl || null,
+      title,
+      description,
+      hashtags,
+      isImage: false,
+      textContent: null,
+    };
+  }
+
+  // REEL, LONG_FORM, CHALLENGE, GAMEPLAY, IMAGE_STUDIO
   return {
     mediaUrl: job.outputUrl || null,
     title: job.title || '',
+    description: job.prompt || job.title || '',
+    hashtags,
     isImage: false,
     textContent: null,
   };
@@ -82,6 +122,8 @@ async function publishToPlatformViaApi(params: {
   jobId: string;
   mediaUrl: string;
   title: string;
+  description: string;
+  hashtags: string;
   isImage: boolean;
   textContent: string | null;
   format?: string;
@@ -253,6 +295,11 @@ export async function processAutopilotPublisher(job: Job) {
         error?: string;
       }> = [];
 
+      // Compose full description with hashtags for publishing
+      const fullDescription = [media.description, media.hashtags]
+        .filter(Boolean)
+        .join('\n\n');
+
       for (const target of targets) {
         const result = await publishToPlatformViaApi({
           userId: log.userId,
@@ -261,6 +308,8 @@ export async function processAutopilotPublisher(job: Job) {
           jobId: log.jobId,
           mediaUrl: media.mediaUrl || '',
           title: media.title,
+          description: fullDescription,
+          hashtags: media.hashtags,
           isImage: media.isImage,
           textContent: media.textContent,
           format: target.format,
