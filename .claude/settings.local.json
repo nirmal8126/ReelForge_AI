@@ -41,7 +41,10 @@
       "WebFetch(domain:ai.google.dev)",
       "Bash(ls -la /Users/mac/Desktop/ReelForge_AI/apps/web/src/app/\\\\\\(dashboard\\\\\\)/)",
       "Bash(wc -l /Users/mac/Desktop/ReelForge_AI/apps/web/src/app/\\\\\\(dashboard\\\\\\)/automation/page.tsx)",
-      "Bash(ls -la /Users/mac/Desktop/ReelForge_AI/apps/web/src/app/\\\\\\(dashboard\\\\\\)/image-studio/)"
+      "Bash(ls -la /Users/mac/Desktop/ReelForge_AI/apps/web/src/app/\\\\\\(dashboard\\\\\\)/image-studio/)",
+      "Bash(ps -p 499 -o command=)",
+      "Bash(pgrep -f \"next dev|tsx watch|node.*worker\")",
+      "Bash(ps -p 1016,1017,1019,7946,7951 -o pid,command=)"
     ]
   }
 }
