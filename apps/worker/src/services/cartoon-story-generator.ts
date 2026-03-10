@@ -153,7 +153,7 @@ Characters:
 ${characterList}
 
 IMPORTANT RULES:
-1. Write 10-15 scenes that tell a complete story with beginning, middle, and end
+1. Write EXACTLY 5-7 scenes (no more!) that tell a complete story with beginning, middle, and end
 2. Each scene must have a description, visual prompt (for image generation), narration, and dialogue
 3. Use the characters by their exact names
 4. Make dialogue natural and match each character's personality
@@ -161,6 +161,12 @@ IMPORTANT RULES:
 6. The visual prompt MUST be very detailed and include: character appearance details, the art style "${opts.artStyle || 'cartoon'}", background/setting details, lighting, mood, camera angle
 7. Each visual prompt should describe the characters by their physical appearance (not just name) so the image AI knows what to draw
 8. The LAST scene MUST be a CTA (Call to Action) scene — the narration should ask viewers to like, subscribe, share, and follow for more episodes of "${opts.seriesName}"
+
+CRITICAL LENGTH RULES (for voice clarity):
+- Narration: MAX 1-2 short sentences per scene (under 25 words). Keep it brief and clear.
+- Dialogue: MAX 1-2 dialogue lines per scene. Each line MAX 12-15 words. Short, punchy, easy to understand when spoken aloud.
+- Description: Keep brief (1 short sentence)
+- Viewers listen to AI voice narration — long text sounds robotic and confusing. SHORT IS BETTER.
 
 REMINDER: description, narration, and dialogue text MUST be in ${languageName}. Only visualPrompt should be in English.
 
@@ -170,9 +176,9 @@ OUTPUT FORMAT: Return ONLY valid JSON (no markdown, no code blocks) with this st
     {
       "description": "Brief scene description in ${languageName}",
       "visualPrompt": "Detailed image generation prompt in English — include character appearance, art style, setting, mood, camera angle",
-      "narration": "Narrator text in ${languageName}",
+      "narration": "Short narrator text in ${languageName} (1-2 sentences, under 25 words)",
       "dialogue": [
-        { "characterName": "ExactName", "text": "What they say in ${languageName}" }
+        { "characterName": "ExactName", "text": "Short line in ${languageName} (under 15 words)" }
       ]
     }
   ]
@@ -180,10 +186,10 @@ OUTPUT FORMAT: Return ONLY valid JSON (no markdown, no code blocks) with this st
 
   const response = await client.messages.create({
     model: 'claude-sonnet-4-5-20250929',
-    max_tokens: 6144,
+    max_tokens: 4096,
     system: systemPrompt,
     messages: [
-      { role: 'user', content: `Write an episode about: ${opts.episodePrompt}\n\nIMPORTANT: Write all narration, dialogue, and descriptions in ${languageName}. Only visualPrompt should be in English. Write 10-15 scenes. The LAST scene must be a CTA asking viewers to like, subscribe, and follow for more "${opts.seriesName}" episodes.` },
+      { role: 'user', content: `Write an episode about: ${opts.episodePrompt}\n\nIMPORTANT: Write all narration, dialogue, and descriptions in ${languageName}. Only visualPrompt should be in English. Write EXACTLY 5-7 scenes (NOT more). Keep narration SHORT (1-2 sentences, under 25 words). Keep dialogue SHORT (1-2 lines per scene, under 15 words each). The LAST scene must be a CTA asking viewers to like, subscribe, and follow for more "${opts.seriesName}" episodes.` },
     ],
   });
 
@@ -259,7 +265,7 @@ Characters:
 ${characterList}
 
 IMPORTANT RULES:
-1. Write 10-15 scenes that tell a complete story with beginning, middle, and end
+1. Write EXACTLY 5-7 scenes (no more!) that tell a complete story with beginning, middle, and end
 2. Each scene must have a description, visual prompt (for image generation), narration, and dialogue
 3. Use the characters by their exact names
 4. Make dialogue natural and match each character's personality
@@ -267,6 +273,12 @@ IMPORTANT RULES:
 6. The visual prompt MUST be very detailed and include: character appearance details, the art style "${opts.artStyle || 'cartoon'}", background/setting details, lighting, mood, camera angle
 7. Each visual prompt should describe the characters by their physical appearance (not just name) so the image AI knows what to draw
 8. The LAST scene MUST be a CTA (Call to Action) scene — the narration should ask viewers to like, subscribe, share, and follow for more episodes of "${opts.seriesName}"
+
+CRITICAL LENGTH RULES (for voice clarity):
+- Narration: MAX 1-2 short sentences per scene (under 25 words). Keep it brief and clear.
+- Dialogue: MAX 1-2 dialogue lines per scene. Each line MAX 12-15 words. Short, punchy, easy to understand when spoken aloud.
+- Description: Keep brief (1 short sentence)
+- Viewers listen to AI voice narration — long text sounds robotic and confusing. SHORT IS BETTER.
 
 REMINDER: description, narration, and dialogue text MUST be in ${languageName}. Only visualPrompt should be in English.
 
@@ -276,9 +288,9 @@ OUTPUT FORMAT: Return ONLY valid JSON with this structure:
     {
       "description": "Brief scene description in ${languageName}",
       "visualPrompt": "Detailed image generation prompt in English — include character appearance, art style, setting, mood, camera angle",
-      "narration": "Narrator text in ${languageName}",
+      "narration": "Short narrator text in ${languageName} (1-2 sentences, under 25 words)",
       "dialogue": [
-        { "characterName": "ExactName", "text": "What they say in ${languageName}" }
+        { "characterName": "ExactName", "text": "Short line in ${languageName} (under 15 words)" }
       ]
     }
   ]
@@ -291,10 +303,10 @@ OUTPUT FORMAT: Return ONLY valid JSON with this structure:
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         system_instruction: { parts: [{ text: systemPrompt }] },
-        contents: [{ role: 'user', parts: [{ text: `Write an episode about: ${opts.episodePrompt}\n\nIMPORTANT: Write all narration, dialogue, and descriptions in ${languageName}. Only visualPrompt should be in English. Write 10-15 scenes. The LAST scene must be a CTA asking viewers to like, subscribe, and follow for more "${opts.seriesName}" episodes.` }] }],
+        contents: [{ role: 'user', parts: [{ text: `Write an episode about: ${opts.episodePrompt}\n\nIMPORTANT: Write all narration, dialogue, and descriptions in ${languageName}. Only visualPrompt should be in English. Write EXACTLY 5-7 scenes (NOT more). Keep narration SHORT (1-2 sentences, under 25 words). Keep dialogue SHORT (1-2 lines per scene, under 15 words each). The LAST scene must be a CTA asking viewers to like, subscribe, and follow for more "${opts.seriesName}" episodes.` }] }],
         generationConfig: {
           temperature: 0.75,
-          maxOutputTokens: 6144,
+          maxOutputTokens: 4096,
           responseMimeType: 'application/json',
         },
       }),
@@ -345,193 +357,105 @@ OUTPUT FORMAT: Return ONLY valid JSON with this structure:
 const MOCK_STORIES: Record<string, (char1: string, char2: string) => CartoonStoryScene[]> = {
   hi: (char1, char2) => [
     {
-      description: `${char1} को बगीचे में कुछ अनोखा मिलता है`,
-      visualPrompt: `Cartoon illustration of ${char1} looking surprised at a glowing magical object in a beautiful Indian garden, colorful flowers, morning sunlight, wide shot, child-friendly art style`,
-      narration: `एक खूबसूरत सुबह, ${char1} बगीचे में खेलने गया और उसे कुछ अद्भुत मिला।`,
+      description: `${char1} को बगीचे में जादुई क्रिस्टल मिलता है`,
+      visualPrompt: `Cartoon illustration of ${char1} looking surprised at a glowing magical crystal in a beautiful Indian garden, colorful flowers, morning sunlight, wide shot, child-friendly art style`,
+      narration: `एक सुबह ${char1} को बगीचे में एक चमकता क्रिस्टल मिला।`,
       dialogue: [
-        { characterName: char1, text: 'वाह, ये देखो! ये क्या हो सकता है?' },
+        { characterName: char1, text: 'वाह, ये क्या है? कितना सुंदर!' },
       ],
     },
     {
-      description: `${char1} रहस्यमयी चीज़ उठाता है`,
-      visualPrompt: `Close-up cartoon illustration of small hands picking up a glowing multicolored crystal from green grass, magical sparkles, warm golden lighting, wonder atmosphere`,
-      narration: `${char1} ने ध्यान से उस रहस्यमयी चमकती चीज़ को उठाया। उसके हाथों में गर्माहट और झनझनाहट महसूस हुई।`,
+      description: `${char1} ${char2} को दिखाता है`,
+      visualPrompt: `Cartoon illustration of ${char1} showing a glowing crystal to ${char2}, both excited, lush garden background, warm golden lighting, medium shot`,
+      narration: `${char1} ने तुरंत अपने दोस्त ${char2} को बुलाया।`,
       dialogue: [
-        { characterName: char1, text: 'ये तो जादुई लग रहा है! पता नहीं ये कहाँ से आया...' },
+        { characterName: char1, text: `${char2}, जल्दी आओ! देखो क्या मिला!` },
+        { characterName: char2, text: 'ये तो जादुई लग रहा है!' },
       ],
     },
     {
-      description: `${char1} ${char2} को बुलाता है`,
-      visualPrompt: `Cartoon illustration of ${char1} excitedly waving and calling ${char2} who is running towards them, lush garden background, warm golden hour lighting, medium shot`,
-      narration: `इस खोज से उत्साहित होकर, ${char1} ने अपने सबसे अच्छे दोस्त को पुकारा।`,
+      description: `क्रिस्टल हवा में तैरने लगता है`,
+      visualPrompt: `Cartoon illustration of a magical crystal floating between two amazed children, rainbow glow, magical swirls, dramatic lighting, low angle shot`,
+      narration: `अचानक क्रिस्टल चमका और हवा में तैरने लगा!`,
       dialogue: [
-        { characterName: char1, text: `${char2}! जल्दी आओ! तुम्हें ये देखना होगा!` },
-        { characterName: char2, text: 'मैं आ रहा हूँ! क्या मिला तुम्हें?' },
+        { characterName: char2, text: 'जल्दी इच्छा मांगो!' },
       ],
     },
     {
-      description: `दोनों दोस्त एक साथ चमकती चीज़ की जांच करते हैं`,
-      visualPrompt: `Cartoon illustration of two friends kneeling together examining a magical glowing crystal, rainbow sparkles and light rays, wonder on their faces, close-up shot`,
-      narration: `दोनों ने मिलकर उस रहस्यमयी चीज़ को देखा। वह एक सुंदर क्रिस्टल था जो अलग-अलग रंगों में चमक रहा था।`,
+      description: `दोनों सबकी खुशी की इच्छा मांगते हैं`,
+      visualPrompt: `Cartoon illustration of two friends holding crystal up high together, determined heroic expressions, golden hour lighting, medium wide shot`,
+      narration: `दोनों ने सोचा और सबकी खुशी की इच्छा मांगी।`,
       dialogue: [
-        { characterName: char2, text: 'ये जादुई क्रिस्टल लग रहा है! शायद ये इच्छाएँ पूरी करता है!' },
-        { characterName: char1, text: 'क्या हम एक इच्छा मांगें? हमें क्या मांगना चाहिए?' },
+        { characterName: char1, text: 'मैं चाहता हूँ सबका दिन शानदार हो!' },
+        { characterName: char2, text: 'बांटने में ही खुशी है!' },
       ],
     },
     {
-      description: `क्रिस्टल और तेज़ चमकने लगता है`,
-      visualPrompt: `Cartoon illustration of a magical crystal floating in the air between two amazed children, intense rainbow glow, magical swirls around it, dramatic lighting, low angle shot`,
-      narration: `अचानक, क्रिस्टल और भी तेज़ चमकने लगा और हवा में तैरने लगा!`,
+      description: `पूरा मोहल्ला खुशियों से भर जाता है`,
+      visualPrompt: `Cartoon illustration of happy Indian neighbors in a colorful street, children playing, flowers blooming, bright sunny day, wide shot`,
+      narration: `क्रिस्टल की रोशनी फैली और सब खुश हो गए!`,
       dialogue: [
-        { characterName: char1, text: 'अरे वाह! ये तो उड़ रहा है!' },
-        { characterName: char2, text: 'जल्दी इच्छा मांगो! कुछ अद्भुत सोचो!' },
-      ],
-    },
-    {
-      description: `दोनों सोचते हैं कि क्या इच्छा मांगें`,
-      visualPrompt: `Cartoon illustration of two children sitting under a big tree thinking deeply, thought bubbles showing toys vs helping others, split composition, soft dappled lighting`,
-      narration: `दोनों पुराने पेड़ के नीचे बैठकर ध्यान से सोचने लगे कि क्या इच्छा मांगें।`,
-      dialogue: [
-        { characterName: char2, text: 'हम कुछ भी मांग सकते हैं! खिलौने, मिठाई, एक ट्रीहाउस...' },
-        { characterName: char1, text: 'लेकिन अगर हम कुछ ऐसा मांगें जो सबकी मदद करे?' },
-      ],
-    },
-    {
-      description: `वे क्रिस्टल को सबके साथ बांटने का फैसला करते हैं`,
-      visualPrompt: `Cartoon illustration of two friends standing confidently together holding the crystal up high, determined heroic expressions, golden hour lighting, medium wide shot`,
-      narration: `सोचने के बाद, उन्होंने फैसला किया कि सबसे अच्छी इच्छा वह होगी जो सबकी मदद करे।`,
-      dialogue: [
-        { characterName: char1, text: 'मैं चाहता हूँ कि सबका दिन शानदार हो!' },
-        { characterName: char2, text: 'ये सबसे अच्छी इच्छा है! बांटने में ही खुशी है!' },
-      ],
-    },
-    {
-      description: `क्रिस्टल का जादू पूरे मोहल्ले में फैलता है`,
-      visualPrompt: `Cartoon illustration of magical rainbow sparkles spreading across a colorful Indian neighborhood, houses glowing, people looking up in wonder, aerial wide shot, fantasy atmosphere`,
-      narration: `क्रिस्टल इंद्रधनुषी चमक में बिखर गया और उसकी रोशनी पूरे मोहल्ले में फैल गई!`,
-      dialogue: [],
-    },
-    {
-      description: `मोहल्ले के सब लोग खुश हैं`,
-      visualPrompt: `Cartoon illustration of happy diverse Indian neighbors waving and smiling in a colorful street, children playing, flowers blooming everywhere, bright sunny day, wide shot`,
-      narration: `जहाँ-जहाँ चमक पहुँची, लोग मुस्कुराए, फूल खिले, और पूरा मोहल्ला खुशियों से भर गया।`,
-      dialogue: [
-        { characterName: char1, text: 'देखो सबको! सब कितने खुश हैं!' },
-        { characterName: char2, text: 'हमारी इच्छा सच में पूरी हुई! दयालुता सबसे बड़ा जादू है!' },
-      ],
-    },
-    {
-      description: `सभी दोस्त साथ मिलकर खुशी मनाते हैं`,
-      visualPrompt: `Cartoon illustration of a group of happy friends playing together in a park, beautiful sunset sky, rainbow in background, warm golden cinematic lighting, wide shot`,
-      narration: `और इस तरह, बांटने और दयालुता के जादू ने सबको एक साथ ला दिया। अंत!`,
-      dialogue: [
-        { characterName: char1, text: 'ये अब तक का सबसे अच्छा दिन था!' },
-        { characterName: char2, text: 'क्योंकि हमने इसे दोस्तों के साथ बांटा!' },
+        { characterName: char1, text: 'दयालुता सबसे बड़ा जादू है!' },
       ],
     },
     {
       description: `CTA — सब्सक्राइब करें`,
-      visualPrompt: `Colorful cartoon end screen with cute animated characters waving at the camera, subscribe and like button icons, bright cheerful background with stars and sparkles, fun and inviting`,
-      narration: `क्या आपको ये कहानी पसंद आई? तो वीडियो को लाइक करें, चैनल को सब्सक्राइब करें, और अपने दोस्तों के साथ शेयर करें! अगली कहानी में फिर मिलेंगे!`,
+      visualPrompt: `Colorful cartoon end screen with cute animated characters waving at camera, subscribe and like button icons, bright cheerful background with stars and sparkles`,
+      narration: `कहानी पसंद आई? लाइक और सब्सक्राइब करें!`,
       dialogue: [
         { characterName: char1, text: 'अगली कहानी में मिलते हैं!' },
-        { characterName: char2, text: 'सब्सक्राइब करना मत भूलना!' },
       ],
     },
   ],
   en: (char1, char2) => [
     {
-      description: `${char1} discovers something unusual in the garden`,
-      visualPrompt: `Cartoon illustration of ${char1} looking surprised at a glowing object in a beautiful garden, colorful flowers, morning sunlight, wide shot, child-friendly art style`,
-      narration: `One bright sunny morning, ${char1} went out to play in the garden and found something amazing.`,
+      description: `${char1} finds a magic crystal in the garden`,
+      visualPrompt: `Cartoon illustration of ${char1} looking surprised at a glowing crystal in a beautiful garden, colorful flowers, morning sunlight, wide shot, child-friendly art style`,
+      narration: `One morning, ${char1} found a glowing crystal in the garden.`,
       dialogue: [
-        { characterName: char1, text: 'Wow, look at this! What could it be?' },
+        { characterName: char1, text: 'Wow, what is this? So beautiful!' },
       ],
     },
     {
-      description: `${char1} picks up the mysterious object`,
-      visualPrompt: `Close-up cartoon illustration of small hands picking up a glowing multicolored crystal from the grass, sparkles, magical atmosphere, warm lighting`,
-      narration: `${char1} carefully picked up the mysterious glowing object. It felt warm and tingly in their hands.`,
+      description: `${char1} shows ${char2} the crystal`,
+      visualPrompt: `Cartoon illustration of ${char1} showing a glowing crystal to ${char2}, both excited, garden background, warm golden lighting, medium shot`,
+      narration: `${char1} called their best friend ${char2} to see it.`,
       dialogue: [
-        { characterName: char1, text: 'It feels magical! I wonder where it came from...' },
+        { characterName: char1, text: `${char2}, come quick! Look what I found!` },
+        { characterName: char2, text: 'It looks magical!' },
       ],
     },
     {
-      description: `${char1} calls ${char2} to come see`,
-      visualPrompt: `Cartoon illustration of ${char1} excitedly waving and calling ${char2} who is running towards them, garden background, warm golden lighting, medium shot`,
-      narration: `Excited by the discovery, ${char1} called out to their best friend.`,
+      description: `The crystal floats into the air`,
+      visualPrompt: `Cartoon illustration of a magical crystal floating between two amazed children, rainbow glow, magical swirls, dramatic lighting, low angle shot`,
+      narration: `Suddenly the crystal glowed bright and floated up!`,
       dialogue: [
-        { characterName: char1, text: `${char2}! Come here quick! You have to see this!` },
-        { characterName: char2, text: `I'm coming! What did you find?` },
+        { characterName: char2, text: 'Quick, make a wish!' },
       ],
     },
     {
-      description: `Both friends examine the glowing object together`,
-      visualPrompt: `Cartoon illustration of two friends kneeling together and looking at a magical glowing crystal between them, sparkles and light rays, wonder on their faces, close-up shot`,
-      narration: `Together, they carefully examined the mysterious object. It was a beautiful crystal that glowed with different colors.`,
+      description: `They wish for everyone's happiness`,
+      visualPrompt: `Cartoon illustration of two friends holding crystal up high together, determined expressions, golden hour lighting, heroic pose, medium wide shot`,
+      narration: `They decided to wish for everyone's happiness.`,
       dialogue: [
-        { characterName: char2, text: 'It looks like a magic crystal! Maybe it grants wishes!' },
-        { characterName: char1, text: 'Should we make a wish? What should we wish for?' },
+        { characterName: char1, text: 'I wish everyone has a wonderful day!' },
+        { characterName: char2, text: 'Sharing is the best magic!' },
       ],
     },
     {
-      description: `The crystal starts glowing brighter`,
-      visualPrompt: `Cartoon illustration of a magical crystal floating in the air between two amazed children, intense rainbow glow, magical swirls, dramatic lighting, low angle shot`,
-      narration: `Suddenly, the crystal began to glow even brighter, lifting into the air between them!`,
+      description: `The whole neighborhood lights up with joy`,
+      visualPrompt: `Cartoon illustration of happy diverse neighbors in a colorful street, children playing, flowers blooming, bright sunny day, wide shot`,
+      narration: `The crystal's magic spread and everyone was happy!`,
       dialogue: [
-        { characterName: char1, text: 'Whoa! It is flying!' },
-        { characterName: char2, text: 'Quick, make a wish! Think of something wonderful!' },
+        { characterName: char1, text: 'Kindness is the best magic of all!' },
       ],
     },
     {
-      description: `They think about what to wish for`,
-      visualPrompt: `Cartoon illustration of two children sitting under a tree thinking deeply, thought bubbles showing toys and candy vs helping others, split composition, soft lighting`,
-      narration: `They sat together under the old oak tree, thinking carefully about what to wish for.`,
-      dialogue: [
-        { characterName: char2, text: 'We could wish for anything! Toys, candy, a treehouse...' },
-        { characterName: char1, text: 'But what if we wished for something that helps everyone?' },
-      ],
-    },
-    {
-      description: `They decide to share the crystal with everyone`,
-      visualPrompt: `Cartoon illustration of two friends standing confidently together holding the crystal up high, determined expressions, golden hour lighting, heroic pose, medium wide shot`,
-      narration: `After thinking about it, they decided the best wish would be one that helps everyone.`,
-      dialogue: [
-        { characterName: char1, text: 'I wish for everyone to have a wonderful day!' },
-        { characterName: char2, text: "That's the best wish ever! Sharing is caring!" },
-      ],
-    },
-    {
-      description: `The crystal spreads magic across the neighborhood`,
-      visualPrompt: `Cartoon illustration of magical sparkles and rainbow light spreading across a colorful neighborhood, houses glowing, people looking up in wonder, aerial wide shot, fantasy atmosphere`,
-      narration: `The crystal burst into a shower of rainbow sparkles that spread across the entire neighborhood!`,
-      dialogue: [],
-    },
-    {
-      description: `Everyone in the neighborhood is happy`,
-      visualPrompt: `Cartoon illustration of happy diverse neighbors waving and smiling in a colorful street, children playing, flowers blooming, bright sunny day, community celebration, wide shot`,
-      narration: `Everywhere the sparkles touched, people smiled, flowers bloomed, and the whole neighborhood lit up with joy.`,
-      dialogue: [
-        { characterName: char1, text: 'Look at everyone! They are all so happy!' },
-        { characterName: char2, text: 'Our wish really worked! Kindness is the best magic!' },
-      ],
-    },
-    {
-      description: `Happy ending with all friends together`,
-      visualPrompt: `Cartoon illustration of a group of happy diverse friends playing together in a park, beautiful sunset, rainbow in the sky, warm golden lighting, wide cinematic shot`,
-      narration: `And so, the magic of sharing and kindness brought everyone together for the most wonderful day ever. The end!`,
-      dialogue: [
-        { characterName: char1, text: 'This was the best day ever!' },
-        { characterName: char2, text: 'Because we shared it with friends!' },
-      ],
-    },
-    {
-      description: `CTA — Subscribe for more adventures`,
-      visualPrompt: `Colorful cartoon end screen with cute characters waving at the camera, "Subscribe" and "Like" icons, bright cheerful background with stars and sparkles, fun typography space`,
-      narration: `Did you enjoy this adventure? Like this video, subscribe to our channel, and share it with your friends so you never miss an episode! See you next time!`,
+      description: `CTA — Subscribe for more`,
+      visualPrompt: `Colorful cartoon end screen with cute characters waving at camera, Subscribe and Like icons, bright cheerful background with stars and sparkles`,
+      narration: `Enjoyed the story? Like and subscribe for more!`,
       dialogue: [
         { characterName: char1, text: 'See you in the next episode!' },
-        { characterName: char2, text: 'Don\'t forget to subscribe!' },
       ],
     },
   ],
