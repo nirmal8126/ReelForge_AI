@@ -32,12 +32,11 @@ export interface ComposeOptions {
  * output, and cleans up.
  */
 export async function composeReel(opts: ComposeOptions): Promise<Buffer> {
-  const { videoBuffer, audioBuffer, script, captionStyle, primaryColor, bgMusicPath, bgMusicVolume = 15 } = opts;
+  const { videoBuffer, audioBuffer, bgMusicPath, bgMusicVolume = 15 } = opts;
 
   const tmpDir = await fs.promises.mkdtemp(path.join(os.tmpdir(), 'reelforge-'));
   const videoPath = path.join(tmpDir, 'input.mp4');
   const audioPath = path.join(tmpDir, 'audio.mp3');
-  const subtitlePath = path.join(tmpDir, 'captions.srt');
   const outputPath = path.join(tmpDir, 'output.mp4');
   const hasBgMusic = bgMusicPath && fs.existsSync(bgMusicPath);
 
@@ -53,7 +52,6 @@ export async function composeReel(opts: ComposeOptions): Promise<Buffer> {
     await Promise.all([
       fs.promises.writeFile(videoPath, videoBuffer),
       fs.promises.writeFile(audioPath, audioBuffer),
-      fs.promises.writeFile(subtitlePath, generateSRT(script)),
     ]);
 
     // Verify audio file is valid MP3 via ffprobe
@@ -67,17 +65,6 @@ export async function composeReel(opts: ComposeOptions): Promise<Buffer> {
     } catch (probeErr: any) {
       log.warn({ err: probeErr.message }, 'Audio probe failed — file may be invalid');
     }
-
-    // -------------------------------------------------------------------
-    // Build FFmpeg filter for caption styling
-    // -------------------------------------------------------------------
-    const assColor = hexToASS(primaryColor);
-    const fontSize = captionStyle === 'large' ? 28 : captionStyle === 'small' ? 16 : 22;
-    const subtitleFilter =
-      `subtitles=${subtitlePath.replace(/\\/g, '/').replace(/:/g, '\\:')}` +
-      `:force_style='FontSize=${fontSize},FontName=Arial,Bold=1,` +
-      `PrimaryColour=${assColor},OutlineColour=&H80000000,` +
-      `BorderStyle=4,Outline=1,Shadow=0,MarginV=60,Alignment=2'`;
 
     // -------------------------------------------------------------------
     // Run FFmpeg
@@ -101,7 +88,6 @@ export async function composeReel(opts: ComposeOptions): Promise<Buffer> {
         '-b:a', '192k',
         '-shortest',
         '-movflags', '+faststart',
-        '-vf', subtitleFilter,
       ];
 
       if (hasBgMusic) {
@@ -147,81 +133,3 @@ export async function composeReel(opts: ComposeOptions): Promise<Buffer> {
   }
 }
 
-// ---------------------------------------------------------------------------
-// Helper: Generate SRT subtitle file from script
-// ---------------------------------------------------------------------------
-
-/**
- * Splits a script into timed subtitle segments (~6 words each).
- * Assumes roughly 2.5 words per second.
- */
-function generateSRT(script: string): string {
-  const words = script.split(/\s+/).filter(Boolean);
-  const wordsPerSegment = 6;
-  const secondsPerWord = 1 / 2.5; // 0.4s per word
-  const segments: string[] = [];
-
-  let segmentIndex = 1;
-  let currentTime = 0;
-
-  for (let i = 0; i < words.length; i += wordsPerSegment) {
-    const segmentWords = words.slice(i, i + wordsPerSegment);
-    const segmentDuration = segmentWords.length * secondsPerWord;
-
-    const startTime = currentTime;
-    const endTime = currentTime + segmentDuration;
-
-    segments.push(
-      [
-        String(segmentIndex),
-        `${formatSRTTime(startTime)} --> ${formatSRTTime(endTime)}`,
-        segmentWords.join(' '),
-        '',
-      ].join('\n'),
-    );
-
-    currentTime = endTime;
-    segmentIndex++;
-  }
-
-  return segments.join('\n');
-}
-
-// ---------------------------------------------------------------------------
-// Helper: Format seconds to SRT timestamp (HH:MM:SS,mmm)
-// ---------------------------------------------------------------------------
-
-function formatSRTTime(totalSeconds: number): string {
-  const hours = Math.floor(totalSeconds / 3600);
-  const minutes = Math.floor((totalSeconds % 3600) / 60);
-  const seconds = Math.floor(totalSeconds % 60);
-  const milliseconds = Math.round((totalSeconds % 1) * 1000);
-
-  return (
-    String(hours).padStart(2, '0') +
-    ':' +
-    String(minutes).padStart(2, '0') +
-    ':' +
-    String(seconds).padStart(2, '0') +
-    ',' +
-    String(milliseconds).padStart(3, '0')
-  );
-}
-
-// ---------------------------------------------------------------------------
-// Helper: Convert hex colour (#RRGGBB) to ASS colour (&HBBGGRR&)
-// ---------------------------------------------------------------------------
-
-function hexToASS(hex: string): string {
-  const clean = hex.replace('#', '');
-  if (clean.length !== 6) {
-    return '&H00FFFFFF'; // default white
-  }
-
-  const r = clean.substring(0, 2);
-  const g = clean.substring(2, 4);
-  const b = clean.substring(4, 6);
-
-  // ASS uses &HAABBGGRR format (AA = alpha, 00 = fully opaque)
-  return `&H00${b}${g}${r}`.toUpperCase();
-}
