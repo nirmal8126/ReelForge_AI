@@ -19,6 +19,14 @@ import {
 import { PublishDialog } from '@/components/publish/publish-dialog'
 import { CopyHashtags } from '@/components/copy-hashtags'
 
+/** Strip "Ep 1:", "Episode 2 -" etc. prefixes from titles stored by older AI generations */
+function cleanTitle(title: string): string {
+  return title
+    .replace(/^Ep\.?\s*\d+\s*[:：\-–—]\s*/i, '')
+    .replace(/^Episode\s*\d+\s*[:：\-–—]\s*/i, '')
+    .trim() || title
+}
+
 interface Scene {
   id: string
   sceneIndex: number
@@ -197,7 +205,7 @@ export default function EpisodeDetailPage() {
         <div className="flex items-start justify-between">
           <div>
             <h1 className="text-2xl font-bold text-white tracking-tight">
-              Ep. {episode.episodeNumber}: {episode.title}
+              Ep. {episode.episodeNumber}: {cleanTitle(episode.title)}
             </h1>
             {episode.synopsis && (
               <p className="text-sm text-gray-500 mt-2">{episode.synopsis}</p>
@@ -347,7 +355,7 @@ export default function EpisodeDetailPage() {
                 jobType="cartoon"
                 jobId={episodeId}
                 videoUrl={toServableUrl(episode.outputUrl)!}
-                defaultTitle={`${episode.series.name} - Ep. ${episode.episodeNumber}: ${episode.title}`}
+                defaultTitle={`${episode.series.name} - Ep. ${episode.episodeNumber}: ${cleanTitle(episode.title)}`}
               />
             </div>
           )}

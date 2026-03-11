@@ -1,5 +1,12 @@
 import { auth } from '@/lib/auth'
 import { prisma } from '@reelforge/db'
+
+function cleanTitle(title: string): string {
+  return title
+    .replace(/^Ep\.?\s*\d+\s*[:：\-–—]\s*/i, '')
+    .replace(/^Episode\s*\d+\s*[:：\-–—]\s*/i, '')
+    .trim() || title
+}
 import { redirect, notFound } from 'next/navigation'
 import Link from 'next/link'
 import {
@@ -192,7 +199,7 @@ export default async function SeriesDetailPage({
 
                       <div className="flex-1 min-w-0">
                         <h3 className="text-sm font-medium text-white truncate group-hover:text-brand-400 transition">
-                          {ep.title}
+                          {cleanTitle(ep.title)}
                         </h3>
                         {ep.synopsis && (
                           <p className="text-xs text-gray-500 truncate mt-0.5">{ep.synopsis}</p>
