@@ -140,7 +140,8 @@ RULES:
 4. Each episode should teach a lesson or have a moral appropriate for the audience
 5. Avoid repeating themes from existing episodes
 6. Vary the tone — mix adventure, comedy, heartwarming, and mystery
-${hint ? `7. User hint: "${hint}" — incorporate this theme/idea into the episodes` : ''}
+7. Do NOT include episode numbers in titles (no "Ep 1:", "Episode 2:", etc.) — just the title itself
+${hint ? `8. User hint: "${hint}" — incorporate this theme/idea into the episodes` : ''}
 
 REMINDER: Every single piece of text you output (title, prompt, synopsis) MUST be written in ${languageName}. Not English. Not any other language. Only ${languageName}.
 
@@ -160,6 +161,18 @@ OUTPUT FORMAT: Return ONLY valid JSON (no markdown, no code blocks):
 // Parse AI response
 // ---------------------------------------------------------------------------
 
+/**
+ * Strip episode number prefixes that AI sometimes adds to titles.
+ * e.g. "Ep 1: Jojo goes to park" → "Jojo goes to park"
+ *      "Episode 3 - The Adventure" → "The Adventure"
+ */
+function cleanEpisodeTitle(title: string): string {
+  return title
+    .replace(/^Ep\.?\s*\d+\s*[:：\-–—]\s*/i, '')
+    .replace(/^Episode\s*\d+\s*[:：\-–—]\s*/i, '')
+    .trim() || title
+}
+
 function parseIdeasResponse(text: string, count: number): { title: string; prompt: string; synopsis: string }[] {
   let jsonText = text.trim()
   if (jsonText.startsWith('```')) {
@@ -172,7 +185,7 @@ function parseIdeasResponse(text: string, count: number): { title: string; promp
     const ideas = parsed.ideas || parsed
     if (Array.isArray(ideas)) {
       return ideas.slice(0, count).map((idea: any) => ({
-        title: idea.title || 'Untitled Episode',
+        title: cleanEpisodeTitle(idea.title || 'Untitled Episode'),
         prompt: idea.prompt || idea.description || '',
         synopsis: idea.synopsis || idea.summary || '',
       }))
@@ -186,7 +199,7 @@ function parseIdeasResponse(text: string, count: number): { title: string; promp
   const ideas: { title: string; prompt: string; synopsis: string }[] = []
   let match
   while ((match = ideaRegex.exec(jsonText)) !== null && ideas.length < count) {
-    ideas.push({ title: match[1], prompt: match[2], synopsis: match[3] })
+    ideas.push({ title: cleanEpisodeTitle(match[1]), prompt: match[2], synopsis: match[3] })
   }
 
   if (ideas.length > 0) {
