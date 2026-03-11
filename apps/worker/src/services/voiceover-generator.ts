@@ -24,6 +24,25 @@ export interface VoiceoverOptions {
 // ---------------------------------------------------------------------------
 
 /**
+ * Generate a silent audio buffer for the given duration.
+ * Used when voiceEnabled=false — video plays with music only, no narration.
+ */
+export function generateSilentAudioForDuration(durationSeconds: number): Buffer {
+  const tmpFile = path.join(os.tmpdir(), `silent-${Date.now()}.mp3`);
+  try {
+    execSync(
+      `ffmpeg -y -f lavfi -i anullsrc=r=44100:cl=mono -t ${durationSeconds} -q:a 9 "${tmpFile}"`,
+      { timeout: 30_000, stdio: 'pipe', maxBuffer: 10 * 1024 * 1024 },
+    );
+    const buffer = fs.readFileSync(tmpFile);
+    log.info({ durationSeconds, audioSizeBytes: buffer.length }, 'Silent audio generated (no voice mode)');
+    return buffer;
+  } finally {
+    try { fs.unlinkSync(tmpFile); } catch { /* ignore */ }
+  }
+}
+
+/**
  * Generate a voiceover audio buffer using ElevenLabs text-to-speech.
  *
  * In DEV_MODE, generates a silent audio track via FFmpeg to avoid burning

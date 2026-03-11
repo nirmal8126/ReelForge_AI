@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react'
 import { useRouter, useParams } from 'next/navigation'
 import toast from 'react-hot-toast'
 import Link from 'next/link'
-import { ArrowLeft, Loader2, Sparkles, CreditCard, Wand2, RefreshCw } from 'lucide-react'
+import { ArrowLeft, Loader2, Sparkles, CreditCard, Wand2, RefreshCw, Mic, MicOff } from 'lucide-react'
 import { getCartoonCreditCost } from '@/lib/credit-cost'
 
 const CREDITS_PER_EPISODE = getCartoonCreditCost()
@@ -19,6 +19,7 @@ export default function NewEpisodePage() {
   const [prompt, setPrompt] = useState('')
   const [synopsis, setSynopsis] = useState('')
   const [hint, setHint] = useState('')
+  const [voiceEnabled, setVoiceEnabled] = useState(true)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [isGenerating, setIsGenerating] = useState(false)
   const [loading, setLoading] = useState(true)
@@ -76,7 +77,7 @@ export default function NewEpisodePage() {
       const res = await fetch(`/api/cartoon-studio/series/${seriesId}/episodes`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ title, prompt, synopsis: synopsis || undefined }),
+        body: JSON.stringify({ title, prompt, synopsis: synopsis || undefined, voiceEnabled }),
       })
 
       const data = await res.json()
@@ -201,6 +202,40 @@ export default function NewEpisodePage() {
             rows={2}
             className="w-full rounded-lg border border-white/10 bg-white/5 px-4 py-2.5 text-sm text-white placeholder-gray-500 focus:border-brand-500 focus:outline-none resize-none"
           />
+        </div>
+
+        {/* Voice Toggle */}
+        <div className="flex items-center justify-between rounded-lg border border-white/10 bg-white/5 p-4">
+          <div className="flex items-center gap-3">
+            {voiceEnabled ? (
+              <Mic className="h-5 w-5 text-brand-400" />
+            ) : (
+              <MicOff className="h-5 w-5 text-gray-500" />
+            )}
+            <div>
+              <p className="text-sm font-medium text-white">
+                {voiceEnabled ? 'Voice Narration Enabled' : 'No Voice (Music Only)'}
+              </p>
+              <p className="text-xs text-gray-500">
+                {voiceEnabled
+                  ? 'AI voices will narrate and speak dialogue'
+                  : 'Episode will play with background music only'}
+              </p>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={() => setVoiceEnabled(!voiceEnabled)}
+            className={`relative inline-flex h-6 w-11 items-center rounded-full transition ${
+              voiceEnabled ? 'bg-brand-600' : 'bg-white/20'
+            }`}
+          >
+            <span
+              className={`inline-block h-4 w-4 rounded-full bg-white transition-transform ${
+                voiceEnabled ? 'translate-x-6' : 'translate-x-1'
+              }`}
+            />
+          </button>
         </div>
 
         {/* Cost info */}

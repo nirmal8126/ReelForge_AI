@@ -10,6 +10,7 @@ const createEpisodeSchema = z.object({
   title: z.string().min(1).max(300),
   prompt: z.string().min(10).max(3000),
   synopsis: z.string().max(2000).optional(),
+  voiceEnabled: z.boolean().default(true),
 })
 
 // GET /api/cartoon-studio/series/[seriesId]/episodes
@@ -95,6 +96,7 @@ export async function POST(
       language: series.language,
       aspectRatio: series.aspectRatio,
       narratorVoiceId: series.narratorVoiceId || undefined,
+      voiceEnabled: data.voiceEnabled,
       bgMusicTrack: series.bgMusicTrack || undefined,
       bgMusicVolume: series.bgMusicVolume ?? undefined,
       plan: creditCheck.subscription.plan,

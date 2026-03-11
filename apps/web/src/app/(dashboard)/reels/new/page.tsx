@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import {
-  Sparkles, Mic, Clock, Monitor, Send,
+  Sparkles, Mic, MicOff, Clock, Monitor, Send,
   ArrowLeft, ArrowRight, Check, Loader2, Film, Wand2,
   FileText, Ratio,
 } from 'lucide-react'
@@ -76,6 +76,7 @@ export default function CreateReelPage() {
     voiceId: VOICES[0].id,
     durationSeconds: 30,
     aspectRatio: '9:16',
+    voiceEnabled: true,
     bgMusicTrack: 'none',
     bgMusicVolume: 15,
     channelProfileId: preselectedProfile,
@@ -188,7 +189,8 @@ export default function CreateReelPage() {
           script: selectedScript || undefined,
           style: form.style,
           language: form.language,
-          voiceId: form.voiceId,
+          voiceId: form.voiceEnabled ? form.voiceId : undefined,
+          voiceEnabled: form.voiceEnabled,
           durationSeconds: form.durationSeconds,
           aspectRatio: form.aspectRatio,
           bgMusicTrack: form.bgMusicTrack !== 'none' ? form.bgMusicTrack : undefined,
@@ -635,6 +637,35 @@ export default function CreateReelPage() {
       {/* Step 4: Voice */}
       {step === 4 && (
         <div className="space-y-8">
+          {/* Voice On/Off Toggle */}
+          <div className="flex items-center justify-between rounded-xl border border-white/10 bg-white/[0.03] p-4">
+            <div className="flex items-center gap-3">
+              {form.voiceEnabled ? (
+                <Mic className="h-5 w-5 text-brand-400" />
+              ) : (
+                <MicOff className="h-5 w-5 text-gray-500" />
+              )}
+              <div>
+                <p className="text-sm font-medium text-white">AI Voiceover</p>
+                <p className="text-xs text-gray-500">
+                  {form.voiceEnabled ? 'Voice narration will be added to the video' : 'Video will have background music only (no narration)'}
+                </p>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => setForm({ ...form, voiceEnabled: !form.voiceEnabled })}
+              className={`relative inline-flex h-6 w-11 items-center rounded-full transition ${
+                form.voiceEnabled ? 'bg-brand-500' : 'bg-white/20'
+              }`}
+            >
+              <span className={`inline-block h-4 w-4 rounded-full bg-white transition transform ${
+                form.voiceEnabled ? 'translate-x-6' : 'translate-x-1'
+              }`} />
+            </button>
+          </div>
+
+          {form.voiceEnabled && (
           <div>
             <label className="block text-sm font-medium text-gray-300 mb-4">AI Voice</label>
             {(() => {
@@ -692,6 +723,7 @@ export default function CreateReelPage() {
               )
             })()}
           </div>
+          )}
 
           {/* Script preview */}
           {getSelectedScript() && (
@@ -751,7 +783,7 @@ export default function CreateReelPage() {
               </div>
               <div>
                 <p className="text-xs text-gray-400 mb-1">Voice</p>
-                <p className="text-white text-sm">{VOICES.find(v => v.id === form.voiceId)?.name || 'Default'}</p>
+                <p className="text-white text-sm">{form.voiceEnabled ? (VOICES.find(v => v.id === form.voiceId)?.name || 'Default') : 'No Voice'}</p>
               </div>
               <div>
                 <p className="text-xs text-gray-400 mb-1">Duration</p>

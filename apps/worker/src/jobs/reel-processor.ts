@@ -2,7 +2,7 @@ import { Job } from 'bullmq';
 import { prisma } from '@reelforge/db';
 import { logger } from '../utils/logger';
 import { generateScript } from '../services/script-generator';
-import { generateVoiceover } from '../services/voiceover-generator';
+import { generateVoiceover, generateSilentAudioForDuration } from '../services/voiceover-generator';
 import { generateVideo } from '../services/video-generator';
 import { composeReel } from '../services/composer';
 import { uploadToStorage } from '../services/storage';
@@ -22,6 +22,7 @@ export interface ReelJobData {
   niche?: string;
   hookStyle?: string;
   voiceId?: string;
+  voiceEnabled?: boolean;
   captionStyle?: string;
   primaryColor?: string;
   channelProfileId?: string;
@@ -90,13 +91,21 @@ export async function processReelJob(job: Job<ReelJobData>): Promise<ReelJobResu
     log.info('Stage 2/6 — Generating voiceover');
     await updateStatus(reelJobId, 'VOICE_GENERATING');
 
-    const audioBuffer = await generateVoiceover({
-      script,
-      voiceId: job.data.voiceId || 'EXAVITQu4vr4xnSDxMaL', // default: Sarah
-      language: job.data.language || 'hi',
-    });
+    const voiceEnabled = job.data.voiceEnabled !== false;
+    let audioBuffer: Buffer;
 
-    log.info({ audioSizeBytes: audioBuffer.length }, 'Voiceover generated');
+    if (voiceEnabled) {
+      audioBuffer = await generateVoiceover({
+        script,
+        voiceId: job.data.voiceId || 'EXAVITQu4vr4xnSDxMaL', // default: Sarah
+        language: job.data.language || 'hi',
+      });
+    } else {
+      log.info('Voice disabled — generating silent audio track');
+      audioBuffer = generateSilentAudioForDuration(durationSeconds);
+    }
+
+    log.info({ audioSizeBytes: audioBuffer.length, voiceEnabled }, 'Audio track ready');
     await job.updateProgress(40);
 
     // ------------------------------------------------------------------

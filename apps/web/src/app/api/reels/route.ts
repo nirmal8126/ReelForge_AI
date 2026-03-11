@@ -14,6 +14,7 @@ const createReelSchema = z.object({
   style: z.string().max(100).optional(),
   language: z.string().regex(/^[a-z]{2}$/).default('hi'),
   voiceId: z.string().max(100).optional(),
+  voiceEnabled: z.boolean().default(true),
   durationSeconds: z.number().refine(
     (v) => (REEL_DURATIONS as readonly number[]).includes(v),
     'Invalid duration'
@@ -138,6 +139,7 @@ export async function POST(req: NextRequest) {
       style: data.style,
       language: data.language,
       voiceId: data.voiceId,
+      voiceEnabled: data.voiceEnabled,
       durationSeconds: data.durationSeconds,
       aspectRatio: data.aspectRatio,
       bgMusicTrack: data.bgMusicTrack,

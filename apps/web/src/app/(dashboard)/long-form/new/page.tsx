@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import {
-  Sparkles, Mic, Send, ArrowLeft, ArrowRight, Loader2, Zap, Check,
+  Sparkles, Mic, MicOff, Send, ArrowLeft, ArrowRight, Loader2, Zap, Check,
   LayoutList, GripVertical, Trash2, Plus, Pencil, ChevronDown, ChevronUp,
   Clock, Eye, Wand2,
 } from 'lucide-react'
@@ -89,6 +89,7 @@ export default function CreateLongFormPage() {
     aiClipRatio: 0.3,
     useStockFootage: true,
     useStaticVisuals: true,
+    voiceEnabled: true,
     publishToYouTube: false,
     channelProfileId: '',
   })
@@ -250,7 +251,8 @@ export default function CreateLongFormPage() {
           durationMinutes: form.durationMinutes,
           style: form.style,
           language: form.language,
-          voiceId: form.voiceId,
+          voiceId: form.voiceEnabled ? form.voiceId : undefined,
+          voiceEnabled: form.voiceEnabled,
           aspectRatio: form.aspectRatio,
           bgMusicTrack: form.bgMusicTrack !== 'none' ? form.bgMusicTrack : undefined,
           bgMusicVolume: form.bgMusicTrack !== 'none' ? form.bgMusicVolume : undefined,
@@ -793,6 +795,41 @@ export default function CreateLongFormPage() {
       {/* ================================================================== */}
       {step === 4 && (
         <div className="space-y-6">
+          {/* Voice Toggle */}
+          <div className="flex items-center justify-between rounded-xl border border-white/10 bg-white/5 p-4">
+            <div className="flex items-center gap-3">
+              {form.voiceEnabled ? (
+                <Mic className="h-5 w-5 text-brand-400" />
+              ) : (
+                <MicOff className="h-5 w-5 text-gray-500" />
+              )}
+              <div>
+                <p className="text-sm font-medium text-white">
+                  {form.voiceEnabled ? 'Voice Narration Enabled' : 'No Voice (Music Only)'}
+                </p>
+                <p className="text-xs text-gray-500">
+                  {form.voiceEnabled
+                    ? 'AI voice will narrate your video'
+                    : 'Video will play with background music only'}
+                </p>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => setForm({ ...form, voiceEnabled: !form.voiceEnabled })}
+              className={`relative inline-flex h-6 w-11 items-center rounded-full transition ${
+                form.voiceEnabled ? 'bg-brand-600' : 'bg-white/20'
+              }`}
+            >
+              <span
+                className={`inline-block h-4 w-4 rounded-full bg-white transition-transform ${
+                  form.voiceEnabled ? 'translate-x-6' : 'translate-x-1'
+                }`}
+              />
+            </button>
+          </div>
+
+          {form.voiceEnabled && (
           <div>
             <label className="block text-sm font-medium text-gray-300 mb-4">AI Voice</label>
             {(() => {
@@ -850,6 +887,7 @@ export default function CreateLongFormPage() {
               )
             })()}
           </div>
+          )}
 
           <div className="flex items-center justify-between">
             <button onClick={() => setStep(3)} className="inline-flex items-center gap-2 text-gray-400 hover:text-white transition">
@@ -877,7 +915,7 @@ export default function CreateLongFormPage() {
               <div><dt className="text-gray-500">Aspect Ratio</dt><dd className="text-white mt-1">{form.aspectRatio}</dd></div>
               <div><dt className="text-gray-500">Style</dt><dd className="text-white mt-1 capitalize">{form.style}</dd></div>
               <div><dt className="text-gray-500">Language</dt><dd className="text-white mt-1">{SUPPORTED_LANGUAGES.find(l => l.code === form.language)?.name}</dd></div>
-              <div><dt className="text-gray-500">Voice</dt><dd className="text-white mt-1">{VOICES.find(v => v.id === form.voiceId)?.name}</dd></div>
+              <div><dt className="text-gray-500">Voice</dt><dd className="text-white mt-1">{form.voiceEnabled ? VOICES.find(v => v.id === form.voiceId)?.name : 'No Voice (Music Only)'}</dd></div>
             </dl>
           </div>
 

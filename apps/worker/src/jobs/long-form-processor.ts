@@ -1,7 +1,7 @@
 import { Job } from 'bullmq';
 import { prisma } from '@reelforge/db';
 import { logger } from '../utils/logger';
-import { generateVoiceover } from '../services/voiceover-generator';
+import { generateVoiceover, generateSilentAudioForDuration } from '../services/voiceover-generator';
 import { processSegments } from '../services/segment-processor';
 import { composeLongForm } from '../services/long-form-composer';
 import { uploadToStorage } from '../services/storage';
@@ -20,6 +20,7 @@ export interface LongFormJobData {
   style?: string;
   language?: string;
   voiceId?: string;
+  voiceEnabled?: boolean;
   aspectRatio: string;
   aiClipRatio: number;
   useStockFootage: boolean;
@@ -108,11 +109,15 @@ export async function processLongFormJob(job: Job<LongFormJobData>): Promise<Lon
         });
         if (!currentJob?.script) throw new Error('Script not found for recompose voiceover');
 
-        audioBuffer = await generateVoiceover({
-          script: currentJob.script,
-          voiceId: job.data.voiceId || 'EXAVITQu4vr4xnSDxMaL',
-          language: job.data.language || 'hi',
-        });
+        if (job.data.voiceEnabled !== false) {
+          audioBuffer = await generateVoiceover({
+            script: currentJob.script,
+            voiceId: job.data.voiceId || 'EXAVITQu4vr4xnSDxMaL',
+            language: job.data.language || 'hi',
+          });
+        } else {
+          audioBuffer = generateSilentAudioForDuration(job.data.durationMinutes * 60);
+        }
         await fs.mkdir(AUDIO_CACHE_DIR, { recursive: true });
         await fs.writeFile(audioCachePath, audioBuffer);
       }
@@ -272,11 +277,15 @@ export async function processLongFormJob(job: Job<LongFormJobData>): Promise<Lon
       log.info('Stage 3 — Generating voiceover');
       await updateStatus(longFormJobId, 'VOICE_GENERATING');
 
-      audioBuffer = await generateVoiceover({
-        script,
-        voiceId: job.data.voiceId || 'EXAVITQu4vr4xnSDxMaL',
-        language: job.data.language || 'hi',
-      });
+      if (job.data.voiceEnabled !== false) {
+        audioBuffer = await generateVoiceover({
+          script,
+          voiceId: job.data.voiceId || 'EXAVITQu4vr4xnSDxMaL',
+          language: job.data.language || 'hi',
+        });
+      } else {
+        audioBuffer = generateSilentAudioForDuration(job.data.durationMinutes * 60);
+      }
 
       // Cache audio to disk for resume
       await fs.mkdir(AUDIO_CACHE_DIR, { recursive: true });

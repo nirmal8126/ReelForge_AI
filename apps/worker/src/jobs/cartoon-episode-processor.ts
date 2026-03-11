@@ -3,7 +3,7 @@ import { prisma } from '@reelforge/db';
 import { logger } from '../utils/logger';
 import { generateCartoonStory } from '../services/cartoon-story-generator';
 import { generateSceneImages } from '../services/image-generator';
-import { generateVoiceover } from '../services/voiceover-generator';
+import { generateVoiceover, generateSilentAudioForDuration } from '../services/voiceover-generator';
 import { composeCartoonEpisode, type CartoonSceneInput } from '../services/cartoon-composer';
 import { uploadToStorage, uploadSceneImage } from '../services/storage';
 import { generateHashtags } from '../services/hashtag-generator';
@@ -28,6 +28,7 @@ export interface CartoonEpisodeJobData {
   language: string;
   aspectRatio: string;
   narratorVoiceId?: string;
+  voiceEnabled?: boolean;
   bgMusicTrack?: string;
   bgMusicVolume?: number;
   plan: string;
@@ -383,9 +384,40 @@ export async function processCartoonEpisode(
 
     let audioBuffer: Buffer;
 
+    const voiceEnabled = job.data.voiceEnabled !== false;
+
     if (existsSync(audioCachePath)) {
       log.info('Stage 3: Loading cached audio');
       audioBuffer = readFileSync(audioCachePath);
+    } else if (!voiceEnabled) {
+      // No voice mode: generate silent audio based on estimated scene durations
+      await updateStatus(episodeId, 'VOICE_GENERATING', 'Generating silent audio');
+      log.info('Stage 3: Voice disabled — generating silent audio');
+
+      // Estimate total duration: ~5 seconds per scene
+      const totalDuration = scenes.length * 5;
+      audioBuffer = generateSilentAudioForDuration(totalDuration);
+
+      // Set scene timing with even distribution
+      let currentTime = 0;
+      for (const scene of scenes) {
+        const sceneDuration = 5;
+        await prisma.cartoonScene.update({
+          where: { id: scene.id },
+          data: { startTime: currentTime, endTime: currentTime + sceneDuration },
+        });
+        currentTime += sceneDuration;
+      }
+
+      // Update episode duration
+      await prisma.cartoonEpisode.update({
+        where: { id: episodeId },
+        data: { durationSeconds: Math.round(currentTime) },
+      });
+
+      // Cache audio
+      writeFileSync(audioCachePath, audioBuffer);
+      log.info({ durationSeconds: totalDuration, audioSize: audioBuffer.length }, 'Silent audio generated (no voice mode)');
     } else {
       await updateStatus(episodeId, 'VOICE_GENERATING', 'Generating voices');
       log.info('Stage 3: Generating multi-voice audio');

@@ -37,6 +37,7 @@ export async function enqueueReelJob(data: {
   style?: string
   language?: string
   voiceId?: string
+  voiceEnabled?: boolean
   durationSeconds: number
   aspectRatio: string
   bgMusicTrack?: string
@@ -110,6 +111,7 @@ export async function enqueueLongFormJob(data: {
   style?: string
   language?: string
   voiceId?: string
+  voiceEnabled?: boolean
   aspectRatio: string
   bgMusicTrack?: string
   bgMusicVolume?: number
@@ -153,6 +155,7 @@ export async function enqueueCartoonEpisode(data: {
   language: string
   aspectRatio: string
   narratorVoiceId?: string
+  voiceEnabled?: boolean
   bgMusicTrack?: string
   bgMusicVolume?: number
   plan: string
