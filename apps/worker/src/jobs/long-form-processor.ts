@@ -326,24 +326,23 @@ export async function processLongFormJob(job: Job<LongFormJobData>): Promise<Lon
           orderBy: { segmentIndex: 'asc' },
         });
       } else {
-        segments = [];
-        for (let idx = 0; idx < outline.segments.length; idx++) {
-          const seg = outline.segments[idx];
-          const timing = segmentTimings[idx];
-          const record = await prisma.longFormSegment.create({
-            data: {
-              longFormJobId,
-              segmentIndex: idx,
-              title: seg.title,
-              scriptText: seg.script || seg.description || '',
-              startTime: timing.startTime,
-              endTime: timing.endTime,
-              visualType: 'PENDING',
-              status: 'PENDING',
-            },
-          });
-          segments.push(record);
-        }
+        // Batch-create all segments at once
+        await prisma.longFormSegment.createMany({
+          data: outline.segments.map((seg, idx) => ({
+            longFormJobId,
+            segmentIndex: idx,
+            title: seg.title,
+            scriptText: seg.script || seg.description || '',
+            startTime: segmentTimings[idx].startTime,
+            endTime: segmentTimings[idx].endTime,
+            visualType: 'PENDING',
+            status: 'PENDING',
+          })),
+        });
+        segments = await prisma.longFormSegment.findMany({
+          where: { longFormJobId },
+          orderBy: { segmentIndex: 'asc' },
+        });
       }
 
       log.info({ segmentCount: segments.length }, 'Processing segments');

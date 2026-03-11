@@ -75,8 +75,8 @@ export async function processSegments(
     log.warn('No video providers available — all segments will use stock footage or static visuals');
   }
 
-  // Process segments in batches
-  const BATCH_SIZE = 3;
+  // Process segments in batches (larger batch = faster, balanced against API rate limits)
+  const BATCH_SIZE = 6;
   const processedSegments: ProcessedSegment[] = [];
   let completedCount = 0;
 
@@ -184,7 +184,7 @@ export async function processSegments(
 
     // Brief delay between batches for API rate limits
     if (i + BATCH_SIZE < segments.length) {
-      await new Promise((resolve) => setTimeout(resolve, 2000));
+      await new Promise((resolve) => setTimeout(resolve, 800));
     }
   }
 

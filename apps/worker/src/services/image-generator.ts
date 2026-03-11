@@ -71,7 +71,7 @@ export async function generateSceneImages(opts: SceneImageOptions): Promise<Buff
   for (let i = 0; i < sceneDirections.length; i++) {
     // Delay between API calls to avoid Gemini rate limits (skip first)
     if (i > 0) {
-      await new Promise(r => setTimeout(r, 2000));
+      await new Promise(r => setTimeout(r, 1000));
     }
 
     try {
@@ -81,7 +81,7 @@ export async function generateSceneImages(opts: SceneImageOptions): Promise<Buff
     } catch (err) {
       log.warn({ scene: i + 1, err }, 'Failed to generate scene image, trying fallback prompt');
       // Wait before retry
-      await new Promise(r => setTimeout(r, 3000));
+      await new Promise(r => setTimeout(r, 1500));
       // Retry with simpler prompt
       try {
         const simplePrompt = `${style} style scene: ${prompt}`;

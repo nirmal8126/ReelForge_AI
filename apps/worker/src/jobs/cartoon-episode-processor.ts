@@ -197,65 +197,84 @@ export async function processCartoonEpisode(
         totalImages += prompts.length;
       }
 
+      // Build flat list of all image tasks for batch processing
+      const imageTasks: { scene: typeof pendingImageScenes[0]; imgIdx: number; prompt: string }[] = [];
       for (const scene of pendingImageScenes) {
-        // Get all visual prompts for this scene (2-3 per scene)
         const prompts = (scene.visualPrompts as string[] | null) || [scene.visualPrompt || scene.description || 'cartoon scene'];
-        const sceneImageUrls: string[] = [];
-
         for (let imgIdx = 0; imgIdx < prompts.length; imgIdx++) {
-          const imagePath = path.join(imageDir, `scene-${scene.sceneIndex}-${imgIdx}.png`);
-
-          // Delay between API calls to avoid Gemini rate limits (skip first overall)
-          if (generatedImages > 0) {
-            await new Promise(r => setTimeout(r, 3000));
-          }
-
-          let imageBuffer: Buffer;
-          try {
-            const basePrompt = prompts[imgIdx];
-            const enrichedPrompt = `${basePrompt}. ${seriesContext}. High quality, consistent character design, vibrant colors.`;
-
-            const [generated] = await generateSceneImages({
-              prompt: enrichedPrompt,
-              style: artStyle,
-              count: 1,
-              aspectRatio: job.data.aspectRatio,
-            });
-            imageBuffer = generated;
-            log.info({ sceneIndex: scene.sceneIndex, imgIdx, total: prompts.length }, 'AI image generated');
-          } catch (imgErr) {
-            log.warn({ sceneIndex: scene.sceneIndex, imgIdx, err: imgErr instanceof Error ? imgErr.message : imgErr }, 'Gemini image failed, using placeholder');
-            const res = job.data.aspectRatio === '9:16'
-              ? { w: 1080, h: 1920 }
-              : job.data.aspectRatio === '1:1'
-                ? { w: 1080, h: 1080 }
-                : { w: 1920, h: 1080 };
-            generatePlaceholderPNG(imagePath, res.w, res.h, scene.sceneIndex + imgIdx);
-            imageBuffer = readFileSync(imagePath);
-          }
-
-          // Save locally for FFmpeg composer
-          await fsPromises.writeFile(imagePath, imageBuffer);
-
-          // Upload to storage
-          let sceneImageUrl = imagePath;
-          try {
-            sceneImageUrl = await uploadSceneImage({
-              buffer: imageBuffer,
-              userId,
-              episodeId,
-              sceneIndex: scene.sceneIndex * 10 + imgIdx, // unique index per sub-image
-            });
-          } catch (uploadErr) {
-            log.warn({ sceneIndex: scene.sceneIndex, imgIdx, err: uploadErr instanceof Error ? uploadErr.message : uploadErr }, 'Scene image upload failed, using local path');
-          }
-
-          sceneImageUrls.push(sceneImageUrl);
-          generatedImages++;
-
-          const progress = 20 + Math.round((generatedImages / totalImages) * 25);
-          await setProgress(Math.min(progress, 44));
+          imageTasks.push({ scene, imgIdx, prompt: prompts[imgIdx] });
         }
+      }
+
+      // Process images in parallel batches of 3 (balances speed vs rate limits)
+      const IMAGE_BATCH_SIZE = 3;
+      const sceneImageMap: Record<string, string[]> = {}; // sceneId → urls
+
+      for (let batchStart = 0; batchStart < imageTasks.length; batchStart += IMAGE_BATCH_SIZE) {
+        const batch = imageTasks.slice(batchStart, batchStart + IMAGE_BATCH_SIZE);
+
+        // Small delay between batches (not between individual images)
+        if (batchStart > 0) {
+          await new Promise(r => setTimeout(r, 1500));
+        }
+
+        const batchResults = await Promise.all(
+          batch.map(async (task) => {
+            const imagePath = path.join(imageDir, `scene-${task.scene.sceneIndex}-${task.imgIdx}.png`);
+            let imageBuffer: Buffer;
+
+            try {
+              const enrichedPrompt = `${task.prompt}. ${seriesContext}. High quality, consistent character design, vibrant colors.`;
+              const [generated] = await generateSceneImages({
+                prompt: enrichedPrompt,
+                style: artStyle,
+                count: 1,
+                aspectRatio: job.data.aspectRatio,
+              });
+              imageBuffer = generated;
+              log.info({ sceneIndex: task.scene.sceneIndex, imgIdx: task.imgIdx }, 'AI image generated');
+            } catch (imgErr) {
+              log.warn({ sceneIndex: task.scene.sceneIndex, imgIdx: task.imgIdx, err: imgErr instanceof Error ? imgErr.message : imgErr }, 'Gemini image failed, using placeholder');
+              const imgRes = job.data.aspectRatio === '9:16'
+                ? { w: 1080, h: 1920 }
+                : job.data.aspectRatio === '1:1'
+                  ? { w: 1080, h: 1080 }
+                  : { w: 1920, h: 1080 };
+              generatePlaceholderPNG(imagePath, imgRes.w, imgRes.h, task.scene.sceneIndex + task.imgIdx);
+              imageBuffer = readFileSync(imagePath);
+            }
+
+            await fsPromises.writeFile(imagePath, imageBuffer);
+
+            let sceneImageUrl = imagePath;
+            try {
+              sceneImageUrl = await uploadSceneImage({
+                buffer: imageBuffer,
+                userId,
+                episodeId,
+                sceneIndex: task.scene.sceneIndex * 10 + task.imgIdx,
+              });
+            } catch (uploadErr) {
+              log.warn({ sceneIndex: task.scene.sceneIndex, imgIdx: task.imgIdx, err: uploadErr instanceof Error ? uploadErr.message : uploadErr }, 'Scene image upload failed, using local path');
+            }
+
+            return { sceneId: task.scene.id, sceneIndex: task.scene.sceneIndex, imgIdx: task.imgIdx, url: sceneImageUrl };
+          }),
+        );
+
+        for (const result of batchResults) {
+          if (!sceneImageMap[result.sceneId]) sceneImageMap[result.sceneId] = [];
+          sceneImageMap[result.sceneId].push(result.url);
+          generatedImages++;
+        }
+
+        const progress = 20 + Math.round((generatedImages / totalImages) * 25);
+        await setProgress(Math.min(progress, 44));
+      }
+
+      // Update scene records with generated images
+      for (const scene of pendingImageScenes) {
+        const sceneImageUrls = sceneImageMap[scene.id] || [];
 
         // Update scene: first image as primary imageUrl, all images in imageUrls JSON
         await prisma.cartoonScene.update({
