@@ -765,9 +765,9 @@ const LONG_FORM_DURATIONS = [
 ]
 
 const ASPECTS = [
-  { value: '9:16', label: '9:16', desc: 'Portrait' },
-  { value: '1:1', label: '1:1', desc: 'Square' },
-  { value: '16:9', label: '16:9', desc: 'Landscape' },
+  { value: '9:16', label: '9:16', desc: 'Reels · Shorts · TikTok · Stories' },
+  { value: '1:1', label: '1:1', desc: 'Instagram Feed · Facebook Post' },
+  { value: '16:9', label: '16:9', desc: 'YouTube · Desktop · TV' },
 ]
 
 const GAMEPLAY_TEMPLATES = [

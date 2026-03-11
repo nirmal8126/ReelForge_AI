@@ -38,9 +38,9 @@ const DURATIONS = [
 ]
 
 const ASPECTS = [
-  { value: '9:16', label: '9:16', desc: 'Vertical (Reels)' },
-  { value: '1:1', label: '1:1', desc: 'Square (Feed)' },
-  { value: '16:9', label: '16:9', desc: 'Horizontal' },
+  { value: '9:16', label: '9:16', desc: 'Reels · Shorts · TikTok · Stories' },
+  { value: '1:1', label: '1:1', desc: 'Instagram Feed · Facebook Post' },
+  { value: '16:9', label: '16:9', desc: 'YouTube · Desktop · TV' },
 ]
 
 interface Profile {

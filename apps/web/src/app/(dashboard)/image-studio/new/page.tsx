@@ -393,17 +393,22 @@ export default function ImageStudioNewPage() {
               <div>
                 <label className="text-sm font-medium text-gray-300 mb-2 block">Aspect Ratio</label>
                 <div className="flex gap-3">
-                  {ASPECT_RATIOS.map((ar) => (
+                  {[
+                    { value: '9:16' as const, desc: 'Reels · Shorts · TikTok' },
+                    { value: '1:1' as const, desc: 'Instagram Feed · Facebook' },
+                    { value: '16:9' as const, desc: 'YouTube · Desktop · TV' },
+                  ].map((ar) => (
                     <button
-                      key={ar}
-                      onClick={() => setAspectRatio(ar)}
-                      className={`flex-1 py-2.5 rounded-lg border text-sm font-medium transition ${
-                        aspectRatio === ar
+                      key={ar.value}
+                      onClick={() => setAspectRatio(ar.value)}
+                      className={`flex-1 py-2.5 rounded-lg border text-center transition ${
+                        aspectRatio === ar.value
                           ? 'border-brand-500/40 bg-brand-500/10 text-brand-300'
                           : 'border-white/[0.06] bg-white/[0.02] text-gray-500 hover:text-gray-300'
                       }`}
                     >
-                      {ar}
+                      <span className="block text-sm font-medium">{ar.value}</span>
+                      <span className="block text-[10px] text-gray-500 mt-0.5">{ar.desc}</span>
                     </button>
                   ))}
                 </div>

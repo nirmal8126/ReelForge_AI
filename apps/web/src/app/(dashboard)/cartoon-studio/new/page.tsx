@@ -233,18 +233,23 @@ export default function NewSeriesPage() {
             <div>
               <label className="text-sm font-medium text-gray-300 mb-1.5 block">Aspect Ratio</label>
               <div className="flex gap-2">
-                {['16:9', '9:16', '1:1'].map((ar) => (
+                {[
+                  { value: '16:9', desc: 'YouTube · Desktop · TV' },
+                  { value: '9:16', desc: 'Reels · Shorts · TikTok' },
+                  { value: '1:1', desc: 'Instagram Feed · Facebook' },
+                ].map((ar) => (
                   <button
-                    key={ar}
+                    key={ar.value}
                     type="button"
-                    onClick={() => setAspectRatio(ar)}
-                    className={`flex-1 rounded-lg border px-3 py-2.5 text-sm font-medium transition ${
-                      aspectRatio === ar
+                    onClick={() => setAspectRatio(ar.value)}
+                    className={`flex-1 rounded-lg border px-3 py-2.5 text-center transition ${
+                      aspectRatio === ar.value
                         ? 'border-brand-500 bg-brand-500/10 text-brand-400'
                         : 'border-white/10 bg-white/5 text-gray-400 hover:bg-white/10'
                     }`}
                   >
-                    {ar}
+                    <span className="block text-sm font-medium">{ar.value}</span>
+                    <span className="block text-[10px] text-gray-500 mt-0.5">{ar.desc}</span>
                   </button>
                 ))}
               </div>

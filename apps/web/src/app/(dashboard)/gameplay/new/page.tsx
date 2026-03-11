@@ -37,9 +37,9 @@ const DIFFICULTIES = [
 
 const DURATIONS = [15, 30, 45, 60]
 const ASPECT_RATIOS = [
-  { id: '9:16', name: '9:16', desc: 'Shorts/Reels' },
-  { id: '16:9', name: '16:9', desc: 'YouTube' },
-  { id: '1:1', name: '1:1', desc: 'Instagram' },
+  { id: '9:16', name: '9:16', desc: 'Reels · Shorts · TikTok' },
+  { id: '16:9', name: '16:9', desc: 'YouTube · Desktop · TV' },
+  { id: '1:1', name: '1:1', desc: 'Instagram Feed · Facebook' },
 ]
 const MUSIC_STYLES = ['upbeat', 'chill', 'intense', 'none']
 
