@@ -40,6 +40,7 @@ import {
 import toast from 'react-hot-toast'
 import { cn } from '@/lib/utils'
 import { SUPPORTED_LANGUAGES, VIDEO_STYLES, CHALLENGE_TYPES, CHALLENGE_CATEGORIES, CHALLENGE_DIFFICULTIES, CHALLENGE_TEMPLATES, QUOTE_CATEGORIES } from '@/lib/constants'
+import { MusicSelector } from '@/components/ui/music-selector'
 
 // ---------------------------------------------------------------------------
 // Types
@@ -62,6 +63,8 @@ interface Schedule {
   durationSeconds: number
   durationMinutes: number
   aspectRatio: string
+  bgMusicTrack: string | null
+  bgMusicVolume: number | null
   style: string | null
   voiceId: string | null
   channelProfileId: string | null
@@ -819,6 +822,8 @@ function CreateScheduleForm({
         durationSeconds: 30,
         durationMinutes: 10,
         aspectRatio: '9:16',
+        bgMusicTrack: 'none',
+        bgMusicVolume: 15,
         style: 'cinematic',
         voiceId: 'EXAVITQu4vr4xnSDxMaL',
         autoPublish: false,
@@ -855,6 +860,8 @@ function CreateScheduleForm({
       durationSeconds: editingSchedule.durationSeconds || 30,
       durationMinutes: editingSchedule.durationMinutes || 10,
       aspectRatio: editingSchedule.aspectRatio || '9:16',
+      bgMusicTrack: editingSchedule.bgMusicTrack || 'none',
+      bgMusicVolume: editingSchedule.bgMusicVolume ?? 15,
       style: editingSchedule.style || 'cinematic',
       voiceId: editingSchedule.voiceId || 'EXAVITQu4vr4xnSDxMaL',
       autoPublish: editingSchedule.autoPublish,
@@ -953,6 +960,8 @@ function CreateScheduleForm({
       durationSeconds: form.durationSeconds,
       durationMinutes: form.durationMinutes,
       aspectRatio: form.aspectRatio,
+      bgMusicTrack: form.bgMusicTrack !== 'none' ? form.bgMusicTrack : null,
+      bgMusicVolume: form.bgMusicTrack !== 'none' ? form.bgMusicVolume : null,
       style: form.style || null,
       voiceId: form.voiceId || null,
       moduleSettings,
@@ -1238,6 +1247,15 @@ function CreateScheduleForm({
                   ))}
                 </div>
               </div>
+
+              {/* Background Music */}
+              <MusicSelector
+                value={form.bgMusicTrack}
+                volume={form.bgMusicVolume}
+                onTrackChange={(t) => setForm({ ...form, bgMusicTrack: t })}
+                onVolumeChange={(v) => setForm({ ...form, bgMusicVolume: v })}
+                compact
+              />
 
               {/* Duration (short-form) */}
               {showDuration && (

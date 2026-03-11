@@ -7,6 +7,7 @@ import { generateVideo } from '../services/video-generator';
 import { composeReel } from '../services/composer';
 import { uploadToStorage } from '../services/storage';
 import { generateHashtags } from '../services/hashtag-generator';
+import { prepareBackgroundMusic } from '../services/music-generator';
 
 export interface ReelJobData {
   reelJobId: string;
@@ -25,6 +26,8 @@ export interface ReelJobData {
   primaryColor?: string;
   channelProfileId?: string;
   aspectRatio?: string;
+  bgMusicTrack?: string;
+  bgMusicVolume?: number;
   plan?: string;
 }
 
@@ -120,12 +123,23 @@ export async function processReelJob(job: Job<ReelJobData>): Promise<ReelJobResu
     log.info('Stage 4/6 — Composing final reel');
     await updateStatus(reelJobId, 'COMPOSING');
 
+    // Prepare background music if requested
+    const bgMusicPath = job.data.bgMusicTrack
+      ? await prepareBackgroundMusic({
+          trackId: job.data.bgMusicTrack,
+          durationSeconds: job.data.durationSeconds,
+          volume: job.data.bgMusicVolume,
+        })
+      : null;
+
     const composedBuffer = await composeReel({
       videoBuffer,
       audioBuffer,
       script,
       captionStyle: job.data.captionStyle || 'default',
       primaryColor: job.data.primaryColor || '#6366F1',
+      bgMusicPath,
+      bgMusicVolume: job.data.bgMusicVolume,
     });
 
     log.info({ composedSizeBytes: composedBuffer.length }, 'Reel composed');

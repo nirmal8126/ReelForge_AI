@@ -6,6 +6,7 @@ import { processSegments } from '../services/segment-processor';
 import { composeLongForm } from '../services/long-form-composer';
 import { uploadToStorage } from '../services/storage';
 import { generateHashtags } from '../services/hashtag-generator';
+import { prepareBackgroundMusic } from '../services/music-generator';
 import fs from 'fs/promises';
 import path from 'path';
 import os from 'os';
@@ -25,6 +26,8 @@ export interface LongFormJobData {
   useStaticVisuals: boolean;
   publishToYouTube: boolean;
   channelProfileId?: string;
+  bgMusicTrack?: string;
+  bgMusicVolume?: number;
   plan: string;
   recomposeOnly?: boolean; // Skip stages 1-4, jump to composition
 }
@@ -120,11 +123,21 @@ export async function processLongFormJob(job: Job<LongFormJobData>): Promise<Lon
         select: { script: true },
       });
 
+      const recomposeBgMusic = job.data.bgMusicTrack
+        ? await prepareBackgroundMusic({
+            trackId: job.data.bgMusicTrack,
+            durationSeconds: job.data.durationMinutes * 60,
+            volume: job.data.bgMusicVolume,
+          })
+        : null;
+
       const composedBuffer = await composeLongForm({
         segments: processedSegments,
         audioBuffer,
         script: currentJob?.script || '',
         aspectRatio: job.data.aspectRatio,
+        bgMusicPath: recomposeBgMusic,
+        bgMusicVolume: job.data.bgMusicVolume,
       });
       await setProgress(88);
 
@@ -372,11 +385,22 @@ export async function processLongFormJob(job: Job<LongFormJobData>): Promise<Lon
     log.info('Stage 5 — Composing final video');
     await updateStatus(longFormJobId, 'COMPOSING');
 
+    // Prepare background music if requested
+    const bgMusicPath = job.data.bgMusicTrack
+      ? await prepareBackgroundMusic({
+          trackId: job.data.bgMusicTrack,
+          durationSeconds: job.data.durationMinutes * 60,
+          volume: job.data.bgMusicVolume,
+        })
+      : null;
+
     const composedBuffer = await composeLongForm({
       segments: processedSegments,
       audioBuffer: audioBuffer!,
       script,
       aspectRatio: job.data.aspectRatio,
+      bgMusicPath,
+      bgMusicVolume: job.data.bgMusicVolume,
     });
 
     log.info({ composedSizeBytes: composedBuffer.length }, 'Video composed');

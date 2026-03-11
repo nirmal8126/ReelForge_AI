@@ -1,5 +1,6 @@
 import ffmpeg from 'fluent-ffmpeg';
 import fs from 'fs/promises';
+import { existsSync } from 'fs';
 import path from 'path';
 import os from 'os';
 import axios from 'axios';
@@ -13,6 +14,8 @@ export interface ComposeLongFormOptions {
   audioBuffer: Buffer;
   script: string;
   aspectRatio: string;
+  bgMusicPath?: string | null;
+  bgMusicVolume?: number; // 0-100, default 15
 }
 
 /**
@@ -26,7 +29,7 @@ export interface ComposeLongFormOptions {
  * 5. Return final video buffer
  */
 export async function composeLongForm(opts: ComposeLongFormOptions): Promise<Buffer> {
-  const { segments, audioBuffer, script, aspectRatio } = opts;
+  const { segments, audioBuffer, script, aspectRatio, bgMusicPath, bgMusicVolume = 15 } = opts;
 
   log.info({ segmentCount: segments.length, aspectRatio }, 'Starting long-form composition');
 
@@ -83,43 +86,49 @@ export async function composeLongForm(opts: ComposeLongFormOptions): Promise<Buf
     await fs.writeFile(concatFilePath, concatContent);
     log.info('Concat file created');
 
-    // Step 4: Concatenate segments + overlay audio
-    log.info('Concatenating segments with audio');
+    // Step 4: Concatenate segments + overlay audio (+ optional background music)
+    const hasBgMusic = bgMusicPath && existsSync(bgMusicPath);
+    const musicVol = Math.max(0, Math.min(100, bgMusicVolume)) / 100;
+    log.info({ hasBgMusic, musicVol }, 'Concatenating segments with audio');
 
     await new Promise<void>((resolve, reject) => {
-      ffmpeg()
+      const cmd = ffmpeg()
         .input(concatFilePath)
         .inputOptions(['-f concat', '-safe 0'])
-        .input(audioPath)
+        .input(audioPath);
+
+      const outputOpts: string[] = [
+        '-shortest',
+        '-pix_fmt yuv420p',
+        '-preset fast',
+        '-movflags +faststart',
+      ];
+
+      if (hasBgMusic) {
+        cmd.input(bgMusicPath!);
+        outputOpts.push(
+          '-filter_complex', `[1:a]volume=1.0[vo];[2:a]volume=${musicVol.toFixed(2)}[bgm];[vo][bgm]amix=inputs=2:duration=first:dropout_transition=2[aout]`,
+          '-map', '0:v',
+          '-map', '[aout]',
+        );
+        log.info({ bgMusicPath, musicVol }, 'Mixing background music with voiceover');
+      }
+
+      cmd
         .videoCodec('libx264')
         .videoBitrate('4000k')
         .size(`${width}x${height}`)
         .fps(30)
         .audioCodec('aac')
         .audioBitrate('128k')
-        .outputOptions([
-          '-shortest',
-          '-pix_fmt yuv420p',
-          '-preset fast',
-          '-movflags +faststart',
-        ])
+        .outputOptions(outputOpts)
         .output(outputPath)
-        .on('start', (cmd) => {
-          log.info({ cmd }, 'FFmpeg command started');
-        })
+        .on('start', (c) => { log.info({ cmd: c }, 'FFmpeg command started'); })
         .on('progress', (progress) => {
-          if (progress.percent) {
-            log.debug({ percent: progress.percent.toFixed(1) }, 'FFmpeg progress');
-          }
+          if (progress.percent) log.debug({ percent: progress.percent.toFixed(1) }, 'FFmpeg progress');
         })
-        .on('end', () => {
-          log.info('FFmpeg composition completed');
-          resolve();
-        })
-        .on('error', (err) => {
-          log.error({ err }, 'FFmpeg composition failed');
-          reject(err);
-        })
+        .on('end', () => { log.info('FFmpeg composition completed'); resolve(); })
+        .on('error', (err) => { log.error({ err }, 'FFmpeg composition failed'); reject(err); })
         .run();
     });
 

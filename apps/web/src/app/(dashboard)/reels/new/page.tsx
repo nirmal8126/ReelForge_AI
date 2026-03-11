@@ -10,6 +10,7 @@ import {
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { SUPPORTED_LANGUAGES, LANGUAGE_VOICE_MAP, NICHE_PRESETS, VIDEO_STYLES } from '@/lib/constants'
+import { MusicSelector } from '@/components/ui/music-selector'
 
 const NICHE_ORDER = ['motivation', 'tech', 'finance', 'fitness', 'education', 'business', 'health', 'cooking', 'gaming', 'travel', 'beauty', 'comedy'] as const
 const NICHES = NICHE_ORDER.map(id => ({
@@ -75,6 +76,8 @@ export default function CreateReelPage() {
     voiceId: VOICES[0].id,
     durationSeconds: 30,
     aspectRatio: '9:16',
+    bgMusicTrack: 'none',
+    bgMusicVolume: 15,
     channelProfileId: preselectedProfile,
     selectedScript: -1, // -1 = none selected yet
   })
@@ -188,6 +191,8 @@ export default function CreateReelPage() {
           voiceId: form.voiceId,
           durationSeconds: form.durationSeconds,
           aspectRatio: form.aspectRatio,
+          bgMusicTrack: form.bgMusicTrack !== 'none' ? form.bgMusicTrack : undefined,
+          bgMusicVolume: form.bgMusicTrack !== 'none' ? form.bgMusicVolume : undefined,
           channelProfileId: form.channelProfileId || undefined,
         }),
       })
@@ -383,6 +388,14 @@ export default function CreateReelPage() {
                   ))}
                 </div>
               </div>
+
+              {/* Background Music */}
+              <MusicSelector
+                value={form.bgMusicTrack}
+                volume={form.bgMusicVolume}
+                onTrackChange={(t) => setForm({ ...form, bgMusicTrack: t })}
+                onVolumeChange={(v) => setForm({ ...form, bgMusicVolume: v })}
+              />
 
               {/* Generate Idea */}
               <div className="rounded-xl border border-dashed border-white/15 bg-white/[0.02] p-3.5 space-y-3">

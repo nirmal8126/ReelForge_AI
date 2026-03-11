@@ -39,6 +39,8 @@ export async function enqueueReelJob(data: {
   voiceId?: string
   durationSeconds: number
   aspectRatio: string
+  bgMusicTrack?: string
+  bgMusicVolume?: number
   channelProfileId?: string
   plan: string
 }) {
@@ -109,6 +111,8 @@ export async function enqueueLongFormJob(data: {
   language?: string
   voiceId?: string
   aspectRatio: string
+  bgMusicTrack?: string
+  bgMusicVolume?: number
   aiClipRatio: number
   useStockFootage: boolean
   useStaticVisuals: boolean
@@ -149,6 +153,8 @@ export async function enqueueCartoonEpisode(data: {
   language: string
   aspectRatio: string
   narratorVoiceId?: string
+  bgMusicTrack?: string
+  bgMusicVolume?: number
   plan: string
 }) {
   const queue = getCartoonQueue()

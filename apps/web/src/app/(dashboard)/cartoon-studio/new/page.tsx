@@ -13,6 +13,7 @@ import {
 import Link from 'next/link'
 import { SUPPORTED_LANGUAGES } from '@/lib/constants'
 import { SearchableSelect } from '@/components/ui/searchable-select'
+import { MusicSelector } from '@/components/ui/music-selector'
 
 interface CharacterInput {
   name: string
@@ -64,6 +65,8 @@ export default function NewSeriesPage() {
   const [artStyle, setArtStyle] = useState('cartoon')
   const [language, setLanguage] = useState('hi')
   const [aspectRatio, setAspectRatio] = useState('16:9')
+  const [bgMusicTrack, setBgMusicTrack] = useState('none')
+  const [bgMusicVolume, setBgMusicVolume] = useState(15)
   const [narratorVoiceId, setNarratorVoiceId] = useState('')
 
   // Characters
@@ -113,6 +116,8 @@ export default function NewSeriesPage() {
           language,
           aspectRatio,
           narratorVoiceId: narratorVoiceId || undefined,
+          bgMusicTrack: bgMusicTrack !== 'none' ? bgMusicTrack : undefined,
+          bgMusicVolume: bgMusicTrack !== 'none' ? bgMusicVolume : undefined,
           characters: validChars.map((c) => ({
             name: c.name,
             description: c.description || undefined,
@@ -267,6 +272,14 @@ export default function NewSeriesPage() {
                 searchPlaceholder="Search voices..."
               />
             </div>
+
+            {/* Background Music */}
+            <MusicSelector
+              value={bgMusicTrack}
+              volume={bgMusicVolume}
+              onTrackChange={setBgMusicTrack}
+              onVolumeChange={setBgMusicVolume}
+            />
 
             <div className="rounded-lg border border-white/10 bg-white/[0.03] p-3 mt-1">
               <p className="text-xs text-gray-500">

@@ -95,6 +95,8 @@ export async function POST(
       language: series.language,
       aspectRatio: series.aspectRatio,
       narratorVoiceId: series.narratorVoiceId || undefined,
+      bgMusicTrack: series.bgMusicTrack || undefined,
+      bgMusicVolume: series.bgMusicVolume ?? undefined,
       plan: creditCheck.subscription.plan,
     })
 

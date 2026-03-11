@@ -10,6 +10,7 @@ import {
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { SUPPORTED_LANGUAGES, NICHE_PRESETS, VIDEO_STYLES, LANGUAGE_VOICE_MAP } from '@/lib/constants'
+import { MusicSelector } from '@/components/ui/music-selector'
 
 const NICHE_ORDER = ['motivation', 'tech', 'finance', 'fitness', 'education', 'business', 'health', 'cooking', 'gaming', 'travel', 'beauty', 'comedy'] as const
 const NICHES = NICHE_ORDER.map(id => ({
@@ -83,6 +84,8 @@ export default function CreateLongFormPage() {
     language: 'hi',
     voiceId: VOICES[0].id,
     aspectRatio: '16:9',
+    bgMusicTrack: 'none',
+    bgMusicVolume: 15,
     aiClipRatio: 0.3,
     useStockFootage: true,
     useStaticVisuals: true,
@@ -249,6 +252,8 @@ export default function CreateLongFormPage() {
           language: form.language,
           voiceId: form.voiceId,
           aspectRatio: form.aspectRatio,
+          bgMusicTrack: form.bgMusicTrack !== 'none' ? form.bgMusicTrack : undefined,
+          bgMusicVolume: form.bgMusicTrack !== 'none' ? form.bgMusicVolume : undefined,
           aiClipRatio: form.aiClipRatio,
           useStockFootage: form.useStockFootage,
           useStaticVisuals: form.useStaticVisuals,
@@ -742,6 +747,14 @@ export default function CreateLongFormPage() {
               ))}
             </div>
           </div>
+
+          {/* Background Music */}
+          <MusicSelector
+            value={form.bgMusicTrack}
+            volume={form.bgMusicVolume}
+            onTrackChange={(t) => setForm({ ...form, bgMusicTrack: t })}
+            onVolumeChange={(v) => setForm({ ...form, bgMusicVolume: v })}
+          />
 
           <div>
             <label className="block text-sm font-medium text-gray-300 mb-4">Visual Style</label>

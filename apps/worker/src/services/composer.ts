@@ -16,6 +16,8 @@ export interface ComposeOptions {
   script: string;
   captionStyle: string;
   primaryColor: string;
+  bgMusicPath?: string | null;
+  bgMusicVolume?: number; // 0-100, default 15
 }
 
 // ---------------------------------------------------------------------------
@@ -30,13 +32,14 @@ export interface ComposeOptions {
  * output, and cleans up.
  */
 export async function composeReel(opts: ComposeOptions): Promise<Buffer> {
-  const { videoBuffer, audioBuffer, script, captionStyle, primaryColor } = opts;
+  const { videoBuffer, audioBuffer, script, captionStyle, primaryColor, bgMusicPath, bgMusicVolume = 15 } = opts;
 
   const tmpDir = await fs.promises.mkdtemp(path.join(os.tmpdir(), 'reelforge-'));
   const videoPath = path.join(tmpDir, 'input.mp4');
   const audioPath = path.join(tmpDir, 'audio.mp3');
   const subtitlePath = path.join(tmpDir, 'captions.srt');
   const outputPath = path.join(tmpDir, 'output.mp4');
+  const hasBgMusic = bgMusicPath && fs.existsSync(bgMusicPath);
 
   try {
     // -------------------------------------------------------------------
@@ -81,38 +84,46 @@ export async function composeReel(opts: ComposeOptions): Promise<Buffer> {
     // -------------------------------------------------------------------
     log.info('Running FFmpeg composition');
 
+    // Build FFmpeg command — optionally mix background music with voiceover
+    const musicVol = Math.max(0, Math.min(100, bgMusicVolume)) / 100; // normalize to 0.0-1.0
+
     await new Promise<void>((resolve, reject) => {
-      ffmpeg()
+      const cmd = ffmpeg()
         .input(videoPath)
         .inputOptions(['-stream_loop', '-1']) // loop video to match audio length
-        .input(audioPath)
-        .outputOptions([
+        .input(audioPath);
+
+      const outputOpts: string[] = [
+        '-c:v', 'libx264',
+        '-preset', 'fast',
+        '-crf', '23',
+        '-c:a', 'aac',
+        '-b:a', '192k',
+        '-shortest',
+        '-movflags', '+faststart',
+        '-vf', subtitleFilter,
+      ];
+
+      if (hasBgMusic) {
+        // Add background music as third input and mix with voiceover
+        cmd.input(bgMusicPath!);
+        outputOpts.push(
+          '-filter_complex', `[1:a]volume=1.0[vo];[2:a]volume=${musicVol.toFixed(2)}[bgm];[vo][bgm]amix=inputs=2:duration=first:dropout_transition=2[aout]`,
           '-map', '0:v:0',
-          '-map', '1:a:0',
-          '-c:v', 'libx264',
-          '-preset', 'fast',
-          '-crf', '23',
-          '-c:a', 'aac',
-          '-b:a', '192k',
-          '-shortest',           // stops when audio ends (video loops until then)
-          '-movflags', '+faststart',
-          '-vf', subtitleFilter,
-        ])
+          '-map', '[aout]',
+        );
+        log.info({ bgMusicPath, musicVol }, 'Mixing background music with voiceover');
+      } else {
+        outputOpts.push('-map', '0:v:0', '-map', '1:a:0');
+      }
+
+      cmd
+        .outputOptions(outputOpts)
         .output(outputPath)
-        .on('start', (cmd) => {
-          log.debug({ command: cmd }, 'FFmpeg started');
-        })
-        .on('progress', (progress) => {
-          log.debug({ percent: progress.percent }, 'FFmpeg progress');
-        })
-        .on('end', () => {
-          log.info('FFmpeg composition complete');
-          resolve();
-        })
-        .on('error', (err) => {
-          log.error({ err }, 'FFmpeg composition failed');
-          reject(err);
-        })
+        .on('start', (c) => { log.debug({ command: c }, 'FFmpeg started'); })
+        .on('progress', (progress) => { log.debug({ percent: progress.percent }, 'FFmpeg progress'); })
+        .on('end', () => { log.info('FFmpeg composition complete'); resolve(); })
+        .on('error', (err) => { log.error({ err }, 'FFmpeg composition failed'); reject(err); })
         .run();
     });
 

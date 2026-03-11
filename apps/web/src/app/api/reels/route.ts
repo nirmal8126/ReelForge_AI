@@ -19,6 +19,8 @@ const createReelSchema = z.object({
     'Invalid duration'
   ),
   aspectRatio: z.enum(ASPECT_RATIOS),
+  bgMusicTrack: z.string().max(50).optional(),
+  bgMusicVolume: z.number().min(0).max(100).optional(),
   channelProfileId: z.string().optional(),
 })
 
@@ -119,6 +121,8 @@ export async function POST(req: NextRequest) {
         voiceId: data.voiceId || null,
         durationSeconds: data.durationSeconds,
         aspectRatio: data.aspectRatio,
+        bgMusicTrack: data.bgMusicTrack || null,
+        bgMusicVolume: data.bgMusicVolume ?? null,
         channelProfileId: data.channelProfileId || null,
         status: 'QUEUED',
         creditsCost: creditCheck.creditsCost,
@@ -136,6 +140,8 @@ export async function POST(req: NextRequest) {
       voiceId: data.voiceId,
       durationSeconds: data.durationSeconds,
       aspectRatio: data.aspectRatio,
+      bgMusicTrack: data.bgMusicTrack,
+      bgMusicVolume: data.bgMusicVolume,
       channelProfileId: data.channelProfileId,
       plan: creditCheck.subscription.plan,
     })
@@ -150,7 +156,8 @@ export async function POST(req: NextRequest) {
     if (error instanceof z.ZodError) {
       return NextResponse.json({ error: error.errors[0].message }, { status: 400 })
     }
-    console.error('POST /api/reels error:', error)
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+    const errMsg = error instanceof Error ? error.message : String(error)
+    console.error('POST /api/reels error:', errMsg, error)
+    return NextResponse.json({ error: errMsg || 'Internal server error' }, { status: 500 })
   }
 }

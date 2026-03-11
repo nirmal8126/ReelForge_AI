@@ -8,6 +8,7 @@ import { composeCartoonEpisode, type CartoonSceneInput } from '../services/carto
 import { uploadToStorage, uploadSceneImage } from '../services/storage';
 import { generateHashtags } from '../services/hashtag-generator';
 import { getActiveProviders } from '../services/service-config';
+import { prepareBackgroundMusic } from '../services/music-generator';
 import fsPromises from 'fs/promises';
 import { existsSync, writeFileSync, readFileSync, mkdirSync } from 'fs';
 import { execSync } from 'child_process';
@@ -27,6 +28,8 @@ export interface CartoonEpisodeJobData {
   language: string;
   aspectRatio: string;
   narratorVoiceId?: string;
+  bgMusicTrack?: string;
+  bgMusicVolume?: number;
   plan: string;
 }
 
@@ -569,10 +572,21 @@ export async function processCartoonEpisode(
       };
     });
 
+    // Prepare background music if requested
+    const bgMusicPath = job.data.bgMusicTrack
+      ? await prepareBackgroundMusic({
+          trackId: job.data.bgMusicTrack,
+          durationSeconds: Math.ceil(scenes.reduce((sum, s) => sum + (s.endTime - s.startTime), 0)),
+          volume: job.data.bgMusicVolume,
+        })
+      : null;
+
     const videoBuffer = await composeCartoonEpisode({
       scenes: sceneInputs,
       audioBuffer,
       aspectRatio: job.data.aspectRatio,
+      bgMusicPath,
+      bgMusicVolume: job.data.bgMusicVolume,
     });
 
     await setProgress(85);

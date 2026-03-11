@@ -150,6 +150,8 @@ model ReelJob {
   aiProvider       String?       @map("ai_provider") @db.VarChar(50)
   voiceId          String?       @map("voice_id") @db.VarChar(100)
   musicGenre       String?       @map("music_genre") @db.VarChar(50)
+  bgMusicTrack     String?       @map("bg_music_track") @db.VarChar(50)
+  bgMusicVolume    Int?          @default(15) @map("bg_music_volume")
   captionStyle     String?       @map("caption_style") @db.VarChar(50)
   errorMessage     String?       @map("error_message") @db.Text
   processingTimeMs Int?          @map("processing_time_ms")
@@ -316,8 +318,10 @@ model LongFormJob {
   // Generation settings
   style       String? @db.VarChar(100)
   language    String  @default("hi") @map("language") @db.VarChar(10)
-  voiceId     String? @map("voice_id") @db.VarChar(100)
-  aspectRatio String  @default("16:9") @map("aspect_ratio") @db.VarChar(10)
+  voiceId        String? @map("voice_id") @db.VarChar(100)
+  bgMusicTrack   String? @map("bg_music_track") @db.VarChar(50)
+  bgMusicVolume  Int?    @default(15) @map("bg_music_volume")
+  aspectRatio    String  @default("16:9") @map("aspect_ratio") @db.VarChar(10)
 
   // Hybrid approach settings
   aiClipRatio      Float   @default(0.3) @map("ai_clip_ratio") // % of AI clips vs stock
@@ -772,6 +776,8 @@ model CartoonSeries {
   targetAudience  String?  @map("target_audience") @db.VarChar(100)
   artStyle        String?  @map("art_style") @db.VarChar(50)
   narratorVoiceId String?  @map("narrator_voice_id") @db.VarChar(100)
+  bgMusicTrack    String?  @map("bg_music_track") @db.VarChar(50)
+  bgMusicVolume   Int?     @default(15) @map("bg_music_volume")
   language        String   @default("hi") @db.VarChar(10)
   aspectRatio     String   @default("16:9") @map("aspect_ratio") @db.VarChar(10)
   bannerUrl       String?  @map("banner_url") @db.VarChar(500)
@@ -821,6 +827,8 @@ model CartoonEpisode {
   creditsCost      Int                  @default(0) @map("credits_cost")
   processingTimeMs Int?                 @map("processing_time_ms")
   durationSeconds  Int?                 @map("duration_seconds")
+  bgMusicTrack     String?              @map("bg_music_track") @db.VarChar(50)
+  bgMusicVolume    Int?                 @default(15) @map("bg_music_volume")
   hashtags         String?              @db.Text
   createdAt        DateTime             @default(now()) @map("created_at")
   updatedAt        DateTime             @updatedAt @map("updated_at")
@@ -1068,6 +1076,8 @@ model ChallengeJob {
   templateStyle    String              @default("neon") @map("template_style") @db.VarChar(30)
   voiceEnabled     Boolean             @default(false) @map("voice_enabled")
   voiceId          String?             @map("voice_id") @db.VarChar(100)
+  bgMusicTrack     String?             @map("bg_music_track") @db.VarChar(50)
+  bgMusicVolume    Int?                @default(15) @map("bg_music_volume")
 
   // Generated content
   questionsJson    String?             @map("questions_json") @db.LongText       // AI-generated questions/answers as JSON
@@ -1203,6 +1213,8 @@ model ImageStudioJob {
   voiceId          String?               @map("voice_id") @db.VarChar(100)
   aspectRatio      String                @default("9:16") @map("aspect_ratio") @db.VarChar(10)
   transitionStyle  String?               @default("fade") @map("transition_style") @db.VarChar(50)
+  bgMusicTrack     String?               @map("bg_music_track") @db.VarChar(50)
+  bgMusicVolume    Int?                  @default(15) @map("bg_music_volume")
 
   // Generated
   script           String?               @db.Text

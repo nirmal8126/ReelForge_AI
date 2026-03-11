@@ -167,6 +167,41 @@ export const CHALLENGE_TEMPLATES = [
 export const CHALLENGE_QUESTION_COUNTS = [1, 3, 5] as const
 export const CHALLENGE_TIMER_OPTIONS = [5, 10, 15] as const
 
+// Background music library (royalty-free tracks stored in R2)
+export const MUSIC_TRACKS = [
+  { id: 'none', name: 'No Music', category: 'none', desc: 'No background music' },
+  { id: 'upbeat-corporate', name: 'Upbeat Corporate', category: 'upbeat', desc: 'Energetic business vibe' },
+  { id: 'cinematic-epic', name: 'Cinematic Epic', category: 'cinematic', desc: 'Dramatic & powerful' },
+  { id: 'lofi-chill', name: 'Lo-Fi Chill', category: 'chill', desc: 'Relaxed lo-fi beats' },
+  { id: 'acoustic-gentle', name: 'Acoustic Gentle', category: 'acoustic', desc: 'Soft guitar melody' },
+  { id: 'tech-innovation', name: 'Tech Innovation', category: 'electronic', desc: 'Modern tech feel' },
+  { id: 'motivational-rise', name: 'Motivational Rise', category: 'motivational', desc: 'Inspiring build-up' },
+  { id: 'ambient-focus', name: 'Ambient Focus', category: 'ambient', desc: 'Calm background atmosphere' },
+  { id: 'fun-playful', name: 'Fun & Playful', category: 'fun', desc: 'Light-hearted & cheerful' },
+  { id: 'dramatic-tension', name: 'Dramatic Tension', category: 'cinematic', desc: 'Suspenseful mood' },
+  { id: 'happy-kids', name: 'Happy Kids', category: 'fun', desc: 'Cartoon-friendly joyful tune' },
+  { id: 'news-intro', name: 'News Intro', category: 'corporate', desc: 'Professional news/talk show' },
+  { id: 'hip-hop-beat', name: 'Hip Hop Beat', category: 'urban', desc: 'Street-style rhythm' },
+  { id: 'indian-classical', name: 'Indian Classical', category: 'traditional', desc: 'Sitar & tabla fusion' },
+  { id: 'bollywood-pop', name: 'Bollywood Pop', category: 'bollywood', desc: 'Modern Bollywood beats' },
+] as const
+
+export const MUSIC_CATEGORIES = [
+  { id: 'none', name: 'None' },
+  { id: 'upbeat', name: 'Upbeat' },
+  { id: 'cinematic', name: 'Cinematic' },
+  { id: 'chill', name: 'Chill' },
+  { id: 'acoustic', name: 'Acoustic' },
+  { id: 'electronic', name: 'Electronic' },
+  { id: 'motivational', name: 'Motivational' },
+  { id: 'ambient', name: 'Ambient' },
+  { id: 'fun', name: 'Fun' },
+  { id: 'corporate', name: 'Corporate' },
+  { id: 'urban', name: 'Urban' },
+  { id: 'traditional', name: 'Traditional' },
+  { id: 'bollywood', name: 'Bollywood' },
+] as const
+
 // Map languages to available voices (initially only English has voices)
 export const LANGUAGE_VOICE_MAP: Record<string, string[]> = {
   en: ['EXAVITQu4vr4xnSDxMaL', 'TX3LPaxmHKxFdv7VOQHJ', 'XB0fDUnXU5powFXDhCwa', 'pqHfZKP75CvOlQylNhV4', 'Xb7hH8MSUJpSbSDYk0k2', 'CwhRBWXzGAHq8TQ4Fs17', 'jBpfuIE2acCO8z3wKNLl', 'bIHbv24MWmeRgasZH58o'],

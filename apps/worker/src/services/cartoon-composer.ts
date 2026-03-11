@@ -23,6 +23,8 @@ export interface ComposeCartoonOptions {
   scenes: CartoonSceneInput[];
   audioBuffer: Buffer;
   aspectRatio: string;
+  bgMusicPath?: string | null;
+  bgMusicVolume?: number; // 0-100, default 15
 }
 
 // ---------------------------------------------------------------------------
@@ -48,7 +50,7 @@ const RESOLUTION_MAP: Record<string, { width: number; height: number }> = {
  * 4. Output final MP4 buffer
  */
 export async function composeCartoonEpisode(opts: ComposeCartoonOptions): Promise<Buffer> {
-  const { scenes, audioBuffer, aspectRatio } = opts;
+  const { scenes, audioBuffer, aspectRatio, bgMusicPath, bgMusicVolume = 15 } = opts;
   const res = RESOLUTION_MAP[aspectRatio] || RESOLUTION_MAP['16:9'];
   const tmpDir = path.join(os.tmpdir(), `cartoon-compose-${Date.now()}`);
 
@@ -122,14 +124,30 @@ export async function composeCartoonEpisode(opts: ComposeCartoonOptions): Promis
       { timeout: 180_000, stdio: 'pipe', maxBuffer: 50 * 1024 * 1024 }
     );
 
-    // Stage 3: Overlay audio
+    // Stage 3: Overlay audio (+ optional background music)
     const output = path.join(tmpDir, 'output.mp4');
-    execSync(
-      `ffmpeg -y -i "${concatenated}" -i "${audioPath}" ` +
-      `-map 0:v -map 1:a -c:v copy -c:a aac -b:a 128k ` +
-      `-shortest -movflags +faststart "${output}"`,
-      { timeout: 180_000, stdio: 'pipe', maxBuffer: 50 * 1024 * 1024 }
-    );
+    const hasBgMusic = bgMusicPath && fs.existsSync(bgMusicPath);
+    const musicVol = Math.max(0, Math.min(100, bgMusicVolume)) / 100;
+
+    if (hasBgMusic) {
+      // Mix voiceover + background music
+      log.info({ bgMusicPath, musicVol }, 'Mixing background music with voiceover');
+      execSync(
+        `ffmpeg -y -i "${concatenated}" -i "${audioPath}" -i "${bgMusicPath}" ` +
+        `-filter_complex "[1:a]volume=1.0[vo];[2:a]volume=${musicVol.toFixed(2)}[bgm];[vo][bgm]amix=inputs=2:duration=first:dropout_transition=2[aout]" ` +
+        `-map 0:v -map "[aout]" -c:v copy -c:a aac -b:a 128k ` +
+        `-shortest -movflags +faststart "${output}"`,
+        { timeout: 180_000, stdio: 'pipe', maxBuffer: 50 * 1024 * 1024 }
+      );
+    } else {
+      // Voiceover only
+      execSync(
+        `ffmpeg -y -i "${concatenated}" -i "${audioPath}" ` +
+        `-map 0:v -map 1:a -c:v copy -c:a aac -b:a 128k ` +
+        `-shortest -movflags +faststart "${output}"`,
+        { timeout: 180_000, stdio: 'pipe', maxBuffer: 50 * 1024 * 1024 }
+      );
+    }
 
     const buffer = fs.readFileSync(output);
     log.info({ sceneCount: scenes.length, outputSize: buffer.length }, 'Cartoon episode composed');
