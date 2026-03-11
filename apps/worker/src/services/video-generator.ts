@@ -100,6 +100,14 @@ export async function generateVideo(opts: VideoGenerationOptions): Promise<Buffe
     string,
     { fn: () => Promise<Buffer>; premiumOnly: boolean }
   > = {
+    luma: {
+      fn: () => generateWithLuma(prompt, style, durationSeconds, aspectRatio),
+      premiumOnly: false,
+    },
+    replicate: {
+      fn: () => generateWithReplicate(prompt, style, durationSeconds, aspectRatio),
+      premiumOnly: false,
+    },
     runway: {
       fn: () => generateWithRunway(prompt, style, durationSeconds, aspectRatio),
       premiumOnly: true,
@@ -148,6 +156,214 @@ export async function generateVideo(opts: VideoGenerationOptions): Promise<Buffe
   // Ultimate fallback if all providers failed or none configured
   log.warn('All configured video providers failed, using Pexels fallback');
   return generateWithPerScenePexels(prompt, style, durationSeconds, aspectRatio, script);
+}
+
+// ---------------------------------------------------------------------------
+// Provider: Luma AI (Default — all plans, high quality 1080p)
+// Cost: ~$0.32-0.40 per 5s clip
+// ---------------------------------------------------------------------------
+
+const LUMA_API_URL = 'https://api.lumalabs.ai/dream-machine/v1';
+const LUMA_POLL_INTERVAL_MS = 5_000;
+const LUMA_MAX_POLL_ATTEMPTS = 60; // 5 minutes max
+
+async function generateWithLuma(
+  prompt: string,
+  style: string,
+  durationSeconds: number,
+  aspectRatio?: string,
+): Promise<Buffer> {
+  const apiKey = process.env.LUMA_API_KEY;
+  if (!apiKey) throw new Error('LUMA_API_KEY is not set');
+
+  const ar = aspectRatio === '9:16' ? '9:16' : aspectRatio === '1:1' ? '1:1' : '16:9';
+
+  log.info({ style, durationSeconds, aspectRatio: ar }, 'Initiating Luma AI video generation');
+
+  // Step 1: Create generation task
+  const initResponse = await axios.post(
+    `${LUMA_API_URL}/generations`,
+    {
+      prompt: `${style} style: ${prompt}`,
+      aspect_ratio: ar,
+      loop: false,
+    },
+    {
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        'Content-Type': 'application/json',
+        Accept: 'application/json',
+      },
+      timeout: 30_000,
+    },
+  );
+
+  const generationId = initResponse.data.id;
+  if (!generationId) throw new Error('Luma: No generation ID returned');
+
+  log.info({ generationId }, 'Luma generation started, polling...');
+
+  // Step 2: Poll for completion
+  let attempts = 0;
+  while (attempts < LUMA_MAX_POLL_ATTEMPTS) {
+    attempts++;
+    await sleep(LUMA_POLL_INTERVAL_MS);
+
+    const pollResponse = await axios.get(
+      `${LUMA_API_URL}/generations/${generationId}`,
+      {
+        headers: {
+          Authorization: `Bearer ${apiKey}`,
+          Accept: 'application/json',
+        },
+        timeout: 15_000,
+      },
+    );
+
+    const { state, failure_reason, assets } = pollResponse.data;
+
+    log.debug({ generationId, state, attempt: attempts }, 'Polling Luma status');
+
+    if (state === 'completed') {
+      const videoUrl = assets?.video;
+      if (!videoUrl) throw new Error('Luma: Generation completed but no video URL');
+
+      log.info({ generationId, videoUrl: videoUrl.substring(0, 80) }, 'Downloading Luma video');
+
+      const downloadResponse = await axios.get(videoUrl, {
+        responseType: 'arraybuffer',
+        timeout: 60_000,
+      });
+
+      const videoBuffer = Buffer.from(downloadResponse.data);
+      log.info({ generationId, videoSizeBytes: videoBuffer.length }, 'Luma video downloaded');
+      return videoBuffer;
+    }
+
+    if (state === 'failed') {
+      throw new Error(`Luma generation failed: ${failure_reason || 'Unknown error'}`);
+    }
+  }
+
+  throw new Error(
+    `Luma generation timed out after ${LUMA_MAX_POLL_ATTEMPTS * LUMA_POLL_INTERVAL_MS / 1000}s`,
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Provider: Replicate / Wan 2.1 (Fallback — cheap, all plans)
+// Cost: ~$0.20-0.40 per 5s clip
+// ---------------------------------------------------------------------------
+
+const REPLICATE_API_URL = 'https://api.replicate.com/v1';
+const REPLICATE_POLL_INTERVAL_MS = 5_000;
+const REPLICATE_MAX_POLL_ATTEMPTS = 72; // 6 minutes max
+
+async function generateWithReplicate(
+  prompt: string,
+  style: string,
+  durationSeconds: number,
+  aspectRatio?: string,
+): Promise<Buffer> {
+  const apiKey = process.env.REPLICATE_API_KEY;
+  if (!apiKey) throw new Error('REPLICATE_API_KEY is not set');
+
+  // Wan 2.1 supports 480p and 720p; map aspect ratios
+  const resolution = aspectRatio === '9:16'
+    ? { width: 480, height: 832 }
+    : aspectRatio === '1:1'
+      ? { width: 832, height: 832 }
+      : { width: 832, height: 480 };
+
+  // Wan 2.1 supports up to ~5 seconds (81 frames at 16fps)
+  const numFrames = Math.min(81, Math.max(17, Math.round(durationSeconds * 16)));
+
+  log.info({ style, durationSeconds, resolution, numFrames }, 'Initiating Replicate Wan 2.1 video generation');
+
+  // Step 1: Create prediction
+  const initResponse = await axios.post(
+    `${REPLICATE_API_URL}/models/wan-ai/wan2.1-t2v-14b/predictions`,
+    {
+      input: {
+        prompt: `${style} style, cinematic: ${prompt}`,
+        num_frames: numFrames,
+        width: resolution.width,
+        height: resolution.height,
+        num_inference_steps: 30,
+        guidance_scale: 5.0,
+        fps: 16,
+      },
+    },
+    {
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        'Content-Type': 'application/json',
+        Prefer: 'wait',
+      },
+      timeout: 30_000,
+    },
+  );
+
+  const prediction = initResponse.data;
+
+  // If Prefer: wait returned a completed result
+  if (prediction.status === 'succeeded' && prediction.output) {
+    return await downloadReplicateOutput(prediction.output);
+  }
+
+  const predictionId = prediction.id;
+  if (!predictionId) throw new Error('Replicate: No prediction ID returned');
+
+  log.info({ predictionId }, 'Replicate prediction started, polling...');
+
+  // Step 2: Poll for completion
+  let attempts = 0;
+  while (attempts < REPLICATE_MAX_POLL_ATTEMPTS) {
+    attempts++;
+    await sleep(REPLICATE_POLL_INTERVAL_MS);
+
+    const pollResponse = await axios.get(
+      `${REPLICATE_API_URL}/predictions/${predictionId}`,
+      {
+        headers: { Authorization: `Bearer ${apiKey}` },
+        timeout: 15_000,
+      },
+    );
+
+    const { status, output, error } = pollResponse.data;
+
+    log.debug({ predictionId, status, attempt: attempts }, 'Polling Replicate status');
+
+    if (status === 'succeeded') {
+      if (!output) throw new Error('Replicate: Prediction succeeded but no output');
+      return await downloadReplicateOutput(output);
+    }
+
+    if (status === 'failed' || status === 'canceled') {
+      throw new Error(`Replicate prediction failed: ${error || 'Unknown error'}`);
+    }
+  }
+
+  throw new Error(
+    `Replicate timed out after ${REPLICATE_MAX_POLL_ATTEMPTS * REPLICATE_POLL_INTERVAL_MS / 1000}s`,
+  );
+}
+
+async function downloadReplicateOutput(output: string | string[]): Promise<Buffer> {
+  // Output can be a URL string or array of URLs
+  const videoUrl = Array.isArray(output) ? output[0] : output;
+  if (!videoUrl) throw new Error('Replicate: No video URL in output');
+
+  log.info({ videoUrl: videoUrl.substring(0, 80) }, 'Downloading Replicate video');
+
+  const downloadResponse = await axios.get(videoUrl, {
+    responseType: 'arraybuffer',
+    timeout: 60_000,
+  });
+
+  const videoBuffer = Buffer.from(downloadResponse.data);
+  log.info({ videoSizeBytes: videoBuffer.length }, 'Replicate video downloaded');
+  return videoBuffer;
 }
 
 // ---------------------------------------------------------------------------

@@ -34,7 +34,7 @@ async function loadConfigs(): Promise<ServiceCategoryConfig[]> {
     if (setting?.value) {
       const parsed = JSON.parse(setting.value) as ServiceCategoryConfig[];
       if (Array.isArray(parsed) && parsed.length > 0) {
-        cachedConfigs = parsed;
+        cachedConfigs = mergeWithDefaults(parsed);
         cacheTimestamp = now;
         return cachedConfigs;
       }
@@ -47,6 +47,46 @@ async function loadConfigs(): Promise<ServiceCategoryConfig[]> {
   cachedConfigs = DEFAULT_SERVICE_CONFIGS;
   cacheTimestamp = now;
   return cachedConfigs;
+}
+
+// ---------------------------------------------------------------------------
+// Merge saved config with defaults — auto-adds new providers/categories
+// ---------------------------------------------------------------------------
+
+function mergeWithDefaults(saved: ServiceCategoryConfig[]): ServiceCategoryConfig[] {
+  const merged: ServiceCategoryConfig[] = [];
+
+  for (const defaultCat of DEFAULT_SERVICE_CONFIGS) {
+    const savedCat = saved.find((s) => s.category === defaultCat.category);
+
+    if (!savedCat) {
+      merged.push(defaultCat);
+      continue;
+    }
+
+    const savedIds = new Set(savedCat.providers.map((p) => p.id));
+    const maxPriority = Math.max(...savedCat.providers.map((p) => p.priority), 0);
+    const newProviders = defaultCat.providers
+      .filter((dp) => !savedIds.has(dp.id))
+      .map((dp, i) => ({
+        ...dp,
+        priority: maxPriority + 1 + i,
+        enabled: true,
+      }));
+
+    merged.push({
+      ...savedCat,
+      providers: [...savedCat.providers, ...newProviders],
+    });
+  }
+
+  for (const savedCat of saved) {
+    if (!DEFAULT_SERVICE_CONFIGS.find((d) => d.category === savedCat.category)) {
+      merged.push(savedCat);
+    }
+  }
+
+  return merged;
 }
 
 // ---------------------------------------------------------------------------

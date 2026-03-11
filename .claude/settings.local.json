@@ -57,7 +57,8 @@
       "Bash(DATABASE_URL=\"mysql://root:root@localhost:3306/reelforge_ai\" npx prisma db pull --print)",
       "Bash(DATABASE_URL=\"mysql://root:root@localhost:3306/reelforge_ai\" npx prisma db push --skip-generate)",
       "Bash(grep -n \"bgMusic\\\\|backgroundMusic\" /Users/mac/Desktop/ReelForge_AI/apps/web/src/app/\\\\\\(dashboard\\\\\\)/long-form/[id]/edit/*.tsx)",
-      "Bash(redis-cli ping:*)"
+      "Bash(redis-cli ping:*)",
+      "WebSearch"
     ]
   }
 }

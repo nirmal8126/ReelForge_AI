@@ -45,7 +45,7 @@ export async function GET() {
     try {
       const parsed = JSON.parse(setting.value) as ServiceCategoryConfig[]
       if (Array.isArray(parsed) && parsed.length > 0) {
-        configs = parsed
+        configs = mergeWithDefaults(parsed)
       }
     } catch {
       // Invalid JSON — return defaults
@@ -62,6 +62,49 @@ export async function GET() {
   }))
 
   return NextResponse.json({ configs: configsWithKeyStatus })
+}
+
+// ---------------------------------------------------------------------------
+// Merge saved config with defaults — auto-adds new providers/categories
+// ---------------------------------------------------------------------------
+
+function mergeWithDefaults(saved: ServiceCategoryConfig[]): ServiceCategoryConfig[] {
+  const merged: ServiceCategoryConfig[] = []
+
+  for (const defaultCat of DEFAULT_SERVICE_CONFIGS) {
+    const savedCat = saved.find((s) => s.category === defaultCat.category)
+
+    if (!savedCat) {
+      // Entire category is new — add it from defaults
+      merged.push(defaultCat)
+      continue
+    }
+
+    // Merge providers: keep saved ones, append any new defaults at the end (disabled by default)
+    const savedIds = new Set(savedCat.providers.map((p) => p.id))
+    const maxPriority = Math.max(...savedCat.providers.map((p) => p.priority), 0)
+    const newProviders = defaultCat.providers
+      .filter((dp) => !savedIds.has(dp.id))
+      .map((dp, i) => ({
+        ...dp,
+        priority: maxPriority + 1 + i,
+        enabled: true,  // new providers default to enabled so admin can see them
+      }))
+
+    merged.push({
+      ...savedCat,
+      providers: [...savedCat.providers, ...newProviders],
+    })
+  }
+
+  // Keep any custom categories the admin may have added
+  for (const savedCat of saved) {
+    if (!DEFAULT_SERVICE_CONFIGS.find((d) => d.category === savedCat.category)) {
+      merged.push(savedCat)
+    }
+  }
+
+  return merged
 }
 
 // ---------------------------------------------------------------------------

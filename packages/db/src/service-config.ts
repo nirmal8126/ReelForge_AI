@@ -51,10 +51,12 @@ export const DEFAULT_SERVICE_CONFIGS: ServiceCategoryConfig[] = [
     label: 'Video Generation',
     description: 'AI video generation and image-to-video services',
     providers: [
-      { id: 'runway', name: 'RunwayML Gen 4.5', enabled: true, priority: 1, envKey: 'RUNWAY_API_KEY', model: 'gen4_turbo', settings: { planRestriction: 'premium', costPerSec: 0.50 } },
-      { id: 'veo', name: 'Google Veo 3', enabled: true, priority: 2, envKey: 'GEMINI_API_KEY', model: 'veo-3.0-generate-preview', settings: { planRestriction: 'premium', costPerSec: 0.15 } },
-      { id: 'ai_images', name: 'AI Images + Ken Burns', enabled: true, priority: 3, envKey: 'GEMINI_API_KEY', settings: { costPerImage: 0.01 } },
-      { id: 'pexels', name: 'Pexels Stock Video', enabled: true, priority: 4, envKey: 'PEXELS_API_KEY', settings: { costPerSec: 0 } },
+      { id: 'luma', name: 'Luma AI (Dream Machine)', enabled: true, priority: 1, envKey: 'LUMA_API_KEY', settings: { costPerSec: 0.07 } },
+      { id: 'replicate', name: 'Replicate (Wan 2.1)', enabled: true, priority: 2, envKey: 'REPLICATE_API_KEY', model: 'wan2.1-t2v-14b', settings: { costPerSec: 0.04 } },
+      { id: 'runway', name: 'RunwayML Gen 4.5', enabled: true, priority: 3, envKey: 'RUNWAY_API_KEY', model: 'gen4_turbo', settings: { planRestriction: 'premium', costPerSec: 0.50 } },
+      { id: 'veo', name: 'Google Veo 3', enabled: true, priority: 4, envKey: 'GEMINI_API_KEY', model: 'veo-3.0-generate-preview', settings: { planRestriction: 'premium', costPerSec: 0.15 } },
+      { id: 'ai_images', name: 'AI Images + Ken Burns', enabled: true, priority: 5, envKey: 'GEMINI_API_KEY', settings: { costPerImage: 0.01 } },
+      { id: 'pexels', name: 'Pexels Stock Video', enabled: true, priority: 6, envKey: 'PEXELS_API_KEY', settings: { costPerSec: 0 } },
     ],
   },
   {
