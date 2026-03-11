@@ -1,5 +1,6 @@
 import Anthropic from '@anthropic-ai/sdk';
 import { logger } from '../utils/logger';
+import { getActiveProviders } from './service-config';
 
 const log = logger.child({ service: 'cartoon-story-generator' });
 
@@ -54,21 +55,23 @@ export async function generateCartoonStory(opts: {
   episodePrompt: string;
   language: string;
 }): Promise<CartoonStoryResult> {
-  // Try Gemini first (primary provider)
-  if (process.env.GEMINI_API_KEY) {
-    try {
-      return await generateWithGemini(opts);
-    } catch (err) {
-      log.warn({ err }, 'Gemini story generation failed, trying Anthropic');
-    }
-  }
+  // Load admin-configured story providers in priority order
+  const providers = await getActiveProviders('story');
 
-  // Try Anthropic as fallback
-  if (process.env.ANTHROPIC_API_KEY) {
+  const STORY_GENERATORS: Record<string, () => Promise<CartoonStoryResult>> = {
+    gemini: () => generateWithGemini(opts),
+    anthropic: () => generateWithAnthropic(opts),
+  };
+
+  log.info({ providers: providers.map((p) => p.id) }, 'Generating cartoon story with admin-configured providers');
+
+  for (const provider of providers) {
+    const gen = STORY_GENERATORS[provider.id];
+    if (!gen) continue;
     try {
-      return await generateWithAnthropic(opts);
+      return await gen();
     } catch (err) {
-      log.warn({ err }, 'Anthropic story generation failed, falling back to mock');
+      log.warn({ provider: provider.id, err }, 'Story provider failed, trying next');
     }
   }
 

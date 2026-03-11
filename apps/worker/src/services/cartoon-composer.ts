@@ -14,6 +14,7 @@ export interface CartoonSceneInput {
   sceneIndex: number;
   imageUrl: string; // local file path or URL (primary/first image)
   imageUrls?: string[]; // multiple image paths for the scene
+  videoClipPath?: string; // optional pre-generated AI video clip (replaces Ken Burns)
   durationSeconds: number;
   subtitleLines: { speaker: string; text: string; color?: string }[];
 }
@@ -74,23 +75,39 @@ export async function composeCartoonEpisode(opts: ComposeCartoonOptions): Promis
     const sceneVideos: string[] = [];
 
     // Stage 1: Generate video for each scene
-    // If scene has multiple images, split duration and create sub-clips for each image
+    // If scene has a pre-generated AI video clip, use it directly
+    // Otherwise split across multiple images with Ken Burns effect
     let subClipIndex = 0;
     for (const scene of scenes) {
-      const images = (scene.imageUrls && scene.imageUrls.length > 1) ? scene.imageUrls : [scene.imageUrl];
-      const perImageDuration = Math.max(3, Math.round(scene.durationSeconds / images.length));
-
-      for (let imgIdx = 0; imgIdx < images.length; imgIdx++) {
-        const subScene: CartoonSceneInput = {
-          sceneIndex: subClipIndex,
-          imageUrl: images[imgIdx],
-          durationSeconds: perImageDuration,
-          subtitleLines: imgIdx === 0 ? scene.subtitleLines : [], // subtitles on first image only
-        };
+      if (scene.videoClipPath && fs.existsSync(scene.videoClipPath)) {
+        // Use AI-generated video clip directly — scale to target resolution
         const clipPath = path.join(tmpDir, `clip-${subClipIndex}.mp4`);
-        await generateSceneVideo(subScene, clipPath, res, tmpDir);
+        execSync(
+          `ffmpeg -y -i "${scene.videoClipPath}" -t ${scene.durationSeconds} ` +
+          `-vf "scale=${res.width}:${res.height}:force_original_aspect_ratio=decrease,pad=${res.width}:${res.height}:(ow-iw)/2:(oh-ih)/2:black" ` +
+          `-c:v libx264 -preset veryfast -pix_fmt yuv420p -an "${clipPath}"`,
+          { timeout: 60_000, stdio: 'pipe', maxBuffer: 50 * 1024 * 1024 },
+        );
         sceneVideos.push(clipPath);
+        log.info({ sceneIndex: scene.sceneIndex }, 'Using AI video clip for scene');
         subClipIndex++;
+      } else {
+        // Ken Burns on images
+        const images = (scene.imageUrls && scene.imageUrls.length > 1) ? scene.imageUrls : [scene.imageUrl];
+        const perImageDuration = Math.max(3, Math.round(scene.durationSeconds / images.length));
+
+        for (let imgIdx = 0; imgIdx < images.length; imgIdx++) {
+          const subScene: CartoonSceneInput = {
+            sceneIndex: subClipIndex,
+            imageUrl: images[imgIdx],
+            durationSeconds: perImageDuration,
+            subtitleLines: imgIdx === 0 ? scene.subtitleLines : [], // subtitles on first image only
+          };
+          const clipPath = path.join(tmpDir, `clip-${subClipIndex}.mp4`);
+          await generateSceneVideo(subScene, clipPath, res, tmpDir);
+          sceneVideos.push(clipPath);
+          subClipIndex++;
+        }
       }
     }
 

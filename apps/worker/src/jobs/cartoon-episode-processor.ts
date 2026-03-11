@@ -7,6 +7,7 @@ import { generateVoiceover } from '../services/voiceover-generator';
 import { composeCartoonEpisode, type CartoonSceneInput } from '../services/cartoon-composer';
 import { uploadToStorage, uploadSceneImage } from '../services/storage';
 import { generateHashtags } from '../services/hashtag-generator';
+import { getActiveProviders } from '../services/service-config';
 import fsPromises from 'fs/promises';
 import { existsSync, writeFileSync, readFileSync, mkdirSync } from 'fs';
 import { execSync } from 'child_process';
@@ -281,7 +282,78 @@ export async function processCartoonEpisode(
     await setProgress(45);
 
     // ==================================================================
-    // Stage 3: Multi-Voice Audio Generation (45-70%)
+    // Stage 2B: AI Video Generation per scene (optional, 45-55%)
+    // If a premium AI video provider (RunwayML, Veo) is enabled by admin,
+    // generate short AI video clips from scene prompts instead of Ken Burns.
+    // ==================================================================
+
+    const videoProviders = await getActiveProviders('video');
+    const premiumVideoProviders = videoProviders.filter(
+      (p) => p.id === 'runway' || p.id === 'veo',
+    );
+    const useAIVideo = premiumVideoProviders.length > 0 && process.env.NODE_ENV !== 'development';
+    const sceneVideoClips: Record<number, string> = {}; // sceneIndex → local video path
+
+    if (useAIVideo) {
+      await updateStatus(episodeId, 'IMAGE_GENERATING', 'Generating AI video clips');
+      log.info(
+        { provider: premiumVideoProviders[0].id, sceneCount: scenes.length },
+        'Stage 2B: Generating AI video clips for scenes',
+      );
+
+      const videoDir = path.join(os.tmpdir(), `cartoon-videos-${episodeId}`);
+      mkdirSync(videoDir, { recursive: true });
+
+      // Only generate video for content scenes (skip CTA / last scene)
+      const contentScenes = scenes.slice(0, -1);
+      let videoGenerated = 0;
+
+      for (const scene of contentScenes) {
+        try {
+          const visualPrompt =
+            (scene.visualPrompts as string[] | null)?.[0] ||
+            scene.visualPrompt ||
+            scene.description ||
+            '';
+
+          const { generateVideo } = await import('../services/video-generator');
+          const videoBuffer = await generateVideo({
+            prompt: `${series.artStyle || 'cartoon'} animation style: ${visualPrompt}`,
+            style: series.artStyle || 'cartoon',
+            durationSeconds: 5,
+            aspectRatio: job.data.aspectRatio,
+            plan: job.data.plan,
+          });
+
+          const clipPath = path.join(videoDir, `scene-${scene.sceneIndex}.mp4`);
+          await fsPromises.writeFile(clipPath, videoBuffer);
+          sceneVideoClips[scene.sceneIndex] = clipPath;
+          videoGenerated++;
+
+          log.info({ sceneIndex: scene.sceneIndex }, 'AI video clip generated for scene');
+        } catch (videoErr) {
+          log.warn(
+            { sceneIndex: scene.sceneIndex, err: videoErr instanceof Error ? videoErr.message : videoErr },
+            'AI video generation failed for scene, will use Ken Burns fallback',
+          );
+        }
+
+        const progress = 45 + Math.round((videoGenerated / contentScenes.length) * 10);
+        await setProgress(Math.min(progress, 54));
+      }
+
+      log.info({ videoGenerated, total: contentScenes.length }, 'AI video generation complete');
+    } else {
+      log.info(
+        { availableProviders: videoProviders.map((p) => p.id) },
+        'Stage 2B: Skipping AI video — no premium video provider enabled',
+      );
+    }
+
+    await setProgress(55);
+
+    // ==================================================================
+    // Stage 3: Multi-Voice Audio Generation (55-75%)
     // ==================================================================
 
     const audioCachePath = path.join(AUDIO_CACHE_DIR, `${episodeId}.mp3`);
@@ -472,6 +544,7 @@ export async function processCartoonEpisode(
         sceneIndex: s.sceneIndex,
         imageUrl: imagePaths[0] || s.imageUrl || '',
         imageUrls: imagePaths,
+        videoClipPath: sceneVideoClips[s.sceneIndex] || undefined,
         durationSeconds: Math.max(3, s.endTime - s.startTime),
         subtitleLines: buildSubtitleLines(s),
       };

@@ -177,11 +177,6 @@ export async function processLongFormJob(job: Job<LongFormJobData>): Promise<Lon
     }
 
     const hasElevenLabsKey = !!process.env.ELEVENLABS_API_KEY;
-    const hasRunwayKey = !!process.env.RUNWAY_API_KEY;
-
-    if (!isDevMode && job.data.aiClipRatio > 0 && !hasRunwayKey && !job.data.useStockFootage && !job.data.useStaticVisuals) {
-      throw new Error('RUNWAY_API_KEY is required for AI clip generation. Set aiClipRatio to 0 or enable stock footage/static visuals as fallback.');
-    }
 
     if (!isDevMode && !hasElevenLabsKey) {
       throw new Error('ELEVENLABS_API_KEY is required for voiceover generation.');

@@ -1,6 +1,7 @@
 import Anthropic from '@anthropic-ai/sdk';
 import OpenAI from 'openai';
 import { logger } from '../utils/logger';
+import { getActiveProviders } from './service-config';
 
 const log = logger.child({ service: 'script-generator' });
 
@@ -299,65 +300,49 @@ function generateMockScript(opts: ScriptGenerationOptions): string {
 export async function generateScript(opts: ScriptGenerationOptions): Promise<string> {
   const wordTarget = Math.round(opts.durationSeconds * 2.5);
 
-  // Check if any API keys are configured
-  const hasAnthropicKey = !!process.env.ANTHROPIC_API_KEY;
-  const hasOpenAIKey = !!process.env.OPENAI_API_KEY;
-  const hasGeminiKey = !!process.env.GEMINI_API_KEY;
-  const hasAnyKey = hasAnthropicKey || hasOpenAIKey || hasGeminiKey;
+  // Load admin-configured text providers in priority order
+  const providers = await getActiveProviders('text');
 
-  // Use mock mode if no API keys are configured
-  if (!hasAnyKey) {
-    log.warn('No AI API keys configured - using demo/mock mode');
+  // If no providers available (no API keys), use mock
+  if (providers.length === 0) {
+    log.warn('No AI text providers configured — using demo/mock mode');
     const mockScript = generateMockScript(opts);
     log.info({ provider: 'mock', wordCount: mockScript.split(/\s+/).length }, 'Mock script generated');
     return mockScript;
   }
 
-  const preferredProvider = getPreferredProvider();
-  const attempts: Array<{ name: 'gemini' | 'anthropic' | 'openai'; run: () => Promise<string> }> =
-    preferredProvider === 'gemini'
-      ? [
-          { name: 'gemini', run: () => generateWithGemini(opts) },
-          { name: 'anthropic', run: () => generateWithClaude(opts) },
-          { name: 'openai', run: () => generateWithOpenAI(opts) },
-        ]
-      : preferredProvider === 'anthropic'
-      ? [
-          { name: 'anthropic', run: () => generateWithClaude(opts) },
-          { name: 'openai', run: () => generateWithOpenAI(opts) },
-          { name: 'gemini', run: () => generateWithGemini(opts) },
-        ]
-      : preferredProvider === 'openai'
-      ? [
-          { name: 'openai', run: () => generateWithOpenAI(opts) },
-          { name: 'anthropic', run: () => generateWithClaude(opts) },
-          { name: 'gemini', run: () => generateWithGemini(opts) },
-        ]
-      : [
-          { name: 'gemini', run: () => generateWithGemini(opts) },
-          { name: 'anthropic', run: () => generateWithClaude(opts) },
-          { name: 'openai', run: () => generateWithOpenAI(opts) },
-        ];
+  // Map provider IDs to generator functions
+  const PROVIDER_GENERATORS: Record<string, () => Promise<string>> = {
+    gemini: () => generateWithGemini(opts),
+    anthropic: () => generateWithClaude(opts),
+    openai: () => generateWithOpenAI(opts),
+  };
 
   log.info(
-    { wordTarget, tone: opts.tone, niche: opts.niche, hookStyle: opts.hookStyle, preferredProvider },
-    'Generating script',
+    { wordTarget, tone: opts.tone, niche: opts.niche, hookStyle: opts.hookStyle, providers: providers.map((p) => p.id) },
+    'Generating script with admin-configured provider chain',
   );
 
   let lastError: unknown;
 
-  for (const attempt of attempts) {
+  for (const provider of providers) {
+    const gen = PROVIDER_GENERATORS[provider.id];
+    if (!gen) {
+      log.warn({ providerId: provider.id }, 'Unknown text provider, skipping');
+      continue;
+    }
+
     try {
-      let script = await attempt.run();
+      let script = await gen();
 
       // Ensure script ends with a complete sentence
       script = ensureCompleteScript(script);
 
-      log.info({ provider: attempt.name, wordCount: script.split(/\s+/).length }, 'Script generated');
+      log.info({ provider: provider.id, wordCount: script.split(/\s+/).length }, 'Script generated');
       return script;
     } catch (err) {
       lastError = err;
-      log.warn({ provider: attempt.name, err }, 'Script generation provider failed, trying next provider');
+      log.warn({ provider: provider.id, err }, 'Script generation provider failed, trying next provider');
     }
   }
 

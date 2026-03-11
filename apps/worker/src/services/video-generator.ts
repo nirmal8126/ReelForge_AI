@@ -4,6 +4,7 @@ import { convertScriptToSearchKeywords, generateSceneImages } from './image-gene
 import { composeImagesIntoVideo } from './image-video-composer';
 import { searchPexelsForClip, searchPixabayForClip } from './stock-footage';
 import { concatenateClipsWithCrossfade, SceneClip } from './scene-clip-composer';
+import { getActiveProviders } from './service-config';
 
 const log = logger.child({ service: 'video-generator' });
 
@@ -11,7 +12,7 @@ const RUNWAY_API_URL = 'https://api.dev.runwayml.com/v1';
 const POLL_INTERVAL_MS = 5_000;
 const MAX_POLL_ATTEMPTS = 60;
 
-// Plans that qualify for RunwayML AI video generation
+// Plans that qualify for premium-restricted providers (RunwayML, Veo, etc.)
 const PREMIUM_PLANS = ['STARTER', 'PRO', 'BUSINESS', 'ENTERPRISE'];
 
 // ---------------------------------------------------------------------------
@@ -64,64 +65,88 @@ function sleep(ms: number): Promise<void> {
 // ---------------------------------------------------------------------------
 
 /**
- * Generate a video clip using a provider fallback chain:
+ * Generate a video clip using admin-configured provider chain.
  *
- * 1. DEV_MODE → per-scene Pexels pipeline
- * 2. NODE_ENV=development → skip paid providers, use per-scene Pexels
- * 3. Premium plans (STARTER+):
- *    a. RUNWAY_API_KEY → RunwayML AI video (best quality, ~$0.50/sec)
- *    b. GEMINI_API_KEY → Google Veo 3 Fast AI video (~$0.15/sec)
- * 4. AI Images → Video with Ken Burns (~$0.01/image via Gemini, ~50x cheaper)
- * 5. Per-scene Pexels stock video pipeline (free, default fallback)
+ * Reads the "video" service category from admin config and tries each
+ * enabled provider in priority order. Providers with `planRestriction: "premium"`
+ * are skipped for non-premium plans.
+ *
+ * Fallback chain (default if no admin config):
+ * 1. RunwayML (premium only)
+ * 2. Google Veo 3 (premium only)
+ * 3. AI Images + Ken Burns
+ * 4. Pexels stock video
  */
 export async function generateVideo(opts: VideoGenerationOptions): Promise<Buffer> {
   const { prompt, script, style, durationSeconds, aspectRatio, plan } = opts;
 
-  // DEV_MODE: use per-scene Pexels pipeline
+  // DEV_MODE: always use per-scene Pexels pipeline
   if (process.env.DEV_MODE === 'true') {
     log.info({ prompt: prompt.substring(0, 50) }, 'DEV_MODE: Using per-scene Pexels pipeline');
     return generateWithPerScenePexels(prompt, style, durationSeconds, aspectRatio, script);
   }
 
   const isPremium = plan && PREMIUM_PLANS.includes(plan);
-  const isDev = process.env.NODE_ENV === 'development';
 
-  if (isDev) {
-    log.info('NODE_ENV=development — skipping paid providers, using per-scene Pexels');
-  } else if (isPremium) {
-    // Premium: try RunwayML first
-    if (process.env.RUNWAY_API_KEY) {
-      try {
-        log.info({ plan }, 'Premium plan — trying RunwayML');
-        return await generateWithRunway(prompt, style, durationSeconds, aspectRatio);
-      } catch (err) {
-        log.warn({ err: err instanceof Error ? err.message : err }, 'RunwayML failed, trying Veo');
-      }
+  // Load admin-configured providers in priority order
+  const providers = await getActiveProviders('video');
+  log.info(
+    { providerCount: providers.length, providers: providers.map((p) => p.id), plan },
+    'Video generation — using admin-configured provider chain',
+  );
+
+  // Map provider ID → generator function
+  const PROVIDER_GENERATORS: Record<
+    string,
+    { fn: () => Promise<Buffer>; premiumOnly: boolean }
+  > = {
+    runway: {
+      fn: () => generateWithRunway(prompt, style, durationSeconds, aspectRatio),
+      premiumOnly: true,
+    },
+    veo: {
+      fn: () => generateWithVeo(prompt, style, durationSeconds, aspectRatio),
+      premiumOnly: true,
+    },
+    ai_images: {
+      fn: () => generateWithAIImages(prompt, script, style, durationSeconds, aspectRatio),
+      premiumOnly: false,
+    },
+    pexels: {
+      fn: () => generateWithPerScenePexels(prompt, style, durationSeconds, aspectRatio, script),
+      premiumOnly: false,
+    },
+  };
+
+  // Try each provider in priority order
+  for (const provider of providers) {
+    const gen = PROVIDER_GENERATORS[provider.id];
+    if (!gen) {
+      log.warn({ providerId: provider.id }, 'Unknown video provider, skipping');
+      continue;
     }
 
-    // Premium fallback: try Google Veo 3 Fast (uses same Gemini API key)
-    if (process.env.GEMINI_API_KEY) {
-      try {
-        log.info({ plan }, 'Premium plan — trying Google Veo 3 Fast');
-        return await generateWithVeo(prompt, style, durationSeconds, aspectRatio);
-      } catch (err) {
-        log.warn({ err: err instanceof Error ? err.message : err }, 'Veo failed, trying AI Images pipeline');
-      }
+    // Check plan restriction from provider settings
+    const hasPlanRestriction =
+      gen.premiumOnly || provider.settings?.planRestriction === 'premium';
+    if (hasPlanRestriction && !isPremium) {
+      log.info({ providerId: provider.id, plan: plan || 'FREE' }, 'Skipping premium-only provider for non-premium plan');
+      continue;
     }
-  } else {
-    log.info({ plan: plan || 'FREE' }, 'Non-premium — using AI Images pipeline');
-  }
 
-  // Provider 3: AI Images → Video (Ken Burns motion) — cost-effective for all plans
-  if (process.env.GEMINI_API_KEY) {
     try {
-      return await generateWithAIImages(prompt, script, style, durationSeconds, aspectRatio);
+      log.info({ providerId: provider.id, providerName: provider.name }, 'Trying video provider');
+      return await gen.fn();
     } catch (err) {
-      log.warn({ err: err instanceof Error ? err.message : err }, 'AI Images pipeline failed, falling back to Pexels');
+      log.warn(
+        { providerId: provider.id, err: err instanceof Error ? err.message : err },
+        'Video provider failed, trying next',
+      );
     }
   }
 
-  // Final fallback: Per-scene Pexels stock video pipeline (free)
+  // Ultimate fallback if all providers failed or none configured
+  log.warn('All configured video providers failed, using Pexels fallback');
   return generateWithPerScenePexels(prompt, style, durationSeconds, aspectRatio, script);
 }
 

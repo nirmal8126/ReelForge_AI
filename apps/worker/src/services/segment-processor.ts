@@ -2,6 +2,7 @@ import { LongFormSegment } from '@reelforge/db';
 import { logger } from '../utils/logger';
 import { downloadStockFootage } from './stock-footage';
 import { prisma } from '@reelforge/db';
+import { getActiveProviders } from './service-config';
 
 const log = logger.child({ service: 'segment-processor' });
 
@@ -35,13 +36,15 @@ export async function processSegments(
 ): Promise<ProcessedSegment[]> {
   const { segments, longFormJobId, prompt, style, aiClipRatio, useStockFootage, useStaticVisuals, onProgress } = opts;
 
-  const hasRunwayKey = !!process.env.RUNWAY_API_KEY;
+  // Check if any video providers are available (admin-configured)
+  const videoProviders = await getActiveProviders('video');
+  const hasVideoProviders = videoProviders.length > 0;
   const hasStockKeys = !!(process.env.PEXELS_API_KEY || process.env.PIXABAY_API_KEY);
 
   log.info({
     segmentCount: segments.length,
     aiClipRatio,
-    hasRunwayKey,
+    videoProviders: videoProviders.map((p) => p.id),
     hasStockKeys,
     useStockFootage,
     useStaticVisuals,
@@ -49,7 +52,7 @@ export async function processSegments(
 
   // Determine which segments should attempt AI generation
   const totalSegments = segments.length;
-  const aiSegmentCount = hasRunwayKey ? Math.ceil(totalSegments * aiClipRatio) : 0;
+  const aiSegmentCount = hasVideoProviders ? Math.ceil(totalSegments * aiClipRatio) : 0;
 
   const aiSegmentIndices = new Set<number>();
   if (aiSegmentCount > 0) {
@@ -68,8 +71,8 @@ export async function processSegments(
     }
   }
 
-  if (!hasRunwayKey && aiClipRatio > 0) {
-    log.warn('RUNWAY_API_KEY not set — all segments will use stock footage or static visuals');
+  if (!hasVideoProviders && aiClipRatio > 0) {
+    log.warn('No video providers available — all segments will use stock footage or static visuals');
   }
 
   // Process segments in batches
@@ -83,7 +86,7 @@ export async function processSegments(
     const batchResults = await Promise.all(
       batch.map(async (segment, batchIndex) => {
         const globalIndex = i + batchIndex;
-        const shouldTryAI = aiSegmentIndices.has(globalIndex) && hasRunwayKey;
+        const shouldTryAI = aiSegmentIndices.has(globalIndex) && hasVideoProviders;
 
         try {
           log.info({ segmentIndex: globalIndex, title: segment.title, shouldTryAI }, 'Processing segment');
