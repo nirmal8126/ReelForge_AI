@@ -73,11 +73,47 @@ function getLanguageName(code: string): string {
 // System prompt builder
 // ---------------------------------------------------------------------------
 
+// ---------------------------------------------------------------------------
+// Creativity seed: injects randomized creative direction per generation
+// ---------------------------------------------------------------------------
+
+const NARRATIVE_ANGLES = [
+  'personal story or anecdote', 'surprising statistic or fact', 'contrarian take',
+  'step-by-step breakdown', 'before-and-after transformation', 'myth-busting',
+  'expert interview style', 'behind-the-scenes reveal', 'challenge or dare',
+  'emotional storytelling', 'humor and wit', 'rapid-fire tips',
+  'comparison or versus', 'day-in-the-life', 'problem-solution',
+];
+
+const OPENING_STYLES = [
+  'a bold controversial statement', 'a mind-blowing fact', 'a relatable struggle',
+  'a direct question to the viewer', 'a shocking revelation', 'a powerful quote',
+  'a vivid scene description', 'a countdown or list teaser', 'an emotional confession',
+  'a dramatic pause technique', 'a challenge to the viewer', 'a prediction about the future',
+];
+
+const TONAL_VARIATIONS = [
+  'conversational and friendly', 'urgent and passionate', 'calm and authoritative',
+  'playful and energetic', 'mysterious and intriguing', 'warm and empathetic',
+  'bold and confident', 'storytelling and narrative', 'educational and clear',
+];
+
+function getCreativitySeed(): { angle: string; opening: string; toneVariation: string; seed: number } {
+  const seed = Date.now() + Math.floor(Math.random() * 100000);
+  return {
+    angle: NARRATIVE_ANGLES[Math.floor(Math.random() * NARRATIVE_ANGLES.length)],
+    opening: OPENING_STYLES[Math.floor(Math.random() * OPENING_STYLES.length)],
+    toneVariation: TONAL_VARIATIONS[Math.floor(Math.random() * TONAL_VARIATIONS.length)],
+    seed,
+  };
+}
+
 function buildSystemPrompt(opts: ScriptGenerationOptions): string {
   // More generous word count: 3 words/sec for short videos, 2.5 for longer
   const wordsPerSecond = opts.durationSeconds <= 10 ? 3 : 2.5;
   const wordTarget = Math.round(opts.durationSeconds * wordsPerSecond);
   const languageName = getLanguageName(opts.language);
+  const creativity = getCreativitySeed();
 
   return `You are an expert short-form video scriptwriter specialising in ${opts.niche} content.
 
@@ -91,12 +127,18 @@ REQUIREMENTS:
 - Write ONLY the spoken script — no stage directions, no timestamps, no emojis.
 - CRITICAL: Write a COMPLETE script with proper ending. Do NOT cut off mid-sentence.
 
+CREATIVE DIRECTION (follow this for uniqueness):
+- Narrative angle: Use a "${creativity.angle}" approach
+- Open with: ${creativity.opening}
+- Tonal feel: ${creativity.toneVariation}
+- Uniqueness seed: ${creativity.seed} — use this to make the script completely different from any previous version
+
 STRUCTURE (ALL THREE PARTS REQUIRED):
 1. HOOK (first 3 seconds) — grab attention immediately using a ${opts.hookStyle} style hook in ${languageName}.
 2. BODY — deliver the core value clearly and concisely with complete thoughts in ${languageName}.
 3. CTA — end with a strong, complete call-to-action in ${languageName} (follow, like, comment, share).
 
-IMPORTANT: Ensure the script conveys a complete message from start to finish. Every sentence must be complete. The CTA must be present and complete.
+IMPORTANT: Ensure the script conveys a complete message from start to finish. Every sentence must be complete. The CTA must be present and complete. This must be a FRESH, UNIQUE script — never repeat patterns from previous generations.
 
 Output the raw script text only. Do not include labels like "Hook:", "Body:", "CTA:" in the final output.`;
 }
@@ -149,11 +191,12 @@ async function generateWithClaude(opts: ScriptGenerationOptions): Promise<string
   const response = await client.messages.create({
     model: 'claude-sonnet-4-5-20250929',
     max_tokens: 4096,
+    temperature: 0.95,
     system: buildSystemPrompt(opts),
     messages: [
       {
         role: 'user',
-        content: `Write a short-form video script in ${languageName} about: ${opts.prompt}`,
+        content: `Write a short-form video script in ${languageName} about: ${opts.prompt}\n\nIMPORTANT: This must be completely unique and fresh. Do not use generic or templated phrases. Be creative and original.`,
       },
     ],
   });
@@ -176,10 +219,10 @@ async function generateWithOpenAI(opts: ScriptGenerationOptions): Promise<string
   const response = await client.chat.completions.create({
     model: 'gpt-4',
     max_tokens: 4096,
-    temperature: 0.8,
+    temperature: 0.95,
     messages: [
       { role: 'system', content: buildSystemPrompt(opts) },
-      { role: 'user', content: `Write a short-form video script about: ${opts.prompt}` },
+      { role: 'user', content: `Write a short-form video script about: ${opts.prompt}\n\nIMPORTANT: This must be completely unique and fresh. Be creative and original.` },
     ],
   });
 
@@ -221,7 +264,7 @@ async function generateWithGemini(opts: ScriptGenerationOptions): Promise<string
           parts: [{ text: buildSystemPrompt(opts) }],
         },
         generationConfig: {
-          temperature: 0.8,
+          temperature: 0.95,
           maxOutputTokens: 4096,
         },
       }),

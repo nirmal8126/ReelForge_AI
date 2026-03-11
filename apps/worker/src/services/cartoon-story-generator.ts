@@ -123,6 +123,44 @@ function getLanguageName(code: string): string {
   return LANGUAGE_MAP[code] || code;
 }
 
+// ---------------------------------------------------------------------------
+// Creativity seed: ensures unique stories every time
+// ---------------------------------------------------------------------------
+
+const STORY_THEMES = [
+  'friendship and loyalty', 'overcoming fear', 'the power of honesty',
+  'sharing and generosity', 'teamwork and cooperation', 'accepting differences',
+  'courage in the face of danger', 'the value of hard work', 'curiosity and discovery',
+  'forgiveness and second chances', 'helping strangers', 'believing in yourself',
+  'respecting nature', 'learning from mistakes', 'the magic of creativity',
+  'standing up for others', 'patience and perseverance', 'family bonds',
+];
+
+const STORY_SETTINGS = [
+  'a magical forest', 'an underwater kingdom', 'a floating sky island',
+  'a bustling marketplace', 'a mysterious cave', 'a enchanted garden',
+  'a snow-covered mountain', 'a desert oasis', 'a rainbow bridge between worlds',
+  'a village festival', 'a rainy day adventure', 'a starlit night journey',
+  'an ancient temple', 'a carnival or fair', 'a hidden treehouse',
+];
+
+const PLOT_TWISTS = [
+  'an unexpected helper appears', 'things are not what they seem',
+  'the villain turns out to be misunderstood', 'a hidden talent saves the day',
+  'a small act of kindness changes everything', 'the solution was inside them all along',
+  'two rivals must work together', 'a mysterious clue leads somewhere new',
+  'what they lost leads to something better', 'the quiet character becomes the hero',
+];
+
+function getStorySeed(): { theme: string; setting: string; twist: string; seed: number } {
+  return {
+    theme: STORY_THEMES[Math.floor(Math.random() * STORY_THEMES.length)],
+    setting: STORY_SETTINGS[Math.floor(Math.random() * STORY_SETTINGS.length)],
+    twist: PLOT_TWISTS[Math.floor(Math.random() * PLOT_TWISTS.length)],
+    seed: Date.now() + Math.floor(Math.random() * 100000),
+  };
+}
+
 /**
  * Normalize AI output scenes — ensure visualPrompts array exists.
  * Handles both old format (single visualPrompt) and new format (visualPrompts array).
@@ -166,6 +204,8 @@ async function generateWithAnthropic(opts: {
     .map((c) => `- ${c.name}: ${c.description || 'No description'}. Personality: ${c.personality || 'Not specified'}`)
     .join('\n');
 
+  const creativity = getStorySeed();
+
   const systemPrompt = `You are an expert cartoon story writer for animated episodic content.
 You write engaging, age-appropriate stories with vivid scene descriptions and natural dialogue.
 
@@ -179,6 +219,12 @@ ${opts.bannerUrl ? `Series Visual Theme: The series has an established visual ba
 
 Characters:
 ${characterList}
+
+CREATIVE DIRECTION (follow these for a unique story):
+- Core theme/moral: ${creativity.theme}
+- Primary setting: ${creativity.setting}
+- Plot twist to include: ${creativity.twist}
+- Uniqueness seed: ${creativity.seed} — make this story completely different from any previous episode
 
 IMPORTANT RULES:
 1. Write EXACTLY 10-15 scenes that tell a complete story with beginning, middle, and end
@@ -205,6 +251,8 @@ MULTIPLE IMAGES PER SCENE:
 - Each prompt should show a different camera angle, zoom level, or moment within the same scene action
 - Example: Scene about a character finding something → [wide shot of garden, close-up of character's surprised face, close-up of the object]
 
+CRITICAL: This story must be COMPLETELY ORIGINAL and DIFFERENT from any previous episode. Use fresh plot structures, unique conflicts, and surprising character moments. Do NOT reuse common story templates.
+
 REMINDER: description, narration, and dialogue text MUST be in ${languageName}. Only visualPrompts should be in English.
 
 OUTPUT FORMAT: Return ONLY valid JSON (no markdown, no code blocks) with this structure:
@@ -228,9 +276,10 @@ OUTPUT FORMAT: Return ONLY valid JSON (no markdown, no code blocks) with this st
   const response = await client.messages.create({
     model: 'claude-sonnet-4-5-20250929',
     max_tokens: 8192,
+    temperature: 0.95,
     system: systemPrompt,
     messages: [
-      { role: 'user', content: `Write an episode about: ${opts.episodePrompt}\n\nIMPORTANT: Write all narration, dialogue, and descriptions in ${languageName}. Only visualPrompts should be in English. Write EXACTLY 10-15 scenes. Each scene MUST have "visualPrompts" array with 2-3 different image prompts. TARGET DURATION: 2-4 minutes. Narration should be 2-4 sentences (30-50 words) per scene. Dialogue should be 2-4 lines per scene (10-20 words each). The LAST scene must be a CTA asking viewers to like, subscribe, and follow for more "${opts.seriesName}" episodes.` },
+      { role: 'user', content: `Write an episode about: ${opts.episodePrompt}\n\nCREATIVE SEEDS: Theme="${creativity.theme}", Setting="${creativity.setting}", Twist="${creativity.twist}"\n\nIMPORTANT: Write all narration, dialogue, and descriptions in ${languageName}. Only visualPrompts should be in English. Write EXACTLY 10-15 scenes. Each scene MUST have "visualPrompts" array with 2-3 different image prompts. TARGET DURATION: 2-4 minutes. Narration should be 2-4 sentences (30-50 words) per scene. Dialogue should be 2-4 lines per scene (10-20 words each). The LAST scene must be a CTA asking viewers to like, subscribe, and follow for more "${opts.seriesName}" episodes.\n\nMake this story COMPLETELY UNIQUE — different plot, different conflicts, different scenes from any previous generation.` },
     ],
   });
 
@@ -289,6 +338,7 @@ async function generateWithGemini(opts: {
   const languageName = getLanguageName(opts.language);
   const model = process.env.GEMINI_MODEL || 'gemini-2.5-flash';
   const apiKey = process.env.GEMINI_API_KEY!;
+  const creativity = getStorySeed();
 
   const characterList = opts.characters
     .map((c) => `- ${c.name}: ${c.description || 'No description'}. Personality: ${c.personality || 'Not specified'}`)
@@ -307,6 +357,12 @@ ${opts.bannerUrl ? `Series Visual Theme: The series has an established visual ba
 
 Characters:
 ${characterList}
+
+CREATIVE DIRECTION (follow these for a unique story):
+- Core theme/moral: ${creativity.theme}
+- Primary setting: ${creativity.setting}
+- Plot twist to include: ${creativity.twist}
+- Uniqueness seed: ${creativity.seed} — make this story completely different from any previous episode
 
 IMPORTANT RULES:
 1. Write EXACTLY 10-15 scenes that tell a complete story with beginning, middle, and end
@@ -332,6 +388,8 @@ MULTIPLE IMAGES PER SCENE:
 - This creates visual variety — viewers see multiple images per scene instead of one static image
 - Each prompt should show a different camera angle, zoom level, or moment within the same scene action
 - Example: Scene about a character finding something → [wide shot of garden, close-up of character's surprised face, close-up of the object]
+
+CRITICAL: This story must be COMPLETELY ORIGINAL and DIFFERENT from any previous episode. Use fresh plot structures, unique conflicts, and surprising character moments.
 
 REMINDER: description, narration, and dialogue text MUST be in ${languageName}. Only visualPrompts should be in English.
 
@@ -360,9 +418,9 @@ OUTPUT FORMAT: Return ONLY valid JSON with this structure:
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         system_instruction: { parts: [{ text: systemPrompt }] },
-        contents: [{ role: 'user', parts: [{ text: `Write an episode about: ${opts.episodePrompt}\n\nIMPORTANT: Write all narration, dialogue, and descriptions in ${languageName}. Only visualPrompts should be in English. Write EXACTLY 10-15 scenes. Each scene MUST have "visualPrompts" array with 2-3 different image prompts. TARGET DURATION: 2-4 minutes. Narration should be 2-4 sentences (30-50 words) per scene. Dialogue should be 2-4 lines per scene (10-20 words each). The LAST scene must be a CTA asking viewers to like, subscribe, and follow for more "${opts.seriesName}" episodes.` }] }],
+        contents: [{ role: 'user', parts: [{ text: `Write an episode about: ${opts.episodePrompt}\n\nCREATIVE SEEDS: Theme="${creativity.theme}", Setting="${creativity.setting}", Twist="${creativity.twist}"\n\nIMPORTANT: Write all narration, dialogue, and descriptions in ${languageName}. Only visualPrompts should be in English. Write EXACTLY 10-15 scenes. Each scene MUST have "visualPrompts" array with 2-3 different image prompts. TARGET DURATION: 2-4 minutes. Narration should be 2-4 sentences (30-50 words) per scene. Dialogue should be 2-4 lines per scene (10-20 words each). The LAST scene must be a CTA asking viewers to like, subscribe, and follow for more "${opts.seriesName}" episodes.\n\nMake this story COMPLETELY UNIQUE — different plot, different conflicts, different scenes from any previous generation.` }] }],
         generationConfig: {
-          temperature: 0.75,
+          temperature: 0.95,
           maxOutputTokens: 8192,
           responseMimeType: 'application/json',
         },

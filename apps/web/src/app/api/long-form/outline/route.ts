@@ -115,7 +115,25 @@ interface GenerateOpts {
   tone?: string
 }
 
+const OUTLINE_APPROACHES = [
+  'storytelling arc with rising tension', 'problem-solution deep dive',
+  'myth-busting journey', 'step-by-step masterclass', 'case study analysis',
+  'debate-style pros and cons', 'historical timeline progression',
+  'expert interview format', 'challenge and transformation',
+  'comparative analysis', 'behind-the-scenes exploration', 'future predictions',
+]
+
+const OUTLINE_HOOKS = [
+  'shocking statistic opener', 'personal failure story', 'bold prediction',
+  'common misconception reveal', 'viewer challenge', 'dramatic question',
+  'time-sensitive urgency', 'emotional story', 'controversial opinion',
+]
+
 function buildSystemPrompt(opts: GenerateOpts): string {
+  const approach = OUTLINE_APPROACHES[Math.floor(Math.random() * OUTLINE_APPROACHES.length)]
+  const hookStyle = OUTLINE_HOOKS[Math.floor(Math.random() * OUTLINE_HOOKS.length)]
+  const seed = Date.now() + Math.floor(Math.random() * 100000)
+
   return `You are an expert long-form video content strategist and scriptwriter.
 
 Generate a structured outline for a ${opts.durationMinutes}-minute video with exactly ${opts.segmentCount} segments.
@@ -128,6 +146,11 @@ ${opts.tone ? `- Tone: ${opts.tone}` : ''}
 - First segment MUST be a compelling hook/introduction
 - Last segment MUST be a strong conclusion with call-to-action
 - Each segment needs a clear title, brief description, and talking points
+
+CREATIVE DIRECTION (for uniqueness):
+- Overall approach: ${approach}
+- Hook style: ${hookStyle}
+- Uniqueness seed: ${seed} — create a completely fresh and original outline
 
 Return ONLY valid JSON with this exact structure:
 {
@@ -142,7 +165,7 @@ Return ONLY valid JSON with this exact structure:
   ]
 }
 
-Make the outline engaging, well-structured, and optimized for viewer retention.`
+Make the outline engaging, well-structured, and optimized for viewer retention. This must be COMPLETELY ORIGINAL — never repeat structures from previous outlines.`
 }
 
 // ---------------------------------------------------------------------------
@@ -156,11 +179,12 @@ async function generateWithClaude(opts: GenerateOpts) {
   const response = await client.messages.create({
     model: 'claude-sonnet-4-5-20250929',
     max_tokens: 4096,
+    temperature: 0.9,
     system: buildSystemPrompt(opts),
     messages: [
       {
         role: 'user',
-        content: `Create a detailed outline for a video titled "${opts.title}" about: ${opts.prompt}`,
+        content: `Create a detailed outline for a video titled "${opts.title}" about: ${opts.prompt}\n\nMake this outline completely unique and original.`,
       },
     ],
   })
@@ -197,7 +221,7 @@ async function generateWithGemini(opts: GenerateOpts) {
           role: 'system',
           parts: [{ text: buildSystemPrompt(opts) }],
         },
-        generationConfig: { temperature: 0.7, maxOutputTokens: 4096 },
+        generationConfig: { temperature: 0.9, maxOutputTokens: 4096 },
       }),
     }
   )
@@ -222,10 +246,10 @@ async function generateWithOpenAI(opts: GenerateOpts) {
   const response = await client.chat.completions.create({
     model: 'gpt-4',
     max_tokens: 4096,
-    temperature: 0.7,
+    temperature: 0.9,
     messages: [
       { role: 'system', content: buildSystemPrompt(opts) },
-      { role: 'user', content: `Create a detailed outline for a video titled "${opts.title}" about: ${opts.prompt}` },
+      { role: 'user', content: `Create a detailed outline for a video titled "${opts.title}" about: ${opts.prompt}\n\nMake this outline completely unique and original.` },
     ],
   })
 

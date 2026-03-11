@@ -133,15 +133,21 @@ ${characterList}
 Existing episodes (avoid repeating these themes):
 ${existingEpisodes}
 
+CREATIVE DIRECTION (for uniqueness):
+- Suggested tone: ${['adventure', 'comedy', 'heartwarming', 'mystery', 'suspense', 'fantasy', 'educational'][Math.floor(Math.random() * 7)]} with ${['humor', 'drama', 'wonder', 'excitement', 'warmth'][Math.floor(Math.random() * 5)]}
+- Setting idea: ${['indoors', 'outdoors', 'a new place', 'a familiar place transformed', 'a journey', 'a competition', 'a celebration'][Math.floor(Math.random() * 7)]}
+- Uniqueness seed: ${Date.now() + Math.floor(Math.random() * 100000)}
+
 RULES:
-1. Generate exactly ${count} unique episode idea(s)
+1. Generate exactly ${count} unique episode idea(s) — each MUST be completely original
 2. Each idea needs a catchy title, a detailed story prompt (2-4 sentences describing the plot), and a one-line synopsis
 3. Make episodes engaging, age-appropriate for the target audience, and use the characters naturally
 4. Each episode should teach a lesson or have a moral appropriate for the audience
 5. Avoid repeating themes from existing episodes
 6. Vary the tone — mix adventure, comedy, heartwarming, and mystery
 7. Do NOT include episode numbers in titles (no "Ep 1:", "Episode 2:", etc.) — just the title itself
-${hint ? `8. User hint: "${hint}" — incorporate this theme/idea into the episodes` : ''}
+8. Be CREATIVE and ORIGINAL — avoid generic or common story patterns
+${hint ? `9. User hint: "${hint}" — incorporate this theme/idea into the episodes` : ''}
 
 REMINDER: Every single piece of text you output (title, prompt, synopsis) MUST be written in ${languageName}. Not English. Not any other language. Only ${languageName}.
 
@@ -234,7 +240,7 @@ async function generateIdeasWithGemini(
         system_instruction: { parts: [{ text: systemPrompt }] },
         contents: [{ role: 'user', parts: [{ text: userMessage }] }],
         generationConfig: {
-          temperature: 0.75,
+          temperature: 0.95,
           maxOutputTokens: 8192,
           responseMimeType: 'application/json',
         },
@@ -270,9 +276,10 @@ async function generateIdeasWithAnthropic(
   const response = await client.messages.create({
     model: 'claude-sonnet-4-5-20250929',
     max_tokens: 8192,
+    temperature: 0.95,
     system: systemPrompt,
     messages: [
-      { role: 'user', content: `Generate ${count} episode idea${count > 1 ? 's' : ''} for this series.${hint ? ` Theme hint: ${hint}` : ''}\n\nIMPORTANT: Write ALL text (titles, prompts, synopses) in ${languageName}. Every word must be in ${languageName}.` },
+      { role: 'user', content: `Generate ${count} episode idea${count > 1 ? 's' : ''} for this series.${hint ? ` Theme hint: ${hint}` : ''}\n\nIMPORTANT: Write ALL text (titles, prompts, synopses) in ${languageName}. Every word must be in ${languageName}. Be completely original and creative.` },
     ],
   })
 

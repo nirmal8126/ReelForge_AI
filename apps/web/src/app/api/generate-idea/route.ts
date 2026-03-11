@@ -37,6 +37,10 @@ export async function POST(req: NextRequest) {
     }
     const languageName = langMap[language] || 'English'
 
+    const angles = ['surprising fact', 'personal story', 'how-to guide', 'myth-busting', 'trend analysis', 'challenge', 'comparison', 'prediction', 'behind-the-scenes', 'case study']
+    const randomAngle = angles[Math.floor(Math.random() * angles.length)]
+    const uniqueSeed = Date.now() + Math.floor(Math.random() * 100000)
+
     const systemPrompt = `You are a creative content strategist for social media and YouTube. Generate ONE unique, trending content idea.
 
 Return ONLY a JSON object in this exact format (no markdown, no code fences):
@@ -52,6 +56,8 @@ Rules:
 ${channelName ? `- Channel: ${channelName}` : ''}
 - Content type: ${isReel ? 'Short-form reel (15-60 seconds)' : 'Long-form video (5-30 minutes)'}
 ${isReel ? '- Focus on hook-worthy, snackable content that stops the scroll' : '- Focus on in-depth, valuable content that keeps viewers watching'}
+
+CREATIVE DIRECTION: Use a "${randomAngle}" angle. Uniqueness seed: ${uniqueSeed} — generate something completely fresh and different from any previous idea.
 `
 
     // Try Gemini first
