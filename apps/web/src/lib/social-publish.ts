@@ -85,10 +85,15 @@ async function publishToYouTube(options: PublishOptions): Promise<PublishResult>
     const blob = new Blob([data], { type: contentType })
 
     const isShorts = options.format === 'shorts'
-    const title =
+    let title =
       isShorts && !options.title.includes('#Shorts')
         ? `${options.title} #Shorts`
         : options.title
+
+    // YouTube title limit is 100 characters
+    if (title.length > 100) {
+      title = title.slice(0, 97).replace(/\s+\S*$/, '') + '...'
+    }
 
     // Step 1 — Initiate resumable upload session
     const initRes = await fetch(

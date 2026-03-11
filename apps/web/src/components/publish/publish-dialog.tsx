@@ -145,12 +145,17 @@ export function PublishDialog({ jobType, jobId, videoUrl, thumbnailUrl, defaultT
         }),
       })
 
-      if (!res.ok) {
-        const err = await res.json()
-        throw new Error(err.error || 'Publish failed')
+      const text = await res.text()
+      let data: any
+      try {
+        data = JSON.parse(text)
+      } catch {
+        throw new Error(text || `Server error (${res.status})`)
       }
 
-      const data = await res.json()
+      if (!res.ok) {
+        throw new Error(data?.error || 'Publish failed')
+      }
       setResults(data.records)
       toast.success('Published successfully!')
     } catch (err) {

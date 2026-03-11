@@ -573,14 +573,19 @@ function deriveEpisodeTitleFromStory(
   // Clean up: take first sentence, trim
   titleBase = titleBase.split(/[.!?\n]/)[0].trim();
 
+  // Strip any existing episode prefix like "Ep 1:", "Ep. 1:", "Episode 1:" etc.
+  titleBase = titleBase.replace(/^(Ep\.?\s*\d+\s*[:\-–—]\s*)/i, '').trim();
+  titleBase = titleBase.replace(/^(Episode\s*\d+\s*[:\-–—]\s*)/i, '').trim();
+
   // Capitalize first letter
   if (titleBase.length > 0) {
     titleBase = titleBase.charAt(0).toUpperCase() + titleBase.slice(1);
   }
 
-  // Truncate to reasonable length
-  if (titleBase.length > 100) {
-    titleBase = titleBase.slice(0, 97).replace(/\s+\S*$/, '') + '...';
+  // Truncate to fit YouTube's 100-char limit (leave room for "Ep N: " prefix)
+  const maxLen = 90;
+  if (titleBase.length > maxLen) {
+    titleBase = titleBase.slice(0, maxLen - 3).replace(/\s+\S*$/, '') + '...';
   }
 
   return titleBase ? `Ep ${episodeNumber}: ${titleBase}` : `Episode ${episodeNumber}`;

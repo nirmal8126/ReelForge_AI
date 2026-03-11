@@ -2,6 +2,9 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@reelforge/db'
 import { publishToPlatform } from '@/lib/social-publish'
 
+// Allow long-running uploads (video uploads to YouTube/Facebook can take minutes)
+export const maxDuration = 300 // 5 minutes
+
 // ---------------------------------------------------------------------------
 // Auto-refresh expired OAuth tokens before publishing
 // ---------------------------------------------------------------------------

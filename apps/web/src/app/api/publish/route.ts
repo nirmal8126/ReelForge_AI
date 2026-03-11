@@ -4,6 +4,9 @@ import { prisma } from '@reelforge/db'
 import { z } from 'zod'
 import { publishToPlatform } from '@/lib/social-publish'
 
+// Allow long-running uploads (video uploads to YouTube/Facebook can take minutes)
+export const maxDuration = 300 // 5 minutes
+
 // ---------------------------------------------------------------------------
 // Valid job types (mapped to Prisma model names)
 // ---------------------------------------------------------------------------
@@ -49,19 +52,34 @@ export async function POST(req: NextRequest) {
 
   // QuoteJob uses different field names (imageUrl/videoUrl instead of outputUrl)
   const isQuote = modelName === 'quoteJob'
+  const isCartoon = modelName === 'cartoonEpisode'
   const selectFields = isQuote
     ? { id: true, status: true, imageUrl: true, videoUrl: true, quoteText: true, thumbnailUrl: true }
-    : { id: true, status: true, outputUrl: true, title: true, thumbnailUrl: true }
+    : isCartoon
+      ? { id: true, status: true, outputUrl: true, title: true, thumbnailUrl: true, seriesId: true, series: { select: { userId: true } } }
+      : { id: true, status: true, outputUrl: true, title: true, thumbnailUrl: true }
 
   // Verify user owns the job and it's completed
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const job = await (prisma as any)[modelName].findFirst({
-    where: {
-      id: data.jobId,
-      userId: session.user.id,
-    },
-    select: selectFields,
-  })
+  // CartoonEpisode doesn't have userId — ownership is checked via series
+  let job: any
+  if (isCartoon) {
+    job = await prisma.cartoonEpisode.findFirst({
+      where: {
+        id: data.jobId,
+        series: { userId: session.user.id },
+      },
+      select: selectFields,
+    })
+  } else {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    job = await (prisma as any)[modelName].findFirst({
+      where: {
+        id: data.jobId,
+        userId: session.user.id,
+      },
+      select: selectFields,
+    })
+  }
 
   if (!job) {
     return NextResponse.json({ error: 'Job not found' }, { status: 404 })
