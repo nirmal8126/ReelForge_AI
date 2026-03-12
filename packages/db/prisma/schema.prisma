@@ -472,6 +472,7 @@ model AutopilotSchedule {
 
   // Schedule settings
   frequency      AutopilotFrequency @default(WEEKLY)
+  minuteInterval Int                @default(30) @map("minute_interval") // 5,10,15,20,30,45 minutes
   hourlyInterval Int                @default(1) @map("hourly_interval") // 1,2,3,4,6,8,12 hours
   cronExpression String?            @map("cron_expression") @db.VarChar(100)
   timezone       String             @default("UTC") @db.VarChar(50)
@@ -983,6 +984,7 @@ enum YouTubeStatus {
 }
 
 enum AutopilotFrequency {
+  EVERY_MINUTES
   HOURLY
   DAILY
   WEEKLY

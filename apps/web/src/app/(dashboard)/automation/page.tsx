@@ -52,6 +52,7 @@ interface Schedule {
   moduleType: string
   isActive: boolean
   frequency: string
+  minuteInterval: number
   hourlyInterval: number
   scheduledTime: string
   timezone: string
@@ -133,13 +134,16 @@ const MODULE_LABELS: Record<string, { label: string; icon: React.ComponentType<{
 }
 
 const FREQUENCY_LABELS: Record<string, string> = {
+  EVERY_MINUTES: 'Minutes',
   HOURLY: 'Hourly',
   DAILY: 'Daily',
   WEEKLY: 'Weekly',
   BIWEEKLY: 'Every 2 Weeks',
   MONTHLY: 'Monthly',
-  CUSTOM: 'Custom',
 }
+
+const MINUTE_INTERVALS = [5, 10, 15, 20, 30, 45] as const
+const HOURLY_INTERVALS = [1, 2, 3, 4, 6, 8, 12] as const
 
 const PUBLISH_STATUS_CONFIG: Record<string, { label: string; color: string }> = {
   PENDING: { label: 'Pending', color: 'text-gray-400' },
@@ -458,14 +462,16 @@ function SchedulesList({
                   <span>{module.label}</span>
                   <span>·</span>
                   <span>
-                    {schedule.frequency === 'HOURLY'
-                      ? schedule.hourlyInterval === 1 ? 'Every Hour' : `Every ${schedule.hourlyInterval}h`
-                      : FREQUENCY_LABELS[schedule.frequency] || schedule.frequency}
+                    {schedule.frequency === 'EVERY_MINUTES'
+                      ? `Every ${schedule.minuteInterval}min`
+                      : schedule.frequency === 'HOURLY'
+                        ? schedule.hourlyInterval === 1 ? 'Every Hour' : `Every ${schedule.hourlyInterval}h`
+                        : FREQUENCY_LABELS[schedule.frequency] || schedule.frequency}
                   </span>
                   <span>·</span>
                   <span className="flex items-center gap-1">
                     <Clock className="h-3 w-3" />
-                    {schedule.frequency === 'HOURLY'
+                    {schedule.frequency === 'EVERY_MINUTES' || schedule.frequency === 'HOURLY'
                       ? schedule.timezone
                       : `${schedule.scheduledTime} ${schedule.timezone}`}
                   </span>
@@ -814,6 +820,7 @@ function CreateScheduleForm({
         moduleType: 'REEL' as string,
         channelProfileId: '',
         frequency: 'DAILY' as string,
+        minuteInterval: 30,
         hourlyInterval: 1,
         scheduledTime: '09:00',
         timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC',
@@ -852,6 +859,7 @@ function CreateScheduleForm({
       moduleType: editingSchedule.moduleType,
       channelProfileId: editingSchedule.channelProfileId || '',
       frequency: editingSchedule.frequency,
+      minuteInterval: editingSchedule.minuteInterval || 30,
       hourlyInterval: editingSchedule.hourlyInterval || 1,
       scheduledTime: editingSchedule.scheduledTime,
       timezone: editingSchedule.timezone,
@@ -952,6 +960,7 @@ function CreateScheduleForm({
       moduleType: form.moduleType,
       channelProfileId: form.channelProfileId || null,
       frequency: form.frequency,
+      minuteInterval: form.frequency === 'EVERY_MINUTES' ? form.minuteInterval : 30,
       hourlyInterval: form.frequency === 'HOURLY' ? form.hourlyInterval : 1,
       scheduledTime: form.scheduledTime,
       timezone: form.timezone,
@@ -1617,66 +1626,78 @@ function CreateScheduleForm({
               <p className="text-xs text-gray-500 mt-0.5">When should content be generated?</p>
             </div>
 
-            {/* Frequency */}
-            <div>
-              <label className="block text-xs font-medium text-gray-400 mb-2">Frequency</label>
-              <div className="flex flex-wrap gap-2">
-                {Object.entries(FREQUENCY_LABELS).map(([key, label]) => (
-                  <button
-                    key={key}
-                    type="button"
-                    onClick={() => setForm({ ...form, frequency: key })}
-                    className={cn(
-                      'rounded-lg border px-4 py-2.5 text-xs font-medium transition',
-                      form.frequency === key
-                        ? 'border-brand-500 bg-brand-500/15 text-brand-400'
-                        : 'border-white/10 bg-white/5 text-gray-400 hover:bg-white/10'
-                    )}
-                  >
-                    {label}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* Hourly Interval — only visible when HOURLY selected */}
-            {form.frequency === 'HOURLY' && (
+            {/* Frequency Dropdown */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
-                <label className="block text-xs font-medium text-gray-400 mb-2">Run Every</label>
-                <div className="flex flex-wrap gap-2">
-                  {[1, 2, 3, 4, 6, 8, 12].map((hr) => (
-                    <button
-                      key={hr}
-                      type="button"
-                      onClick={() => setForm({ ...form, hourlyInterval: hr })}
-                      className={cn(
-                        'rounded-lg border px-4 py-2.5 text-xs font-medium transition',
-                        form.hourlyInterval === hr
-                          ? 'border-brand-500 bg-brand-500/15 text-brand-400'
-                          : 'border-white/10 bg-white/5 text-gray-400 hover:bg-white/10'
-                      )}
-                    >
-                      {hr === 1 ? 'Every Hour' : `Every ${hr} Hours`}
-                    </button>
+                <label className="block text-xs font-medium text-gray-400 mb-2">Frequency</label>
+                <select
+                  value={form.frequency}
+                  onChange={(e) => setForm({ ...form, frequency: e.target.value })}
+                  className="w-full rounded-lg bg-white/[0.06] border border-white/10 px-4 py-2.5 text-sm text-white focus:border-brand-500 focus:ring-1 focus:ring-brand-500 outline-none appearance-none cursor-pointer"
+                >
+                  {Object.entries(FREQUENCY_LABELS).map(([key, label]) => (
+                    <option key={key} value={key} className="bg-gray-900 text-white">
+                      {label}
+                    </option>
                   ))}
-                </div>
+                </select>
               </div>
-            )}
 
-            {/* Time — hidden for hourly since it runs on interval */}
-            {form.frequency !== 'HOURLY' && (
-            <div>
-              <label className="block text-xs font-medium text-gray-400 mb-1.5">
-                <span className="flex items-center gap-1.5"><Clock className="h-3.5 w-3.5" /> Time of Day</span>
-              </label>
-              <input
-                type="time"
-                value={form.scheduledTime}
-                onChange={(e) => setForm({ ...form, scheduledTime: e.target.value })}
-                className="w-full max-w-xs rounded-lg bg-white/10 border border-white/10 px-4 py-2.5 text-sm text-white focus:border-brand-500 focus:ring-1 focus:ring-brand-500 outline-none"
-              />
-              <p className="text-[11px] text-gray-600 mt-1">{form.timezone}</p>
+              {/* Interval dropdown — changes based on frequency */}
+              {form.frequency === 'EVERY_MINUTES' && (
+                <div>
+                  <label className="block text-xs font-medium text-gray-400 mb-2">Run Every</label>
+                  <select
+                    value={form.minuteInterval}
+                    onChange={(e) => setForm({ ...form, minuteInterval: Number(e.target.value) })}
+                    className="w-full rounded-lg bg-white/[0.06] border border-white/10 px-4 py-2.5 text-sm text-white focus:border-brand-500 focus:ring-1 focus:ring-brand-500 outline-none appearance-none cursor-pointer"
+                  >
+                    {MINUTE_INTERVALS.map((min) => (
+                      <option key={min} value={min} className="bg-gray-900 text-white">
+                        Every {min} Minutes
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
+
+              {form.frequency === 'HOURLY' && (
+                <div>
+                  <label className="block text-xs font-medium text-gray-400 mb-2">Run Every</label>
+                  <select
+                    value={form.hourlyInterval}
+                    onChange={(e) => setForm({ ...form, hourlyInterval: Number(e.target.value) })}
+                    className="w-full rounded-lg bg-white/[0.06] border border-white/10 px-4 py-2.5 text-sm text-white focus:border-brand-500 focus:ring-1 focus:ring-brand-500 outline-none appearance-none cursor-pointer"
+                  >
+                    {HOURLY_INTERVALS.map((hr) => (
+                      <option key={hr} value={hr} className="bg-gray-900 text-white">
+                        {hr === 1 ? 'Every Hour' : `Every ${hr} Hours`}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
+
+              {/* Time of Day — only for daily/weekly/biweekly/monthly */}
+              {!['EVERY_MINUTES', 'HOURLY'].includes(form.frequency) && (
+                <div>
+                  <label className="block text-xs font-medium text-gray-400 mb-2">
+                    <span className="flex items-center gap-1.5"><Clock className="h-3.5 w-3.5" /> Time of Day</span>
+                  </label>
+                  <input
+                    type="time"
+                    value={form.scheduledTime}
+                    onChange={(e) => setForm({ ...form, scheduledTime: e.target.value })}
+                    className="w-full rounded-lg bg-white/[0.06] border border-white/10 px-4 py-2.5 text-sm text-white focus:border-brand-500 focus:ring-1 focus:ring-brand-500 outline-none"
+                  />
+                  <p className="text-[11px] text-gray-600 mt-1">{form.timezone}</p>
+                </div>
+              )}
             </div>
+
+            {/* Timezone */}
+            {['EVERY_MINUTES', 'HOURLY'].includes(form.frequency) && (
+              <p className="text-[11px] text-gray-600">Timezone: {form.timezone}</p>
             )}
           </div>
 
@@ -1778,9 +1799,11 @@ function CreateScheduleForm({
               <div>
                 <p className="text-gray-500">Frequency</p>
                 <p className="text-white font-medium">
-                  {form.frequency === 'HOURLY'
-                    ? form.hourlyInterval === 1 ? 'Every Hour' : `Every ${form.hourlyInterval} Hours`
-                    : `${FREQUENCY_LABELS[form.frequency]} at ${form.scheduledTime}`}
+                  {form.frequency === 'EVERY_MINUTES'
+                    ? `Every ${form.minuteInterval} Minutes`
+                    : form.frequency === 'HOURLY'
+                      ? form.hourlyInterval === 1 ? 'Every Hour' : `Every ${form.hourlyInterval} Hours`
+                      : `${FREQUENCY_LABELS[form.frequency]} at ${form.scheduledTime}`}
                 </p>
               </div>
               <div>

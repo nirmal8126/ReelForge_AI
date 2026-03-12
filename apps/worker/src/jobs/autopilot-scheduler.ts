@@ -11,7 +11,8 @@ function calculateNextRunAt(
   timezone: string,
   scheduledTime: string,
   cronExpression?: string | null,
-  hourlyInterval: number = 1
+  hourlyInterval: number = 1,
+  minuteInterval: number = 30,
 ): Date {
   const now = new Date();
 
@@ -28,6 +29,11 @@ function calculateNextRunAt(
   }
 
   switch (frequency) {
+    case 'EVERY_MINUTES': {
+      // Next run = now + minuteInterval minutes
+      const interval = Math.max(5, minuteInterval);
+      return new Date(now.getTime() + interval * 60 * 1000);
+    }
     case 'HOURLY': {
       // Next run = now + hourlyInterval hours
       const interval = Math.max(1, hourlyInterval);
@@ -543,7 +549,8 @@ export async function processAutopilotScheduler(job: Job) {
         schedule.timezone,
         schedule.scheduledTime,
         schedule.cronExpression,
-        schedule.hourlyInterval
+        schedule.hourlyInterval,
+        schedule.minuteInterval,
       );
 
       await prisma.autopilotSchedule.update({

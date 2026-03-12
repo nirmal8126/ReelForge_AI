@@ -47,7 +47,8 @@ const updateScheduleSchema = z.object({
   name: z.string().min(1).max(150).optional(),
   isActive: z.boolean().optional(),
   channelProfileId: z.string().nullable().optional(),
-  frequency: z.enum(['HOURLY', 'DAILY', 'WEEKLY', 'BIWEEKLY', 'MONTHLY', 'CUSTOM']).optional(),
+  frequency: z.enum(['EVERY_MINUTES', 'HOURLY', 'DAILY', 'WEEKLY', 'BIWEEKLY', 'MONTHLY', 'CUSTOM']).optional(),
+  minuteInterval: z.number().int().min(5).max(45).optional(),
   hourlyInterval: z.number().int().min(1).max(12).optional(),
   cronExpression: z.string().max(100).nullable().optional(),
   timezone: z.string().max(50).optional(),
@@ -96,15 +97,26 @@ export async function PATCH(
 
     // Recalculate nextRunAt if schedule timing changed
     let nextRunAt = existing.nextRunAt
-    if (data.scheduledTime || data.frequency || data.isActive === true) {
-      const time = data.scheduledTime || existing.scheduledTime
-      const [hours, minutes] = time.split(':').map(Number)
-      const next = new Date()
-      next.setUTCHours(hours, minutes, 0, 0)
-      if (next <= new Date()) {
-        next.setUTCDate(next.getUTCDate() + 1)
+    if (data.scheduledTime || data.frequency || data.minuteInterval || data.hourlyInterval || data.isActive === true) {
+      const freq = data.frequency || existing.frequency
+      const now = new Date()
+      if (freq === 'EVERY_MINUTES') {
+        const interval = Math.max(5, data.minuteInterval ?? existing.minuteInterval)
+        nextRunAt = new Date(now.getTime() + interval * 60 * 1000)
+      } else if (freq === 'HOURLY') {
+        const interval = Math.max(1, data.hourlyInterval ?? existing.hourlyInterval)
+        nextRunAt = new Date(now)
+        nextRunAt.setUTCMinutes(0, 0, 0)
+        nextRunAt.setUTCHours(nextRunAt.getUTCHours() + interval)
+      } else {
+        const time = data.scheduledTime || existing.scheduledTime
+        const [hours, minutes] = time.split(':').map(Number)
+        nextRunAt = new Date(now)
+        nextRunAt.setUTCHours(hours, minutes, 0, 0)
+        if (nextRunAt <= now) {
+          nextRunAt.setUTCDate(nextRunAt.getUTCDate() + 1)
+        }
       }
-      nextRunAt = next
     }
 
     // If deactivated, clear nextRunAt
@@ -118,7 +130,7 @@ export async function PATCH(
 
     // Simple scalar fields
     const scalarFields = [
-      'name', 'isActive', 'frequency', 'timezone', 'scheduledTime',
+      'name', 'isActive', 'frequency', 'minuteInterval', 'hourlyInterval', 'timezone', 'scheduledTime',
       'useTrendingTopics', 'durationSeconds', 'durationMinutes',
       'aspectRatio', 'language', 'autoPublish', 'publishDelay', 'requireApproval',
     ] as const

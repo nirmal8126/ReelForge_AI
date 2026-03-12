@@ -13,7 +13,8 @@ const createScheduleSchema = z.object({
   channelProfileId: z.string().nullable().optional(),
 
   // Schedule
-  frequency: z.enum(['HOURLY', 'DAILY', 'WEEKLY', 'BIWEEKLY', 'MONTHLY', 'CUSTOM']).default('WEEKLY'),
+  frequency: z.enum(['EVERY_MINUTES', 'HOURLY', 'DAILY', 'WEEKLY', 'BIWEEKLY', 'MONTHLY', 'CUSTOM']).default('WEEKLY'),
+  minuteInterval: z.number().int().min(5).max(45).default(30),
   hourlyInterval: z.number().int().min(1).max(12).default(1),
   cronExpression: z.string().max(100).nullable().optional(),
   timezone: z.string().max(50).default('UTC'),
@@ -83,7 +84,11 @@ export async function POST(req: NextRequest) {
     // Calculate first run time
     const now = new Date()
     let nextRunAt: Date
-    if (data.frequency === 'HOURLY') {
+    if (data.frequency === 'EVERY_MINUTES') {
+      // First run = now + minuteInterval minutes
+      const interval = Math.max(5, data.minuteInterval)
+      nextRunAt = new Date(now.getTime() + interval * 60 * 1000)
+    } else if (data.frequency === 'HOURLY') {
       // First run = now + hourlyInterval hours, aligned to top of hour
       nextRunAt = new Date(now)
       nextRunAt.setUTCMinutes(0, 0, 0)
@@ -104,6 +109,7 @@ export async function POST(req: NextRequest) {
         name: data.name,
         moduleType: data.moduleType,
         frequency: data.frequency,
+        minuteInterval: data.minuteInterval,
         hourlyInterval: data.hourlyInterval,
         cronExpression: data.cronExpression || null,
         timezone: data.timezone,
