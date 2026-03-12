@@ -26,7 +26,7 @@ const createScheduleSchema = z.object({
   customTopics: z.array(z.string().min(1)).nullable().optional(),
 
   // Video settings
-  durationSeconds: z.number().int().min(15).max(90).default(30),
+  durationSeconds: z.number().int().min(5).max(90).default(30),
   durationMinutes: z.number().int().min(5).max(30).default(10),
   aspectRatio: z.string().max(10).default('9:16'),
   style: z.string().max(100).nullable().optional(),

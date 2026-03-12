@@ -56,7 +56,7 @@ const updateScheduleSchema = z.object({
   useTrendingTopics: z.boolean().optional(),
   trendingCategories: z.array(z.string()).nullable().optional(),
   customTopics: z.array(z.string().min(1)).nullable().optional(),
-  durationSeconds: z.number().int().min(15).max(90).optional(),
+  durationSeconds: z.number().int().min(5).max(90).optional(),
   durationMinutes: z.number().int().min(5).max(30).optional(),
   aspectRatio: z.string().max(10).optional(),
   style: z.string().max(100).nullable().optional(),
