@@ -31,6 +31,7 @@ export interface CartoonEpisodeJobData {
   voiceEnabled?: boolean;
   bgMusicTrack?: string;
   bgMusicVolume?: number;
+  durationSeconds?: number;
   plan: string;
 }
 
@@ -129,6 +130,7 @@ export async function processCartoonEpisode(
         })),
         episodePrompt: episode.prompt,
         language: series.language,
+        durationSeconds: job.data.durationSeconds,
       });
 
       // Generate a proper episode title from the story content

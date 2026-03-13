@@ -114,6 +114,7 @@ export async function POST(req: NextRequest) {
           language: scheduleData.language,
           aspectRatio: scheduleData.aspectRatio,
           narratorVoiceId: scheduleData.narratorVoiceId,
+          durationSeconds: scheduleData.durationSeconds,
           plan,
         })
         break

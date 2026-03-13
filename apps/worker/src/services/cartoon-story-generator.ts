@@ -28,6 +28,19 @@ export interface CartoonStoryResult {
 }
 
 // ---------------------------------------------------------------------------
+// Duration → scene count mapping
+// ---------------------------------------------------------------------------
+
+function getDurationConfig(durationSeconds?: number) {
+  const dur = durationSeconds || 120; // default ~2 minutes
+  if (dur <= 10) return { sceneRange: '2-3', durationTarget: '5-10 seconds', narrationGuide: '1 sentence (10-15 words)', dialogueGuide: '1 dialogue line (5-10 words)' };
+  if (dur <= 30) return { sceneRange: '3-5', durationTarget: '15-30 seconds', narrationGuide: '1-2 sentences (15-25 words)', dialogueGuide: '1-2 dialogue lines (5-15 words each)' };
+  if (dur <= 60) return { sceneRange: '5-8', durationTarget: '30-60 seconds', narrationGuide: '1-2 sentences (20-35 words)', dialogueGuide: '1-3 dialogue lines (10-15 words each)' };
+  if (dur <= 120) return { sceneRange: '8-12', durationTarget: '1-2 minutes', narrationGuide: '2-3 sentences (25-40 words)', dialogueGuide: '2-3 dialogue lines (10-20 words each)' };
+  return { sceneRange: '10-15', durationTarget: '2-4 minutes', narrationGuide: '2-4 sentences (30-50 words)', dialogueGuide: '2-4 dialogue lines (10-20 words each)' };
+}
+
+// ---------------------------------------------------------------------------
 // AI Clients (lazy-initialised)
 // ---------------------------------------------------------------------------
 
@@ -54,6 +67,7 @@ export async function generateCartoonStory(opts: {
   characters: CartoonCharacterInfo[];
   episodePrompt: string;
   language: string;
+  durationSeconds?: number;
 }): Promise<CartoonStoryResult> {
   // Load admin-configured story providers in priority order
   const providers = await getActiveProviders('story');
@@ -195,8 +209,10 @@ async function generateWithAnthropic(opts: {
   characters: CartoonCharacterInfo[];
   episodePrompt: string;
   language: string;
+  durationSeconds?: number;
 }): Promise<CartoonStoryResult> {
   const client = getAnthropicClient();
+  const durConfig = getDurationConfig(opts.durationSeconds);
 
   const languageName = getLanguageName(opts.language);
 
@@ -227,7 +243,7 @@ CREATIVE DIRECTION (follow these for a unique story):
 - Uniqueness seed: ${creativity.seed} — make this story completely different from any previous episode
 
 IMPORTANT RULES:
-1. Write EXACTLY 10-15 scenes that tell a complete story with beginning, middle, and end
+1. Write EXACTLY ${durConfig.sceneRange} scenes that tell a complete story with beginning, middle, and end
 2. Each scene must have a description, visual prompt (for image generation), narration, and dialogue
 3. Use the characters by their exact names
 4. Make dialogue natural and match each character's personality
@@ -236,14 +252,13 @@ IMPORTANT RULES:
 7. Each visual prompt should describe the characters by their physical appearance (not just name) so the image AI knows what to draw
 8. The LAST scene MUST be a CTA (Call to Action) scene — the narration should ask viewers to like, subscribe, share, and follow for more episodes of "${opts.seriesName}"
 
-DURATION TARGET: The final episode video MUST be 2-4 minutes long. This means each scene needs enough spoken content.
+DURATION TARGET: The final episode video MUST be ${durConfig.durationTarget} long. This means each scene needs enough spoken content.
 
-NARRATION & DIALOGUE LENGTH RULES (for 2-4 minute episodes):
-- Narration: 2-4 sentences per scene (30-50 words). Descriptive, engaging, storytelling tone. Clear and natural for AI voice.
-- Dialogue: 2-4 dialogue lines per scene. Each line 10-20 words. Natural, expressive, conversational.
+NARRATION & DIALOGUE LENGTH RULES (for ${durConfig.durationTarget} episodes):
+- Narration: ${durConfig.narrationGuide}. Descriptive, engaging, storytelling tone. Clear and natural for AI voice.
+- Dialogue: ${durConfig.dialogueGuide}. Natural, expressive, conversational.
 - Description: Keep brief (1 short sentence)
 - Use simple, clear language — avoid overly complex sentences that sound robotic when spoken aloud.
-- Each scene should have ~15-20 seconds of spoken content (narration + dialogue combined).
 
 MULTIPLE IMAGES PER SCENE:
 - Each scene MUST have a "visualPrompts" array with 2-3 different image prompts showing different angles/moments of that scene
@@ -279,7 +294,7 @@ OUTPUT FORMAT: Return ONLY valid JSON (no markdown, no code blocks) with this st
     temperature: 0.95,
     system: systemPrompt,
     messages: [
-      { role: 'user', content: `Write an episode about: ${opts.episodePrompt}\n\nCREATIVE SEEDS: Theme="${creativity.theme}", Setting="${creativity.setting}", Twist="${creativity.twist}"\n\nIMPORTANT: Write all narration, dialogue, and descriptions in ${languageName}. Only visualPrompts should be in English. Write EXACTLY 10-15 scenes. Each scene MUST have "visualPrompts" array with 2-3 different image prompts. TARGET DURATION: 2-4 minutes. Narration should be 2-4 sentences (30-50 words) per scene. Dialogue should be 2-4 lines per scene (10-20 words each). The LAST scene must be a CTA asking viewers to like, subscribe, and follow for more "${opts.seriesName}" episodes.\n\nMake this story COMPLETELY UNIQUE — different plot, different conflicts, different scenes from any previous generation.` },
+      { role: 'user', content: `Write an episode about: ${opts.episodePrompt}\n\nCREATIVE SEEDS: Theme="${creativity.theme}", Setting="${creativity.setting}", Twist="${creativity.twist}"\n\nIMPORTANT: Write all narration, dialogue, and descriptions in ${languageName}. Only visualPrompts should be in English. Write EXACTLY ${durConfig.sceneRange} scenes. Each scene MUST have "visualPrompts" array with 2-3 different image prompts. TARGET DURATION: ${durConfig.durationTarget}. Narration: ${durConfig.narrationGuide} per scene. Dialogue: ${durConfig.dialogueGuide} per scene. The LAST scene must be a CTA asking viewers to like, subscribe, and follow for more "${opts.seriesName}" episodes.\n\nMake this story COMPLETELY UNIQUE — different plot, different conflicts, different scenes from any previous generation.` },
     ],
   });
 
@@ -334,11 +349,13 @@ async function generateWithGemini(opts: {
   characters: CartoonCharacterInfo[];
   episodePrompt: string;
   language: string;
+  durationSeconds?: number;
 }): Promise<CartoonStoryResult> {
   const languageName = getLanguageName(opts.language);
   const model = process.env.GEMINI_MODEL || 'gemini-2.5-flash';
   const apiKey = process.env.GEMINI_API_KEY!;
   const creativity = getStorySeed();
+  const durConfig = getDurationConfig(opts.durationSeconds);
 
   const characterList = opts.characters
     .map((c) => `- ${c.name}: ${c.description || 'No description'}. Personality: ${c.personality || 'Not specified'}`)
@@ -365,7 +382,7 @@ CREATIVE DIRECTION (follow these for a unique story):
 - Uniqueness seed: ${creativity.seed} — make this story completely different from any previous episode
 
 IMPORTANT RULES:
-1. Write EXACTLY 10-15 scenes that tell a complete story with beginning, middle, and end
+1. Write EXACTLY ${durConfig.sceneRange} scenes that tell a complete story with beginning, middle, and end
 2. Each scene must have a description, visual prompt (for image generation), narration, and dialogue
 3. Use the characters by their exact names
 4. Make dialogue natural and match each character's personality
@@ -374,14 +391,13 @@ IMPORTANT RULES:
 7. Each visual prompt should describe the characters by their physical appearance (not just name) so the image AI knows what to draw
 8. The LAST scene MUST be a CTA (Call to Action) scene — the narration should ask viewers to like, subscribe, share, and follow for more episodes of "${opts.seriesName}"
 
-DURATION TARGET: The final episode video MUST be 2-4 minutes long. This means each scene needs enough spoken content.
+DURATION TARGET: The final episode video MUST be ${durConfig.durationTarget} long. This means each scene needs enough spoken content.
 
-NARRATION & DIALOGUE LENGTH RULES (for 2-4 minute episodes):
-- Narration: 2-4 sentences per scene (30-50 words). Descriptive, engaging, storytelling tone. Clear and natural for AI voice.
-- Dialogue: 2-4 dialogue lines per scene. Each line 10-20 words. Natural, expressive, conversational.
+NARRATION & DIALOGUE LENGTH RULES (for ${durConfig.durationTarget} episodes):
+- Narration: ${durConfig.narrationGuide}. Descriptive, engaging, storytelling tone. Clear and natural for AI voice.
+- Dialogue: ${durConfig.dialogueGuide}. Natural, expressive, conversational.
 - Description: Keep brief (1 short sentence)
 - Use simple, clear language — avoid overly complex sentences that sound robotic when spoken aloud.
-- Each scene should have ~15-20 seconds of spoken content (narration + dialogue combined).
 
 MULTIPLE IMAGES PER SCENE:
 - Each scene MUST have a "visualPrompts" array with 2-3 different image prompts showing different angles/moments of that scene
@@ -418,7 +434,7 @@ OUTPUT FORMAT: Return ONLY valid JSON with this structure:
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         system_instruction: { parts: [{ text: systemPrompt }] },
-        contents: [{ role: 'user', parts: [{ text: `Write an episode about: ${opts.episodePrompt}\n\nCREATIVE SEEDS: Theme="${creativity.theme}", Setting="${creativity.setting}", Twist="${creativity.twist}"\n\nIMPORTANT: Write all narration, dialogue, and descriptions in ${languageName}. Only visualPrompts should be in English. Write EXACTLY 10-15 scenes. Each scene MUST have "visualPrompts" array with 2-3 different image prompts. TARGET DURATION: 2-4 minutes. Narration should be 2-4 sentences (30-50 words) per scene. Dialogue should be 2-4 lines per scene (10-20 words each). The LAST scene must be a CTA asking viewers to like, subscribe, and follow for more "${opts.seriesName}" episodes.\n\nMake this story COMPLETELY UNIQUE — different plot, different conflicts, different scenes from any previous generation.` }] }],
+        contents: [{ role: 'user', parts: [{ text: `Write an episode about: ${opts.episodePrompt}\n\nCREATIVE SEEDS: Theme="${creativity.theme}", Setting="${creativity.setting}", Twist="${creativity.twist}"\n\nIMPORTANT: Write all narration, dialogue, and descriptions in ${languageName}. Only visualPrompts should be in English. Write EXACTLY ${durConfig.sceneRange} scenes. Each scene MUST have "visualPrompts" array with 2-3 different image prompts. TARGET DURATION: ${durConfig.durationTarget}. Narration: ${durConfig.narrationGuide} per scene. Dialogue: ${durConfig.dialogueGuide} per scene. The LAST scene must be a CTA asking viewers to like, subscribe, and follow for more "${opts.seriesName}" episodes.\n\nMake this story COMPLETELY UNIQUE — different plot, different conflicts, different scenes from any previous generation.` }] }],
         generationConfig: {
           temperature: 0.95,
           maxOutputTokens: 8192,

@@ -413,6 +413,7 @@ async function createCartoonJob(schedule: NonNullable<ScheduleWithUser>, topic: 
       language: series.language || schedule.language,
       aspectRatio: series.aspectRatio || '16:9',
       narratorVoiceId: series.narratorVoiceId || (settings.narratorVoiceId as string) || undefined,
+      durationSeconds: schedule.durationSeconds || 30,
     },
   });
 

@@ -158,6 +158,7 @@ export async function enqueueCartoonEpisode(data: {
   voiceEnabled?: boolean
   bgMusicTrack?: string
   bgMusicVolume?: number
+  durationSeconds?: number
   plan: string
 }) {
   const queue = getCartoonQueue()

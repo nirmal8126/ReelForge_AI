@@ -1005,7 +1005,7 @@ function CreateScheduleForm({
     }
   }
 
-  const showDuration = ['REEL', 'CHALLENGE', 'GAMEPLAY'].includes(form.moduleType)
+  const showDuration = ['REEL', 'CHALLENGE', 'GAMEPLAY', 'CARTOON'].includes(form.moduleType)
   const showLongFormDuration = form.moduleType === 'LONG_FORM'
   const showVoice = ['REEL', 'LONG_FORM'].includes(form.moduleType)
   const showStyle = ['REEL', 'LONG_FORM'].includes(form.moduleType)
