@@ -30,6 +30,8 @@ const SETTING_DEFAULTS: Record<string, string> = {
   support_email: 'support@reelforge.ai',
   terms_url: '',
   privacy_url: '',
+  theme_default_mode: 'dark',
+  theme_brand_color: '#6366F1',
 }
 
 // GET /api/admin/settings — list all app settings

@@ -18,6 +18,10 @@ import {
   ImageIcon,
   Trash2,
   Sparkles,
+  Palette,
+  Sun,
+  Moon,
+  Monitor,
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 
@@ -191,9 +195,9 @@ export default function AdminSettingsPage() {
   return (
     <div>
       {/* Header */}
-      <div className="flex items-center justify-between mb-6 pb-5 border-b border-white/[0.06]">
+      <div className="flex items-center justify-between mb-6 pb-5 border-b border-gray-200 dark:border-white/[0.06]">
         <div>
-          <h1 className="text-2xl font-bold text-white tracking-tight flex items-center gap-3">
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-white tracking-tight flex items-center gap-3">
             <Settings className="h-6 w-6 text-brand-400" />
             App Settings
           </h1>
@@ -204,7 +208,7 @@ export default function AdminSettingsPage() {
         <button
           onClick={handleSave}
           disabled={saving || !dirty}
-          className="inline-flex items-center gap-2 rounded-lg bg-brand-600 px-5 py-2.5 text-sm font-medium text-white hover:bg-brand-500 transition disabled:opacity-40"
+          className="inline-flex items-center gap-2 rounded-lg bg-brand-600 px-5 py-2.5 text-sm font-medium text-gray-900 dark:text-white hover:bg-brand-500 transition disabled:opacity-40"
         >
           {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
           Save Changes
@@ -217,13 +221,13 @@ export default function AdminSettingsPage() {
           <Sparkles className="h-3.5 w-3.5" />
           Branding
         </h3>
-        <div className="rounded-xl border border-white/10 bg-white/[0.02] p-6">
+        <div className="rounded-xl border border-gray-200 dark:border-white/10 bg-white dark:bg-white/[0.02] p-6">
           <div className="flex flex-col lg:flex-row gap-8">
             {/* Logo Upload */}
             <div className="flex-shrink-0">
               <label className="text-xs text-gray-400 font-medium mb-3 block">App Logo</label>
               <div className="flex items-start gap-4">
-                <div className="h-24 w-24 rounded-xl border-2 border-dashed border-white/10 bg-white/[0.03] flex items-center justify-center overflow-hidden relative group">
+                <div className="h-24 w-24 rounded-xl border-2 border-dashed border-gray-300 dark:border-white/10 bg-gray-50 dark:bg-white/[0.03] flex items-center justify-center overflow-hidden relative group">
                   {settings.app_logo ? (
                     <>
                       {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -256,7 +260,7 @@ export default function AdminSettingsPage() {
                   <button
                     onClick={() => logoInputRef.current?.click()}
                     disabled={uploadingLogo}
-                    className="inline-flex items-center gap-2 rounded-lg border border-white/10 bg-white/5 px-3.5 py-2 text-xs font-medium text-gray-300 hover:bg-white/10 hover:text-white transition disabled:opacity-50"
+                    className="inline-flex items-center gap-2 rounded-lg border border-gray-200 dark:border-white/10 bg-gray-50 dark:bg-white/5 px-3.5 py-2 text-xs font-medium text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-white/10 hover:text-gray-900 dark:hover:text-white transition disabled:opacity-50"
                   >
                     {uploadingLogo ? (
                       <Loader2 className="h-3.5 w-3.5 animate-spin" />
@@ -279,7 +283,7 @@ export default function AdminSettingsPage() {
                   value={settings.app_name || ''}
                   onChange={(e) => updateSetting('app_name', e.target.value)}
                   placeholder="ReelForge AI"
-                  className="w-full rounded-lg border border-white/10 bg-white/5 px-3.5 py-2.5 text-sm text-white placeholder:text-gray-600 focus:outline-none focus:border-brand-500 transition"
+                  className="w-full rounded-lg border border-gray-200 dark:border-white/10 bg-gray-50 dark:bg-white/5 px-3.5 py-2.5 text-sm text-gray-900 dark:text-white placeholder:text-gray-400 dark:placeholder:text-gray-600 focus:outline-none focus:border-brand-500 transition"
                 />
               </div>
               <div>
@@ -289,8 +293,135 @@ export default function AdminSettingsPage() {
                   value={settings.app_tagline || ''}
                   onChange={(e) => updateSetting('app_tagline', e.target.value)}
                   placeholder="AI-powered short video generation"
-                  className="w-full rounded-lg border border-white/10 bg-white/5 px-3.5 py-2.5 text-sm text-white placeholder:text-gray-600 focus:outline-none focus:border-brand-500 transition"
+                  className="w-full rounded-lg border border-gray-200 dark:border-white/10 bg-gray-50 dark:bg-white/5 px-3.5 py-2.5 text-sm text-gray-900 dark:text-white placeholder:text-gray-400 dark:placeholder:text-gray-600 focus:outline-none focus:border-brand-500 transition"
                 />
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* ───────── Theme Customization ───────── */}
+      <div className="mb-8">
+        <h3 className="text-xs font-semibold uppercase tracking-widest text-gray-500 dark:text-gray-500 mb-4 flex items-center gap-2">
+          <Palette className="h-3.5 w-3.5" />
+          Theme Customization
+        </h3>
+        <div className="rounded-xl border border-gray-200 dark:border-white/10 bg-white dark:bg-white/[0.02] p-6">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            {/* Default Theme Mode */}
+            <div>
+              <label className="text-xs text-gray-500 dark:text-gray-400 font-medium mb-3 block">Default Theme</label>
+              <p className="text-[10px] text-gray-400 dark:text-gray-600 mb-3">
+                Set the default theme for new visitors. Users can still toggle their own preference.
+              </p>
+              <div className="flex gap-2">
+                {[
+                  { value: 'light', label: 'Light', icon: Sun },
+                  { value: 'dark', label: 'Dark', icon: Moon },
+                  { value: 'system', label: 'System', icon: Monitor },
+                ].map((mode) => (
+                  <button
+                    key={mode.value}
+                    onClick={() => updateSetting('theme_default_mode', mode.value)}
+                    className={`flex items-center gap-2 rounded-lg border px-4 py-2.5 text-sm font-medium transition ${
+                      (settings.theme_default_mode || 'dark') === mode.value
+                        ? 'border-brand-500 bg-brand-500/10 text-brand-400'
+                        : 'border-gray-200 dark:border-white/10 bg-gray-50 dark:bg-white/5 text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-white/10'
+                    }`}
+                  >
+                    <mode.icon className="h-4 w-4" />
+                    {mode.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Brand Color */}
+            <div>
+              <label className="text-xs text-gray-500 dark:text-gray-400 font-medium mb-3 block">Brand Color</label>
+              <p className="text-[10px] text-gray-400 dark:text-gray-600 mb-3">
+                Custom brand color applied across the entire platform (buttons, links, accents).
+              </p>
+              <div className="flex items-center gap-4">
+                <div className="relative">
+                  <input
+                    type="color"
+                    value={settings.theme_brand_color || '#6366F1'}
+                    onChange={(e) => updateSetting('theme_brand_color', e.target.value)}
+                    className="h-12 w-12 rounded-lg border border-gray-200 dark:border-white/10 cursor-pointer bg-transparent p-1"
+                  />
+                </div>
+                <div className="flex-1">
+                  <input
+                    type="text"
+                    value={settings.theme_brand_color || '#6366F1'}
+                    onChange={(e) => {
+                      const v = e.target.value
+                      if (/^#[0-9A-Fa-f]{0,6}$/.test(v)) {
+                        updateSetting('theme_brand_color', v)
+                      }
+                    }}
+                    placeholder="#6366F1"
+                    className="w-full rounded-lg border border-gray-200 dark:border-white/10 bg-gray-50 dark:bg-white/5 px-3.5 py-2.5 text-sm text-gray-900 dark:text-white placeholder:text-gray-400 dark:placeholder:text-gray-600 focus:outline-none focus:border-brand-500 transition font-mono"
+                  />
+                </div>
+                {settings.theme_brand_color && settings.theme_brand_color !== '#6366F1' && (
+                  <button
+                    onClick={() => updateSetting('theme_brand_color', '#6366F1')}
+                    className="text-xs text-gray-400 hover:text-gray-200 transition whitespace-nowrap"
+                  >
+                    Reset
+                  </button>
+                )}
+              </div>
+              {/* Color Preview */}
+              <div className="flex gap-1.5 mt-3">
+                {[300, 400, 500, 600, 700].map((shade) => (
+                  <div
+                    key={shade}
+                    className="h-6 flex-1 rounded"
+                    style={{
+                      backgroundColor: settings.theme_brand_color || '#6366F1',
+                      opacity: shade === 300 ? 0.5 : shade === 400 ? 0.7 : shade === 500 ? 1 : shade === 600 ? 0.85 : 0.7,
+                      filter: shade < 500 ? `brightness(${1 + (500 - shade) / 300})` : shade > 500 ? `brightness(${1 - (shade - 500) / 500})` : 'none',
+                    }}
+                  />
+                ))}
+              </div>
+              <div className="flex justify-between mt-1">
+                <span className="text-[9px] text-gray-500">Light</span>
+                <span className="text-[9px] text-gray-500">Dark</span>
+              </div>
+
+              {/* Preset Colors */}
+              <div className="mt-4">
+                <p className="text-[10px] text-gray-500 mb-2">Presets</p>
+                <div className="flex gap-2 flex-wrap">
+                  {[
+                    { color: '#6366F1', name: 'Indigo' },
+                    { color: '#8B5CF6', name: 'Violet' },
+                    { color: '#3B82F6', name: 'Blue' },
+                    { color: '#06B6D4', name: 'Cyan' },
+                    { color: '#10B981', name: 'Emerald' },
+                    { color: '#F59E0B', name: 'Amber' },
+                    { color: '#EF4444', name: 'Red' },
+                    { color: '#EC4899', name: 'Pink' },
+                    { color: '#F97316', name: 'Orange' },
+                  ].map((preset) => (
+                    <button
+                      key={preset.color}
+                      onClick={() => updateSetting('theme_brand_color', preset.color)}
+                      title={preset.name}
+                      className={`h-7 w-7 rounded-full border-2 transition hover:scale-110 ${
+                        (settings.theme_brand_color || '#6366F1') === preset.color
+                          ? 'border-white dark:border-white scale-110'
+                          : 'border-transparent'
+                      }`}
+                      style={{ backgroundColor: preset.color }}
+                    />
+                  ))}
+                </div>
               </div>
             </div>
           </div>
@@ -305,16 +436,16 @@ export default function AdminSettingsPage() {
         </h3>
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
           {/* Toggle Cards */}
-          <div className="rounded-xl border border-white/10 bg-white/[0.02] p-5 space-y-3">
+          <div className="rounded-xl border border-gray-200 dark:border-white/10 bg-white dark:bg-white/[0.02] p-5 space-y-3">
             {[
               { key: 'maintenance_mode', label: 'Maintenance Mode', desc: 'Disable access for non-admin users', color: 'text-red-400', dotColor: 'bg-red-400' },
               { key: 'signup_enabled', label: 'New Signups', desc: 'Allow new user registrations', color: 'text-green-400', dotColor: 'bg-green-400' },
             ].map((item) => (
-              <div key={item.key} className="flex items-center justify-between rounded-lg border border-white/[0.06] bg-white/[0.02] px-4 py-3">
+              <div key={item.key} className="flex items-center justify-between rounded-lg border border-gray-200 dark:border-white/[0.06] bg-white/[0.02] px-4 py-3">
                 <div className="flex items-center gap-3">
                   <span className={`h-2 w-2 rounded-full ${settings[item.key] === 'true' ? item.dotColor : 'bg-gray-600'}`} />
                   <div>
-                    <p className="text-sm font-medium text-white">{item.label}</p>
+                    <p className="text-sm font-medium text-gray-900 dark:text-white">{item.label}</p>
                     <p className="text-[10px] text-gray-500 mt-0.5">{item.desc}</p>
                   </div>
                 </div>
@@ -325,14 +456,14 @@ export default function AdminSettingsPage() {
                     onChange={(e) => updateSetting(item.key, e.target.checked ? 'true' : 'false')}
                     className="sr-only peer"
                   />
-                  <div className="w-9 h-5 bg-white/10 rounded-full peer peer-checked:bg-brand-500 peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-0.5 after:left-0.5 after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all" />
+                  <div className="w-9 h-5 bg-gray-200 dark:bg-white/10 rounded-full peer peer-checked:bg-brand-500 peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-0.5 after:left-0.5 after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all" />
                 </label>
               </div>
             ))}
           </div>
 
           {/* Number Inputs */}
-          <div className="rounded-xl border border-white/10 bg-white/[0.02] p-5 space-y-4">
+          <div className="rounded-xl border border-gray-200 dark:border-white/10 bg-white dark:bg-white/[0.02] p-5 space-y-4">
             <div>
               <label className="text-xs text-gray-400 font-medium mb-1.5 block">Credits on Signup</label>
               <p className="text-[10px] text-gray-600 mb-1.5">Free credits given to new users</p>
@@ -343,7 +474,7 @@ export default function AdminSettingsPage() {
                   value={settings.default_credits_on_signup || ''}
                   onChange={(e) => updateSetting('default_credits_on_signup', e.target.value)}
                   placeholder="10"
-                  className="w-full rounded-lg border border-white/10 bg-white/5 px-3.5 py-2 text-sm text-white placeholder:text-gray-600 focus:outline-none focus:border-brand-500 transition"
+                  className="w-full rounded-lg border border-gray-200 dark:border-white/10 bg-gray-50 dark:bg-white/5 px-3.5 py-2 text-sm text-gray-900 dark:text-white placeholder:text-gray-400 dark:placeholder:text-gray-600 focus:outline-none focus:border-brand-500 transition"
                 />
               </div>
             </div>
@@ -357,7 +488,7 @@ export default function AdminSettingsPage() {
                   value={settings.max_free_jobs_per_day || ''}
                   onChange={(e) => updateSetting('max_free_jobs_per_day', e.target.value)}
                   placeholder="3"
-                  className="w-full rounded-lg border border-white/10 bg-white/5 px-3.5 py-2 text-sm text-white placeholder:text-gray-600 focus:outline-none focus:border-brand-500 transition"
+                  className="w-full rounded-lg border border-gray-200 dark:border-white/10 bg-gray-50 dark:bg-white/5 px-3.5 py-2 text-sm text-gray-900 dark:text-white placeholder:text-gray-400 dark:placeholder:text-gray-600 focus:outline-none focus:border-brand-500 transition"
                 />
               </div>
             </div>
@@ -373,7 +504,7 @@ export default function AdminSettingsPage() {
         </h3>
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
           {/* Contact & Legal */}
-          <div className="rounded-xl border border-white/10 bg-white/[0.02] p-5 space-y-4">
+          <div className="rounded-xl border border-gray-200 dark:border-white/10 bg-white dark:bg-white/[0.02] p-5 space-y-4">
             <div>
               <label className="text-xs text-gray-400 font-medium mb-1.5 block">Support Email</label>
               <input
@@ -381,7 +512,7 @@ export default function AdminSettingsPage() {
                 value={settings.support_email || ''}
                 onChange={(e) => updateSetting('support_email', e.target.value)}
                 placeholder="support@reelforge.ai"
-                className="w-full rounded-lg border border-white/10 bg-white/5 px-3.5 py-2.5 text-sm text-white placeholder:text-gray-600 focus:outline-none focus:border-brand-500 transition"
+                className="w-full rounded-lg border border-gray-200 dark:border-white/10 bg-gray-50 dark:bg-white/5 px-3.5 py-2.5 text-sm text-gray-900 dark:text-white placeholder:text-gray-400 dark:placeholder:text-gray-600 focus:outline-none focus:border-brand-500 transition"
               />
             </div>
             <div>
@@ -391,7 +522,7 @@ export default function AdminSettingsPage() {
                 value={settings.terms_url || ''}
                 onChange={(e) => updateSetting('terms_url', e.target.value)}
                 placeholder="https://reelforge.ai/terms"
-                className="w-full rounded-lg border border-white/10 bg-white/5 px-3.5 py-2.5 text-sm text-white placeholder:text-gray-600 focus:outline-none focus:border-brand-500 transition"
+                className="w-full rounded-lg border border-gray-200 dark:border-white/10 bg-gray-50 dark:bg-white/5 px-3.5 py-2.5 text-sm text-gray-900 dark:text-white placeholder:text-gray-400 dark:placeholder:text-gray-600 focus:outline-none focus:border-brand-500 transition"
               />
             </div>
             <div>
@@ -401,16 +532,16 @@ export default function AdminSettingsPage() {
                 value={settings.privacy_url || ''}
                 onChange={(e) => updateSetting('privacy_url', e.target.value)}
                 placeholder="https://reelforge.ai/privacy"
-                className="w-full rounded-lg border border-white/10 bg-white/5 px-3.5 py-2.5 text-sm text-white placeholder:text-gray-600 focus:outline-none focus:border-brand-500 transition"
+                className="w-full rounded-lg border border-gray-200 dark:border-white/10 bg-gray-50 dark:bg-white/5 px-3.5 py-2.5 text-sm text-gray-900 dark:text-white placeholder:text-gray-400 dark:placeholder:text-gray-600 focus:outline-none focus:border-brand-500 transition"
               />
             </div>
           </div>
 
           {/* Security — Change Password */}
-          <div className="rounded-xl border border-white/10 bg-white/[0.02] p-5">
+          <div className="rounded-xl border border-gray-200 dark:border-white/10 bg-white dark:bg-white/[0.02] p-5">
             <div className="flex items-center gap-2.5 mb-4">
               <Lock className="h-4 w-4 text-orange-400" />
-              <h4 className="text-sm font-semibold text-white">Change Password</h4>
+              <h4 className="text-sm font-semibold text-gray-900 dark:text-white">Change Password</h4>
             </div>
 
             <div className="space-y-3">
@@ -422,7 +553,7 @@ export default function AdminSettingsPage() {
                     value={currentPassword}
                     onChange={(e) => setCurrentPassword(e.target.value)}
                     placeholder="Enter current password"
-                    className="w-full rounded-lg border border-white/10 bg-white/5 px-3.5 py-2 pr-10 text-sm text-white placeholder:text-gray-600 focus:outline-none focus:border-brand-500 transition"
+                    className="w-full rounded-lg border border-gray-200 dark:border-white/10 bg-gray-50 dark:bg-white/5 px-3.5 py-2 pr-10 text-sm text-gray-900 dark:text-white placeholder:text-gray-400 dark:placeholder:text-gray-600 focus:outline-none focus:border-brand-500 transition"
                   />
                   <button
                     type="button"
@@ -442,7 +573,7 @@ export default function AdminSettingsPage() {
                     value={newPassword}
                     onChange={(e) => setNewPassword(e.target.value)}
                     placeholder="Min 6 characters"
-                    className="w-full rounded-lg border border-white/10 bg-white/5 px-3.5 py-2 pr-10 text-sm text-white placeholder:text-gray-600 focus:outline-none focus:border-brand-500 transition"
+                    className="w-full rounded-lg border border-gray-200 dark:border-white/10 bg-gray-50 dark:bg-white/5 px-3.5 py-2 pr-10 text-sm text-gray-900 dark:text-white placeholder:text-gray-400 dark:placeholder:text-gray-600 focus:outline-none focus:border-brand-500 transition"
                   />
                   <button
                     type="button"
@@ -461,7 +592,7 @@ export default function AdminSettingsPage() {
                   value={confirmPassword}
                   onChange={(e) => setConfirmPassword(e.target.value)}
                   placeholder="Re-enter new password"
-                  className="w-full rounded-lg border border-white/10 bg-white/5 px-3.5 py-2 text-sm text-white placeholder:text-gray-600 focus:outline-none focus:border-brand-500 transition"
+                  className="w-full rounded-lg border border-gray-200 dark:border-white/10 bg-gray-50 dark:bg-white/5 px-3.5 py-2 text-sm text-gray-900 dark:text-white placeholder:text-gray-400 dark:placeholder:text-gray-600 focus:outline-none focus:border-brand-500 transition"
                 />
                 {confirmPassword && newPassword !== confirmPassword && (
                   <p className="mt-1 text-[10px] text-red-400">Passwords do not match</p>
@@ -471,7 +602,7 @@ export default function AdminSettingsPage() {
               <button
                 onClick={handleChangePassword}
                 disabled={changingPassword || !currentPassword || !newPassword || !confirmPassword}
-                className="inline-flex items-center gap-2 rounded-lg bg-white/10 border border-white/10 px-4 py-2 text-xs font-medium text-white hover:bg-white/20 transition disabled:opacity-40 mt-1"
+                className="inline-flex items-center gap-2 rounded-lg bg-gray-100 dark:bg-white/10 border border-gray-200 dark:border-white/10 px-4 py-2 text-xs font-medium text-gray-900 dark:text-white hover:bg-gray-200 dark:hover:bg-white/20 transition disabled:opacity-40 mt-1"
               >
                 {changingPassword ? (
                   <Loader2 className="h-3.5 w-3.5 animate-spin" />

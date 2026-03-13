@@ -64,7 +64,7 @@ export function Sidebar() {
   }, [])
 
   return (
-    <aside className="fixed left-0 top-0 z-40 h-screen w-64 border-r border-white/[0.06] bg-[#0A0A0F]">
+    <aside className="fixed left-0 top-0 z-40 h-screen w-64 border-r border-gray-200 dark:border-white/[0.06] bg-gray-50 dark:bg-[#0A0A0F]">
       <div className="flex h-full flex-col">
         {/* Logo */}
         <Link href="/dashboard" className="flex items-center gap-2.5 px-5 py-5 hover:opacity-90 transition-opacity">
@@ -72,7 +72,7 @@ export function Sidebar() {
             <Sparkles className="h-4.5 w-4.5 text-white" />
           </div>
           <div>
-            <span className="text-base font-bold text-white tracking-tight">ReelForge</span>
+            <span className="text-base font-bold text-gray-900 dark:text-white tracking-tight">ReelForge</span>
             <span className="text-base font-bold text-brand-400 ml-1">AI</span>
           </div>
         </Link>
@@ -92,7 +92,7 @@ export function Sidebar() {
 
             return (
               <div key={section.label} className="mb-4">
-                <p className="px-3 mb-2 text-[10px] font-semibold uppercase tracking-widest text-gray-500">
+                <p className="px-3 mb-2 text-[10px] font-semibold uppercase tracking-widest text-gray-400 dark:text-gray-500">
                   {section.label}
                 </p>
                 <div className="space-y-0.5">
@@ -105,16 +105,16 @@ export function Sidebar() {
                         className={cn(
                           'group flex items-center gap-3 rounded-lg px-3 py-2 text-[13px] font-medium transition-all',
                           isActive
-                            ? 'bg-brand-500/10 text-brand-400'
-                            : 'text-gray-400 hover:bg-white/[0.04] hover:text-gray-200'
+                            ? 'bg-brand-500/10 text-brand-500 dark:text-brand-400'
+                            : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-white/[0.04] hover:text-gray-900 dark:hover:text-gray-200'
                         )}
                       >
                         <span
                           className={cn(
                             'flex h-7 w-7 items-center justify-center rounded-md transition-colors',
                             isActive
-                              ? 'bg-brand-500/15 text-brand-400'
-                              : 'bg-white/[0.04] text-gray-500 group-hover:bg-white/[0.06] group-hover:text-gray-300'
+                              ? 'bg-brand-500/15 text-brand-500 dark:text-brand-400'
+                              : 'bg-gray-200/60 dark:bg-white/[0.04] text-gray-500 group-hover:bg-gray-200 dark:group-hover:bg-white/[0.06] group-hover:text-gray-700 dark:group-hover:text-gray-300'
                           )}
                         >
                           <item.icon className="h-3.5 w-3.5" />
@@ -134,7 +134,7 @@ export function Sidebar() {
           {/* Super Admin Section — only for ADMIN users */}
           {(session?.user as Record<string, unknown>)?.role === 'ADMIN' && (
             <div className="mb-4">
-              <p className="px-3 mb-2 text-[10px] font-semibold uppercase tracking-widest text-red-400/70">
+              <p className="px-3 mb-2 text-[10px] font-semibold uppercase tracking-widest text-red-500/70 dark:text-red-400/70">
                 Super Admin
               </p>
               <div className="space-y-0.5">
@@ -160,16 +160,16 @@ export function Sidebar() {
                       className={cn(
                         'group flex items-center gap-3 rounded-lg px-3 py-2 text-[13px] font-medium transition-all',
                         isActive
-                          ? 'bg-red-500/10 text-red-400'
-                          : 'text-gray-400 hover:bg-white/[0.04] hover:text-gray-200'
+                          ? 'bg-red-500/10 text-red-500 dark:text-red-400'
+                          : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-white/[0.04] hover:text-gray-900 dark:hover:text-gray-200'
                       )}
                     >
                       <span
                         className={cn(
                           'flex h-7 w-7 items-center justify-center rounded-md transition-colors',
                           isActive
-                            ? 'bg-red-500/15 text-red-400'
-                            : 'bg-white/[0.04] text-gray-500 group-hover:bg-white/[0.06] group-hover:text-gray-300'
+                            ? 'bg-red-500/15 text-red-500 dark:text-red-400'
+                            : 'bg-gray-200/60 dark:bg-white/[0.04] text-gray-500 group-hover:bg-gray-200 dark:group-hover:bg-white/[0.06] group-hover:text-gray-700 dark:group-hover:text-gray-300'
                         )}
                       >
                         <item.icon className="h-3.5 w-3.5" />

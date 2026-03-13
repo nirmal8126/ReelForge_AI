@@ -59,7 +59,10 @@
       "Bash(grep -n \"bgMusic\\\\|backgroundMusic\" /Users/mac/Desktop/ReelForge_AI/apps/web/src/app/\\\\\\(dashboard\\\\\\)/long-form/[id]/edit/*.tsx)",
       "Bash(redis-cli ping:*)",
       "WebSearch",
-      "Bash(DATABASE_URL=\"mysql://root:root@localhost:3306/reelforge_ai\" npx prisma db push --schema=packages/db/prisma/schema.prisma)"
+      "Bash(DATABASE_URL=\"mysql://root:root@localhost:3306/reelforge_ai\" npx prisma db push --schema=packages/db/prisma/schema.prisma)",
+      "Bash(ls -la /Users/mac/Desktop/ReelForge_AI/apps/web/src/app/\\\\\\(dashboard\\\\\\)/admin/)",
+      "Bash(ls -la /Users/mac/Desktop/ReelForge_AI/apps/web/src/app/\\\\\\(dashboard\\\\\\)/admin/settings/)",
+      "Bash(cat /Users/mac/Desktop/ReelForge_AI/apps/web/src/app/\\\\\\(dashboard\\\\\\)/admin/settings/page.tsx)"
     ]
   }
 }

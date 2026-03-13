@@ -20,6 +20,36 @@
     --input: 220 13% 91%;
     --ring: 239 84% 67%;
     --radius: 0.5rem;
+
+    /* Brand colors (can be overridden by admin custom color) */
+    --brand-50: 239 100% 95%;
+    --brand-100: 239 100% 90%;
+    --brand-200: 239 96% 80%;
+    --brand-300: 239 90% 70%;
+    --brand-400: 239 84% 72%;
+    --brand-500: 239 84% 67%;
+    --brand-600: 239 84% 59%;
+    --brand-700: 239 76% 52%;
+    --brand-800: 239 80% 42%;
+    --brand-900: 239 84% 35%;
+    --brand-950: 239 90% 20%;
+
+    /* Sidebar */
+    --sidebar-bg: 220 14% 96%;
+    --sidebar-border: 220 13% 91%;
+    --sidebar-text: 220 9% 46%;
+    --sidebar-text-active: 239 84% 67%;
+    --sidebar-hover: 220 14% 92%;
+
+    /* Surface colors for light mode */
+    --surface: 0 0% 100%;
+    --surface-hover: 220 14% 98%;
+    --surface-secondary: 220 14% 96%;
+    --text-primary: 224 71% 4%;
+    --text-secondary: 220 9% 46%;
+    --text-muted: 220 9% 56%;
+    --header-bg: 0 0% 100%;
+    --dropdown-bg: 0 0% 100%;
   }
 
   .dark {
@@ -38,6 +68,23 @@
     --border: 215 28% 17%;
     --input: 215 28% 17%;
     --ring: 239 84% 67%;
+
+    /* Sidebar */
+    --sidebar-bg: 240 20% 4%;
+    --sidebar-border: 0 0% 100% / 0.06;
+    --sidebar-text: 220 9% 60%;
+    --sidebar-text-active: 239 84% 72%;
+    --sidebar-hover: 0 0% 100% / 0.04;
+
+    /* Surface colors for dark mode */
+    --surface: 0 0% 100% / 0.02;
+    --surface-hover: 0 0% 100% / 0.04;
+    --surface-secondary: 0 0% 100% / 0.05;
+    --text-primary: 0 0% 100%;
+    --text-secondary: 220 9% 60%;
+    --text-muted: 220 9% 40%;
+    --header-bg: 224 71% 4% / 0.8;
+    --dropdown-bg: 240 20% 8%;
   }
 }
 
@@ -48,4 +95,149 @@
   body {
     @apply bg-[hsl(var(--background))] text-[hsl(var(--foreground))];
   }
+}
+
+/* ═══════════════════════════════════════════════════════════
+   Light mode global overrides (flat selectors, no nesting)
+   Converts dark-only utility classes to light-mode equivalents.
+   ═══════════════════════════════════════════════════════════ */
+
+/* ── 1. TEXT-WHITE → dark foreground ── */
+:root:not(.dark) .text-white {
+  color: hsl(224 71% 4%);
+}
+/* Keep #fff on colored / dark backgrounds */
+:root:not(.dark) [class*="bg-brand-5"] > .text-white,
+:root:not(.dark) [class*="bg-brand-6"] > .text-white,
+:root:not(.dark) [class*="bg-brand-7"] > .text-white,
+:root:not(.dark) [class*="bg-brand-8"] > .text-white,
+:root:not(.dark) [class*="bg-brand-9"] > .text-white,
+:root:not(.dark) [class*="bg-brand-5"].text-white,
+:root:not(.dark) [class*="bg-brand-6"].text-white,
+:root:not(.dark) [class*="bg-brand-7"].text-white,
+:root:not(.dark) [class*="bg-brand-8"].text-white,
+:root:not(.dark) [class*="bg-brand-9"].text-white,
+:root:not(.dark) [class*="bg-gradient"] .text-white,
+:root:not(.dark) [class*="bg-gradient"].text-white,
+:root:not(.dark) [class*="bg-black"] .text-white,
+:root:not(.dark) [class*="bg-black"].text-white,
+:root:not(.dark) [class*="bg-red-5"] .text-white,
+:root:not(.dark) [class*="bg-red-6"] .text-white,
+:root:not(.dark) [class*="bg-red-5"].text-white,
+:root:not(.dark) [class*="bg-red-6"].text-white,
+:root:not(.dark) [class*="bg-green-5"] .text-white,
+:root:not(.dark) [class*="bg-green-6"] .text-white,
+:root:not(.dark) [class*="bg-blue-5"] .text-white,
+:root:not(.dark) [class*="bg-blue-6"] .text-white,
+:root:not(.dark) [class*="bg-yellow-5"] .text-white,
+:root:not(.dark) [class*="bg-orange-5"] .text-white,
+:root:not(.dark) [class*="bg-purple-5"] .text-white,
+:root:not(.dark) [class*="bg-pink-5"] .text-white,
+:root:not(.dark) [class*="bg-indigo-5"] .text-white,
+:root:not(.dark) [class*="bg-emerald-5"] .text-white,
+:root:not(.dark) [class*="bg-cyan-5"] .text-white,
+:root:not(.dark) button[class*="bg-brand"].text-white,
+:root:not(.dark) a[class*="bg-brand"].text-white {
+  color: #fff !important;
+}
+
+/* ── 2. TEXT COLORS — darken grays for light bg contrast ── */
+:root:not(.dark) .text-gray-200 { color: hsl(220 9% 30%); }
+:root:not(.dark) .text-gray-300 { color: hsl(220 9% 25%); }
+:root:not(.dark) .text-gray-400 { color: hsl(220 9% 35%); }
+:root:not(.dark) .text-gray-500 { color: hsl(220 9% 30%); }
+:root:not(.dark) .text-gray-600 { color: hsl(220 9% 25%); }
+:root:not(.dark) .hover\:text-white:hover { color: hsl(224 71% 4%); }
+:root:not(.dark) .hover\:text-gray-200:hover { color: hsl(220 9% 15%); }
+:root:not(.dark) .hover\:text-gray-300:hover { color: hsl(220 9% 15%); }
+
+/* ── 3. PLACEHOLDER COLORS — darken for visibility ── */
+:root:not(.dark) .placeholder\:text-gray-600::placeholder { color: hsl(220 9% 60%); }
+:root:not(.dark) .placeholder\:text-gray-500::placeholder { color: hsl(220 9% 55%); }
+:root:not(.dark) .placeholder-gray-500::placeholder { color: hsl(220 9% 55%); }
+:root:not(.dark) .placeholder-gray-600::placeholder { color: hsl(220 9% 60%); }
+
+/* ── 4. BACKGROUNDS — white-opacity → solid light values ── */
+:root:not(.dark) .bg-white\/\[0\.01\],
+:root:not(.dark) .bg-white\/\[0\.02\],
+:root:not(.dark) .bg-white\/\[0\.03\] { background-color: #fff; }
+:root:not(.dark) .bg-white\/\[0\.04\],
+:root:not(.dark) .bg-white\/5 { background-color: hsl(220 14% 97%); }
+:root:not(.dark) .bg-white\/\[0\.06\] { background-color: hsl(220 14% 95%); }
+:root:not(.dark) .bg-white\/\[0\.07\],
+:root:not(.dark) .bg-white\/\[0\.08\] { background-color: hsl(220 14% 94%); }
+:root:not(.dark) .bg-white\/10 { background-color: hsl(220 14% 93%); }
+:root:not(.dark) .bg-white\/20 { background-color: hsl(220 14% 90%); }
+:root:not(.dark) .bg-white\/30 { background-color: hsl(220 14% 87%); }
+
+/* gray-950 dark bg → light equivalent */
+:root:not(.dark) .bg-gray-950 { background-color: hsl(var(--background)); }
+:root:not(.dark) .bg-gray-950\/80 { background-color: hsl(var(--header-bg)); }
+
+/* Hardcoded hex dark backgrounds */
+:root:not(.dark) .bg-\[\#0A0A0F\] { background-color: hsl(220 14% 96%); }
+:root:not(.dark) .bg-\[\#0F0F14\] { background-color: hsl(220 14% 96%); }
+:root:not(.dark) .bg-\[\#0F0F18\] { background-color: hsl(220 14% 97%); }
+:root:not(.dark) .bg-\[\#12121A\] { background-color: #fff; }
+
+/* ── 4b. GRADIENT STOPS — dark gradients → light equivalents ── */
+:root:not(.dark) .from-gray-800 { --tw-gradient-from: hsl(220 14% 90%); }
+:root:not(.dark) .from-gray-900 { --tw-gradient-from: hsl(220 14% 93%); }
+:root:not(.dark) .to-gray-900 { --tw-gradient-to: hsl(220 14% 93%); }
+:root:not(.dark) .to-gray-950 { --tw-gradient-to: hsl(220 14% 96%); }
+:root:not(.dark) .via-gray-900 { --tw-gradient-via: hsl(220 14% 93%); }
+
+/* ── 5. BORDERS — white-opacity → solid light ── */
+:root:not(.dark) .border-white\/\[0\.04\],
+:root:not(.dark) .border-white\/\[0\.05\],
+:root:not(.dark) .border-white\/\[0\.06\],
+:root:not(.dark) .border-white\/\[0\.08\],
+:root:not(.dark) .border-white\/5,
+:root:not(.dark) .border-white\/10,
+:root:not(.dark) .border-white\/\[0\.12\],
+:root:not(.dark) .border-white\/20 {
+  border-color: hsl(220 13% 91%);
+}
+:root:not(.dark) .divide-white\/10 > :not([hidden]) ~ :not([hidden]),
+:root:not(.dark) .divide-white\/\[0\.06\] > :not([hidden]) ~ :not([hidden]) {
+  border-color: hsl(220 13% 91%);
+}
+:root:not(.dark) .ring-white\/\[0\.06\],
+:root:not(.dark) .ring-white\/\[0\.08\],
+:root:not(.dark) .ring-white\/10,
+:root:not(.dark) .ring-white\/20 {
+  --tw-ring-color: hsl(220 13% 91%);
+}
+
+/* ── 6. HOVER BACKGROUNDS ── */
+:root:not(.dark) .hover\:bg-white\/\[0\.02\]:hover,
+:root:not(.dark) .hover\:bg-white\/\[0\.03\]:hover { background-color: hsl(220 14% 96%); }
+:root:not(.dark) .hover\:bg-white\/\[0\.04\]:hover,
+:root:not(.dark) .hover\:bg-white\/\[0\.06\]:hover { background-color: hsl(220 14% 93%); }
+:root:not(.dark) .hover\:bg-white\/\[0\.07\]:hover,
+:root:not(.dark) .hover\:bg-white\/\[0\.08\]:hover { background-color: hsl(220 14% 92%); }
+:root:not(.dark) .hover\:bg-white\/\[0\.1\]:hover,
+:root:not(.dark) .hover\:bg-white\/10:hover { background-color: hsl(220 14% 90%); }
+:root:not(.dark) .hover\:bg-white\/20:hover { background-color: hsl(220 14% 87%); }
+:root:not(.dark) .hover\:bg-white\/30:hover { background-color: hsl(220 14% 84%); }
+:root:not(.dark) .hover\:border-white\/\[0\.1\]:hover,
+:root:not(.dark) .hover\:border-white\/10:hover,
+:root:not(.dark) .hover\:border-white\/\[0\.12\]:hover,
+:root:not(.dark) .hover\:border-white\/20:hover { border-color: hsl(220 13% 85%); }
+
+/* ── 6b. GROUP-HOVER ── */
+:root:not(.dark) .group-hover\:bg-white\/\[0\.06\]:is(.group:hover *) { background-color: hsl(220 14% 93%); }
+:root:not(.dark) .group-hover\:bg-white\/20:is(.group:hover *) { background-color: hsl(220 14% 87%); }
+
+/* ── 7. FOCUS STATES ── */
+:root:not(.dark) .focus\:border-brand-500\/50:focus {
+  border-color: hsl(239 84% 67% / 0.5);
+}
+:root:not(.dark) .focus\:ring-white\/10:focus {
+  --tw-ring-color: hsl(220 13% 91%);
+}
+
+/* ── 8. SHADOW opacity adjustments ── */
+:root:not(.dark) .shadow-brand-500\/20 {
+  --tw-shadow-color: hsl(239 84% 67% / 0.1);
 }

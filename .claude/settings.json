@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(wc -l /Users/mac/Desktop/ReelForge_AI/apps/web/src/app/\\\\\\(dashboard\\\\\\)/dashboard/page.tsx)",
+      "Bash(npx tailwindcss:*)"
+    ],
+    "additionalDirectories": [
+      "/tmp"
+    ]
+  }
+}
