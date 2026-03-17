@@ -4,9 +4,10 @@ import './globals.css'
 import { Toaster } from 'react-hot-toast'
 import { AuthProvider } from '@/components/providers/auth-provider'
 import { ThemeProvider } from '@/components/providers/theme-provider'
-import { prisma } from '@reelforge/db'
 
 const inter = Inter({ subsets: ['latin'] })
+
+export const dynamic = 'force-dynamic'
 
 export const metadata: Metadata = {
   title: 'ReelForge AI - AI-Powered Video Generation Platform',
@@ -17,6 +18,7 @@ export const metadata: Metadata = {
 // Server-side: build the brand color inline script to prevent FOUC
 async function getBrandColorScript() {
   try {
+    const { prisma } = await import('@reelforge/db')
     const setting = await prisma.appSetting.findUnique({
       where: { key: 'theme_brand_color' },
     })

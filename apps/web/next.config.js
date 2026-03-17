@@ -12,14 +12,16 @@ if (fs.existsSync(rootEnvLocal)) dotenv.config({ path: rootEnvLocal, override: f
 const nextConfig = {
   output: 'standalone',
   transpilePackages: ['@reelforge/db'],
-  outputFileTracingRoot: path.join(__dirname, '../../'),
-  outputFileTracingIncludes: {
-    '/*': [
-      '../../node_modules/.prisma/client/**/*',
-      '../../node_modules/@prisma/client/**/*',
-      '../../packages/db/node_modules/.prisma/client/**/*',
-      '../../packages/db/node_modules/@prisma/client/**/*',
-    ],
+  experimental: {
+    outputFileTracingRoot: path.join(__dirname, '../../'),
+    outputFileTracingIncludes: {
+      '/*': [
+        '../../node_modules/.prisma/client/**/*',
+        '../../node_modules/@prisma/client/**/*',
+        '../../packages/db/node_modules/.prisma/client/**/*',
+        '../../packages/db/node_modules/@prisma/client/**/*',
+      ],
+    },
   },
   images: {
     remotePatterns: [

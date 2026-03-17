@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, Suspense } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
@@ -39,6 +39,14 @@ const registerSchema = z.object({
 type RegisterForm = z.infer<typeof registerSchema>
 
 export default function RegisterPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen flex items-center justify-center bg-gradient-to-b from-gray-950 via-gray-900 to-gray-950"><div className="text-white">Loading...</div></div>}>
+      <RegisterContent />
+    </Suspense>
+  )
+}
+
+function RegisterContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const referralCode = searchParams.get('ref') || ''
