@@ -1,6 +1,5 @@
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
-import { getToken } from 'next-auth/jwt'
 
 // Rate limiting store (in-memory for Edge runtime)
 const rateLimitMap = new Map<string, { count: number; resetTime: number }>()
@@ -37,15 +36,22 @@ const protectedPrefixes = [
   '/referrals',
   '/social-accounts',
   '/admin',
+  '/automation',
+  '/templates',
+  '/image-studio',
 ]
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
-  const token = await getToken({
-    req: request,
-    secret: process.env.AUTH_SECRET || process.env.NEXTAUTH_SECRET,
-  })
-  const isAuthenticated = Boolean(token)
+
+  // Check for session cookie (NextAuth v5 beta uses authjs.session-token)
+  const sessionToken =
+    request.cookies.get('authjs.session-token')?.value ||
+    request.cookies.get('__Secure-authjs.session-token')?.value ||
+    request.cookies.get('next-auth.session-token')?.value ||
+    request.cookies.get('__Secure-next-auth.session-token')?.value
+
+  const isAuthenticated = Boolean(sessionToken)
 
   const isProtectedRoute = protectedPrefixes.some(
     (prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`)
