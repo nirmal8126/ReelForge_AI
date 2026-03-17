@@ -10,19 +10,7 @@ if (fs.existsSync(rootEnvLocal)) dotenv.config({ path: rootEnvLocal, override: f
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  output: 'standalone',
   transpilePackages: ['@reelforge/db'],
-  experimental: {
-    outputFileTracingRoot: path.join(__dirname, '../../'),
-    outputFileTracingIncludes: {
-      '/*': [
-        '../../node_modules/.prisma/client/**/*',
-        '../../node_modules/@prisma/client/**/*',
-        '../../packages/db/node_modules/.prisma/client/**/*',
-        '../../packages/db/node_modules/@prisma/client/**/*',
-      ],
-    },
-  },
   images: {
     remotePatterns: [
       { protocol: 'https', hostname: '*.r2.cloudflarestorage.com' },
