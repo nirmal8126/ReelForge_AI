@@ -118,6 +118,130 @@ function generateTitle(topic: string, maxLen = 80): string {
 }
 
 // ---------------------------------------------------------------------------
+// Credit cost calculator — mirrors apps/web/src/lib/credit-cost.ts
+// ---------------------------------------------------------------------------
+
+function calculateCreditCost(schedule: { moduleType: string; durationSeconds: number; durationMinutes: number; moduleSettings?: unknown }): number {
+  const settings = (schedule.moduleSettings || {}) as Record<string, unknown>;
+
+  switch (schedule.moduleType) {
+    case 'REEL':
+      return schedule.durationSeconds <= 15 ? 1 : schedule.durationSeconds <= 30 ? 2 : 3;
+    case 'LONG_FORM':
+      return schedule.durationMinutes <= 5 ? 3 : schedule.durationMinutes <= 10 ? 5 : schedule.durationMinutes <= 15 ? 7 : schedule.durationMinutes <= 20 ? 9 : 12;
+    case 'QUOTE':
+      return 1;
+    case 'CHALLENGE': {
+      const numQ = (settings.numQuestions as number) || 3;
+      const voice = (settings.voiceEnabled as boolean) || false;
+      return numQ >= 5 ? (voice ? 3 : 2) : (voice ? 2 : 1);
+    }
+    case 'GAMEPLAY': {
+      const dur = (settings.duration as number) || schedule.durationSeconds || 30;
+      return dur <= 15 ? 1 : dur <= 30 ? 2 : 3;
+    }
+    case 'CARTOON':
+      return 5;
+    case 'IMAGE_STUDIO': {
+      const imgCount = (settings.imageCount as number) || 1;
+      const voiceOn = (settings.voiceEnabled as boolean) || false;
+      return imgCount >= 4 && voiceOn ? 3 : (imgCount >= 2 || voiceOn) ? 2 : 1;
+    }
+    default:
+      return 1;
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Credit check — mirrors apps/web/src/lib/module-config.ts checkModuleCredits
+// ---------------------------------------------------------------------------
+
+const MODULE_ID_MAP: Record<string, string> = {
+  REEL: 'reels',
+  LONG_FORM: 'long_form',
+  QUOTE: 'quotes',
+  CHALLENGE: 'challenges',
+  GAMEPLAY: 'gameplay',
+  CARTOON: 'cartoon_studio',
+  IMAGE_STUDIO: 'image_studio',
+};
+
+type CreditCheckResult =
+  | { ok: true; creditsCost: number }
+  | { ok: false; error: string };
+
+async function checkAutopilotCredits(
+  userId: string,
+  moduleType: string,
+  creditCost: number,
+): Promise<CreditCheckResult> {
+  const moduleId = MODULE_ID_MAP[moduleType];
+  if (!moduleId) return { ok: false, error: `Unknown module type: ${moduleType}` };
+
+  // Check if module is enabled
+  const moduleConfig = await prisma.moduleConfig.findUnique({ where: { moduleId } });
+  if (moduleConfig && !moduleConfig.isEnabled) {
+    return { ok: false, error: `Module ${moduleId} is disabled` };
+  }
+
+  // Free module — skip checks
+  if (moduleConfig?.isFree) {
+    return { ok: true, creditsCost: 0 };
+  }
+
+  // Check subscription
+  const subscription = await prisma.subscription.findUnique({ where: { userId } });
+  if (!subscription) {
+    return { ok: false, error: 'No active subscription' };
+  }
+
+  const hasUnlimitedJobs = subscription.jobsLimit === -1;
+  const hasQuota = hasUnlimitedJobs || subscription.jobsUsed < subscription.jobsLimit;
+
+  if (hasQuota) {
+    // Use monthly quota
+    await prisma.subscription.update({
+      where: { userId },
+      data: { jobsUsed: { increment: 1 } },
+    });
+    return { ok: true, creditsCost: 0 };
+  }
+
+  // Over quota — check credit balance
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { creditsBalance: true },
+  });
+
+  if (!user || user.creditsBalance < creditCost) {
+    return {
+      ok: false,
+      error: `Quota exceeded. Need ${creditCost} credits, have ${user?.creditsBalance || 0}`,
+    };
+  }
+
+  // Deduct credits atomically
+  const moduleName = moduleConfig?.moduleName || moduleId;
+  await prisma.$transaction([
+    prisma.user.update({
+      where: { id: userId },
+      data: { creditsBalance: { decrement: creditCost } },
+    }),
+    prisma.creditTransaction.create({
+      data: {
+        userId,
+        amount: -creditCost,
+        type: 'JOB_DEBIT',
+        description: `${moduleName} autopilot generation (over quota)`,
+        balanceAfter: user.creditsBalance - creditCost,
+      },
+    }),
+  ]);
+
+  return { ok: true, creditsCost: creditCost };
+}
+
+// ---------------------------------------------------------------------------
 // Module-specific job creators
 // ---------------------------------------------------------------------------
 
@@ -494,6 +618,47 @@ export async function processAutopilotScheduler(job: Job) {
 
       // Get next topic
       const { topic, newIndex } = getNextTopic(schedule);
+
+      // Calculate credit cost for this job
+      const creditCost = calculateCreditCost(schedule);
+
+      // Check credits/quota before creating the job
+      const creditCheck = await checkAutopilotCredits(schedule.userId, schedule.moduleType, creditCost);
+      if (!creditCheck.ok) {
+        logger.warn({
+          scheduleId: schedule.id,
+          userId: schedule.userId,
+          moduleType: schedule.moduleType,
+          error: creditCheck.error,
+        }, 'Skipping autopilot job — insufficient credits/quota');
+
+        // Log the skip
+        await prisma.autopilotLog.create({
+          data: {
+            autopilotScheduleId: schedule.id,
+            userId: schedule.userId,
+            moduleType: schedule.moduleType,
+            jobId: '',
+            status: 'FAILED',
+            topic,
+            publishStatus: 'SKIPPED',
+            errorMessage: creditCheck.error,
+          },
+        });
+
+        // Still advance the schedule so it doesn't retry endlessly
+        const nextRunAt = calculateNextRunAt(
+          schedule.frequency, schedule.timezone, schedule.scheduledTime,
+          schedule.cronExpression, schedule.hourlyInterval, schedule.minuteInterval,
+        );
+        await prisma.autopilotSchedule.update({
+          where: { id: schedule.id },
+          data: { lastRunAt: now, nextRunAt, totalFailed: { increment: 1 } },
+        });
+
+        failed++;
+        continue;
+      }
 
       // Create the job based on module type
       let jobId: string;
