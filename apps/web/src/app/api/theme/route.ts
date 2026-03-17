@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { prisma } from '@reelforge/db'
 
 // GET /api/theme — public endpoint for theme config
+export const dynamic = 'force-dynamic';
 export async function GET() {
   try {
     const settings = await prisma.appSetting.findMany({

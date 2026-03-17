@@ -35,6 +35,7 @@ const SETTING_DEFAULTS: Record<string, string> = {
 }
 
 // GET /api/admin/settings — list all app settings
+export const dynamic = 'force-dynamic';
 export async function GET() {
   const check = await requireAdmin()
   if ('error' in check) {

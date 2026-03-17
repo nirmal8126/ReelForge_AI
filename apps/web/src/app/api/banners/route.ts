@@ -15,6 +15,7 @@ function simpleHash(str: string): number {
 }
 
 // GET /api/banners — get active banners for the current user
+export const dynamic = 'force-dynamic';
 export async function GET() {
   const session = await auth()
   if (!session?.user?.id) {

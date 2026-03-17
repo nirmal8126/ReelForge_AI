@@ -26,6 +26,7 @@ async function requireAdmin() {
 // GET /api/admin/plans — list all plans with subscriber counts
 // ---------------------------------------------------------------------------
 
+export const dynamic = 'force-dynamic';
 export async function GET() {
   const check = await requireAdmin()
   if ('error' in check) {

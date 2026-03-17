@@ -22,6 +22,7 @@ async function requireAdmin() {
 // GET /api/admin/pricing — list all pricing regions (auto-seeds GLOBAL)
 // ---------------------------------------------------------------------------
 
+export const dynamic = 'force-dynamic';
 export async function GET() {
   const check = await requireAdmin()
   if ('error' in check) {

@@ -29,6 +29,7 @@ const campaignSchema = z.object({
 })
 
 // GET /api/admin/marketing/campaigns — list all campaigns
+export const dynamic = 'force-dynamic';
 export async function GET() {
   const check = await requireAdmin()
   if ('error' in check) {

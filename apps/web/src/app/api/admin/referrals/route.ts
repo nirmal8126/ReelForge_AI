@@ -32,6 +32,7 @@ const DEFAULT_TIERS = [
 // GET /api/admin/referrals — list tier configs + stats
 // ---------------------------------------------------------------------------
 
+export const dynamic = 'force-dynamic';
 export async function GET() {
   const check = await requireAdmin()
   if ('error' in check) {

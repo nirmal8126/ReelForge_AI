@@ -15,6 +15,7 @@ const profileSchema = z.object({
   defaultLanguage: z.string().max(10).optional().nullable(),
 })
 
+export const dynamic = 'force-dynamic';
 export async function GET() {
   const session = await auth()
   if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })

@@ -47,6 +47,7 @@ const MODULE_ORDER = DEFAULT_MODULES.map((m) => m.moduleId)
 // GET /api/admin/modules — list all module configs
 // ---------------------------------------------------------------------------
 
+export const dynamic = 'force-dynamic';
 export async function GET() {
   const check = await requireAdmin()
   if ('error' in check) {

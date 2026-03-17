@@ -19,6 +19,7 @@ async function requireAdmin() {
 }
 
 // GET /api/admin/marketing/promos — list all promo codes
+export const dynamic = 'force-dynamic';
 export async function GET() {
   const check = await requireAdmin()
   if ('error' in check) {

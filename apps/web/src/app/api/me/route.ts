@@ -3,6 +3,7 @@ import { auth } from '@/lib/auth'
 import { prisma } from '@reelforge/db'
 import { z } from 'zod'
 
+export const dynamic = 'force-dynamic';
 export async function GET() {
   const session = await auth()
   if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })

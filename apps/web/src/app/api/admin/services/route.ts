@@ -28,6 +28,7 @@ async function requireAdmin() {
 // GET /api/admin/services — get current service provider configuration
 // ---------------------------------------------------------------------------
 
+export const dynamic = 'force-dynamic';
 export async function GET() {
   const check = await requireAdmin()
   if ('error' in check) {

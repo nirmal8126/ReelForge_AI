@@ -18,6 +18,7 @@ async function requireAdmin() {
 }
 
 // GET /api/admin/notifications — list sent notification batches
+export const dynamic = 'force-dynamic';
 export async function GET() {
   const check = await requireAdmin()
   if ('error' in check) {

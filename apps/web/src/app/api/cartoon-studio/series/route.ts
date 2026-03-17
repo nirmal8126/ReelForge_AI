@@ -25,6 +25,7 @@ const createSeriesSchema = z.object({
 })
 
 // GET /api/cartoon-studio/series — list user's series
+export const dynamic = 'force-dynamic';
 export async function GET() {
   const session = await auth()
   if (!session?.user?.id) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })

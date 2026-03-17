@@ -6,6 +6,7 @@ import { prisma } from '@reelforge/db'
 // GET /api/social-accounts — list user's connected accounts
 // ---------------------------------------------------------------------------
 
+export const dynamic = 'force-dynamic';
 export async function GET() {
   const session = await auth()
   if (!session?.user?.id) {

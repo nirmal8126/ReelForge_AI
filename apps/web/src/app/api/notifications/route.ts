@@ -3,6 +3,7 @@ import { auth } from '@/lib/auth'
 import { prisma } from '@reelforge/db'
 
 // GET /api/notifications — user's recent notifications + unread count
+export const dynamic = 'force-dynamic';
 export async function GET() {
   const session = await auth()
   if (!session?.user?.id) {

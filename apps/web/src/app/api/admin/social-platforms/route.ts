@@ -41,6 +41,7 @@ const PLATFORM_ORDER = DEFAULT_PLATFORMS.map((p) => p.platformKey)
 // GET /api/admin/social-platforms — list all platform configs
 // ---------------------------------------------------------------------------
 
+export const dynamic = 'force-dynamic';
 export async function GET() {
   const check = await requireAdmin()
   if ('error' in check) {
