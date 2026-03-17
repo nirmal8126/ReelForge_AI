@@ -10,6 +10,7 @@ if (fs.existsSync(rootEnvLocal)) dotenv.config({ path: rootEnvLocal, override: f
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  output: 'standalone',
   transpilePackages: ['@reelforge/db'],
   outputFileTracingRoot: path.join(__dirname, '../../'),
   outputFileTracingIncludes: {
@@ -25,6 +26,7 @@ const nextConfig = {
       { protocol: 'https', hostname: '*.r2.cloudflarestorage.com' },
       { protocol: 'https', hostname: '*.googleusercontent.com' },
       { protocol: 'https', hostname: 'avatars.githubusercontent.com' },
+      { protocol: 'https', hostname: '*.pub-cdn.apyhi.com' },
     ],
   },
 }
