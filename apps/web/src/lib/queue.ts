@@ -5,8 +5,18 @@ let connection: IORedis | null = null
 
 function getConnection() {
   if (!connection) {
-    connection = new IORedis(process.env.REDIS_URL || 'redis://localhost:6379', {
+    const redisUrl = process.env.REDIS_URL || 'redis://localhost:6379'
+    connection = new IORedis(redisUrl, {
       maxRetriesPerRequest: null,
+      connectTimeout: 10000,
+      retryStrategy(times) {
+        if (times > 3) return null
+        return Math.min(times * 500, 3000)
+      },
+      lazyConnect: false,
+    })
+    connection.on('error', (err) => {
+      console.error('Redis connection error:', err.message)
     })
   }
   return connection
