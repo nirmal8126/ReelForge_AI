@@ -54,6 +54,18 @@ function loadEnvFiles() {
 loadEnvFiles();
 
 // ---------------------------------------------------------------------------
+// Health check server for Railway (must start FIRST before anything else)
+// ---------------------------------------------------------------------------
+const healthPort = parseInt(process.env.PORT || '8080', 10);
+const healthServer = http.createServer((_req, res) => {
+  res.writeHead(200, { 'Content-Type': 'text/plain' });
+  res.end('OK');
+});
+healthServer.listen(healthPort, '0.0.0.0', () => {
+  logger.info({ port: healthPort }, 'Health check server listening');
+});
+
+// ---------------------------------------------------------------------------
 // Redis connection
 // ---------------------------------------------------------------------------
 const connection = new IORedis(process.env.REDIS_URL || 'redis://localhost:6379', {
@@ -552,18 +564,6 @@ const shutdown = async (signal: string) => {
 
 process.on('SIGTERM', () => shutdown('SIGTERM'));
 process.on('SIGINT', () => shutdown('SIGINT'));
-
-// ---------------------------------------------------------------------------
-// Health check server for Railway
-// ---------------------------------------------------------------------------
-const healthPort = parseInt(process.env.PORT || '8080', 10);
-const healthServer = http.createServer((_req, res) => {
-  res.writeHead(200, { 'Content-Type': 'text/plain' });
-  res.end('OK');
-});
-healthServer.listen(healthPort, () => {
-  logger.info({ port: healthPort }, 'Health check server listening');
-});
 
 // ---------------------------------------------------------------------------
 // Startup log
