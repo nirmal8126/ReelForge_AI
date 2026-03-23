@@ -38,9 +38,9 @@ async function refreshYouTubeToken(account: {
     return false;
   }
 
-  const data = await res.json();
-  const newAccessToken = data.access_token as string;
-  const expiresIn = (data.expires_in as number) || 3600;
+  const data = (await res.json()) as { access_token: string; expires_in?: number };
+  const newAccessToken = data.access_token;
+  const expiresIn = data.expires_in || 3600;
 
   await prisma.socialAccount.update({
     where: { id: account.id },
