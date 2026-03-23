@@ -27,7 +27,7 @@ RUN npm ci
 COPY apps/worker ./apps/worker
 
 # Build worker
-RUN npm run build --workspace=@reelforge/worker
+RUN cd apps/worker && npx tsc && ls -la dist/index.js
 
 WORKDIR /app/apps/worker
 
