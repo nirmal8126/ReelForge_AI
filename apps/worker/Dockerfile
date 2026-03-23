@@ -18,17 +18,13 @@ WORKDIR /app
 # Copy root package files for workspace resolution
 COPY package.json package-lock.json ./
 COPY apps/worker/package.json ./apps/worker/
-COPY packages/db/package.json ./packages/db/
+COPY packages/db/ ./packages/db/
 
 # Install all dependencies
 RUN npm ci
 
-# Copy source
-COPY packages/db ./packages/db
+# Copy worker source
 COPY apps/worker ./apps/worker
-
-# Generate Prisma client
-RUN npx prisma generate --schema=packages/db/prisma/schema.prisma
 
 # Build worker
 RUN npm run build --workspace=@reelforge/worker
