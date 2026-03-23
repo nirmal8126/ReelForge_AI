@@ -553,6 +553,19 @@ process.on('SIGTERM', () => shutdown('SIGTERM'));
 process.on('SIGINT', () => shutdown('SIGINT'));
 
 // ---------------------------------------------------------------------------
+// Health check server for Railway
+// ---------------------------------------------------------------------------
+import http from 'http';
+const healthPort = parseInt(process.env.PORT || '8080', 10);
+const healthServer = http.createServer((_req, res) => {
+  res.writeHead(200, { 'Content-Type': 'text/plain' });
+  res.end('OK');
+});
+healthServer.listen(healthPort, () => {
+  logger.info({ port: healthPort }, 'Health check server listening');
+});
+
+// ---------------------------------------------------------------------------
 // Startup log
 // ---------------------------------------------------------------------------
 logger.info(
