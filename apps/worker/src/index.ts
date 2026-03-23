@@ -1,6 +1,7 @@
 import dotenv from 'dotenv';
 import path from 'path';
 import fs from 'fs';
+import http from 'http';
 import { Worker, Queue } from 'bullmq';
 import IORedis from 'ioredis';
 import { logger } from './utils/logger';
@@ -555,7 +556,6 @@ process.on('SIGINT', () => shutdown('SIGINT'));
 // ---------------------------------------------------------------------------
 // Health check server for Railway
 // ---------------------------------------------------------------------------
-import http from 'http';
 const healthPort = parseInt(process.env.PORT || '8080', 10);
 const healthServer = http.createServer((_req, res) => {
   res.writeHead(200, { 'Content-Type': 'text/plain' });
