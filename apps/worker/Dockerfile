@@ -31,6 +31,4 @@ RUN npm run build --workspace=@reelforge/worker
 
 WORKDIR /app/apps/worker
 
-EXPOSE 8080
-
 CMD ["node", "dist/index.js"]
