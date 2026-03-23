@@ -28,8 +28,7 @@ COPY apps/worker ./apps/worker
 
 # Build worker
 RUN cd apps/worker && npx tsc
-RUN find apps/worker/dist -name "index.js" 2>&1
 
 WORKDIR /app/apps/worker
 
-CMD ["node", "dist/index.js"]
+CMD ["node", "dist/apps/worker/src/index.js"]
