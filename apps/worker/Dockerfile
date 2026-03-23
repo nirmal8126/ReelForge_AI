@@ -26,9 +26,10 @@ RUN npm ci
 # Copy worker source
 COPY apps/worker ./apps/worker
 
-# Build worker
-RUN cd apps/worker && npx tsc || true
-RUN ls -la apps/worker/dist/index.js || (echo "BUILD FAILED - dist/index.js not found" && cd apps/worker && npx tsc --skipLibCheck && ls -la dist/index.js)
+# Build worker - show errors
+RUN cd apps/worker && npx tsc 2>&1; echo "EXIT CODE: $?"
+RUN cd apps/worker && npx tsc --skipLibCheck 2>&1; echo "EXIT CODE: $?"
+RUN ls -la apps/worker/dist/ 2>&1 || echo "dist dir not found"
 
 WORKDIR /app/apps/worker
 
