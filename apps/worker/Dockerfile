@@ -27,7 +27,7 @@ RUN npm ci
 COPY apps/worker ./apps/worker
 
 # Build db package (as CJS for worker compatibility)
-RUN cd packages/db && npx tsc --module commonjs --moduleResolution node --outDir ./dist --skipLibCheck
+RUN rm -f packages/db/src/seed.ts && cd packages/db && npx tsc --module commonjs --moduleResolution node --outDir ./dist --skipLibCheck
 # Patch db package.json to point to compiled output
 RUN node -e "const p=require('./packages/db/package.json');p.main='./dist/index.js';require('fs').writeFileSync('./packages/db/package.json',JSON.stringify(p,null,2))"
 
