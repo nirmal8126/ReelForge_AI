@@ -4,10 +4,24 @@
       "Bash(wc -l /Users/mac/Desktop/ReelForge_AI/apps/web/src/app/\\\\\\(dashboard\\\\\\)/dashboard/page.tsx)",
       "Bash(npx tailwindcss:*)",
       "Bash(ls -la /Users/mac/Desktop/ReelForge_AI/apps/web/src/app/\\\\\\(dashboard\\\\\\)/admin/services/)",
-      "Bash(cat \"/Users/mac/Desktop/ReelForge_AI/apps/web/src/app/\\(dashboard\\)/admin/services/page.tsx\")"
+      "Bash(cat \"/Users/mac/Desktop/ReelForge_AI/apps/web/src/app/\\(dashboard\\)/admin/services/page.tsx\")",
+      "Bash(git push:*)",
+      "Bash(git checkout:*)",
+      "Bash(git stash:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(git merge:*)",
+      "WebFetch(domain:reel-forge-ai.vercel.app)",
+      "Bash(DATABASE_URL=\"mysql://root:GgiOIGdLclIVwGFNxcEryznuXgOtgius@host.railway.app:port/railway\" npx prisma db push --schema=packages/db/prisma/schema.prisma)",
+      "Bash(DATABASE_URL=\"mysql://root:GgiOIGdLclIVwGFNxcEryznuXgOtgius@switchyard.proxy.rlwy.net:56280/railway\" npx prisma db push --schema=packages/db/prisma/schema.prisma)",
+      "Bash(DATABASE_URL=\"mysql://root:GgiOIGdLclIVwGFNxcEryznuXgOtgius@switchyard.proxy.rlwy.net:56280/railway\" npx tsx packages/db/src/seed.ts)",
+      "Bash(DATABASE_URL=\"mysql://root:GgiOIGdLclIVwGFNxcEryznuXgOtgius@switchyard.proxy.rlwy.net:56280/railway\" npx tsx -e ':*)",
+      "Bash(ls -la /Users/mac/Desktop/ReelForge_AI/apps/web/src/app/\\\\\\(dashboard\\\\\\)/billing/)",
+      "WebFetch(domain:docs.railway.com)"
     ],
     "additionalDirectories": [
-      "/tmp"
+      "/tmp",
+      "/Users/mac/Desktop"
     ]
   }
 }
