@@ -104,9 +104,24 @@ export async function generateVoiceover(opts: VoiceoverOptions): Promise<Buffer>
     if (axios.isAxiosError(err) && err.response) {
       const errorText = Buffer.from(err.response.data).toString('utf-8');
       log.error({ status: err.response.status, body: errorText, voiceId, modelId, language }, 'ElevenLabs API error');
-      throw new Error(`ElevenLabs API error ${err.response.status}: ${errorText}`);
+
+      // Fallback to Google TTS if ElevenLabs fails
+      log.info('Attempting Google TTS fallback...');
+      try {
+        return await generateWithGoogleTTS(script, language);
+      } catch (fallbackErr) {
+        log.error({ err: fallbackErr }, 'Google TTS fallback also failed');
+        throw new Error(`ElevenLabs API error ${err.response.status}: ${errorText}`);
+      }
     }
-    throw err;
+    // For non-API errors (timeout, network), also try Google TTS
+    log.info('ElevenLabs request failed, attempting Google TTS fallback...');
+    try {
+      return await generateWithGoogleTTS(script, language);
+    } catch (fallbackErr) {
+      log.error({ err: fallbackErr }, 'Google TTS fallback also failed');
+      throw err;
+    }
   }
 
   const audioBuffer = Buffer.from(response.data);
@@ -116,6 +131,68 @@ export async function generateVoiceover(opts: VoiceoverOptions): Promise<Buffer>
     'Voiceover generated successfully',
   );
 
+  return audioBuffer;
+}
+
+// ---------------------------------------------------------------------------
+// Google TTS Fallback (uses Gemini API)
+// ---------------------------------------------------------------------------
+
+const GOOGLE_TTS_VOICES: Record<string, string> = {
+  en: 'en-US-Standard-D',
+  hi: 'hi-IN-Standard-D',
+  es: 'es-ES-Standard-B',
+  fr: 'fr-FR-Standard-D',
+  de: 'de-DE-Standard-D',
+  pt: 'pt-BR-Standard-B',
+  ja: 'ja-JP-Standard-D',
+  ko: 'ko-KR-Standard-D',
+  zh: 'cmn-CN-Standard-D',
+  ar: 'ar-XA-Standard-D',
+  ru: 'ru-RU-Standard-D',
+  it: 'it-IT-Standard-D',
+};
+
+async function generateWithGoogleTTS(script: string, language?: string): Promise<Buffer> {
+  const geminiKey = process.env.GEMINI_API_KEY;
+  if (!geminiKey) {
+    throw new Error('GEMINI_API_KEY not set for Google TTS fallback');
+  }
+
+  const lang = language || 'en';
+  const voiceName = GOOGLE_TTS_VOICES[lang] || GOOGLE_TTS_VOICES['en'];
+  const langCode = voiceName.split('-').slice(0, 2).join('-');
+
+  log.info({ language: lang, voiceName, scriptLength: script.length }, 'Generating voiceover via Google Cloud TTS');
+
+  // Use Google Cloud TTS API (free tier: 1M chars/month for Standard voices)
+  const response = await axios.post(
+    `https://texttospeech.googleapis.com/v1/text:synthesize?key=${geminiKey}`,
+    {
+      input: { text: script },
+      voice: {
+        languageCode: langCode,
+        name: voiceName,
+        ssmlGender: 'MALE',
+      },
+      audioConfig: {
+        audioEncoding: 'MP3',
+        speakingRate: 1.0,
+        pitch: 0,
+      },
+    },
+    {
+      headers: { 'Content-Type': 'application/json' },
+      timeout: 180_000,
+    },
+  );
+
+  if (!response.data.audioContent) {
+    throw new Error('Google TTS returned empty audio');
+  }
+
+  const audioBuffer = Buffer.from(response.data.audioContent, 'base64');
+  log.info({ audioSizeBytes: audioBuffer.length, voiceName }, 'Google TTS voiceover generated successfully');
   return audioBuffer;
 }
 
