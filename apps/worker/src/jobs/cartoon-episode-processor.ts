@@ -722,13 +722,13 @@ function deriveEpisodeTitleFromStory(
     titleBase = titleBase.charAt(0).toUpperCase() + titleBase.slice(1);
   }
 
-  // Truncate to fit YouTube's 100-char limit (leave room for "Ep N: " prefix)
-  const maxLen = 90;
+  // Truncate to fit YouTube's 100-char limit
+  const maxLen = 100;
   if (titleBase.length > maxLen) {
     titleBase = titleBase.slice(0, maxLen - 3).replace(/\s+\S*$/, '') + '...';
   }
 
-  return titleBase ? `Ep ${episodeNumber}: ${titleBase}` : `Episode ${episodeNumber}`;
+  return titleBase || `Episode ${episodeNumber}`;
 }
 
 function buildSubtitleLines(scene: any): { speaker: string; text: string; color?: string }[] {
