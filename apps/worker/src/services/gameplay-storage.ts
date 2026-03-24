@@ -22,14 +22,14 @@ let s3Client: S3Client | null = null;
 
 function getS3Client(): S3Client {
   if (!s3Client) {
-    const accountId = process.env.R2_ACCOUNT_ID;
-    if (!accountId) {
-      throw new Error('R2_ACCOUNT_ID is not set');
+    const endpoint = process.env.R2_ENDPOINT || (process.env.R2_ACCOUNT_ID ? `https://${process.env.R2_ACCOUNT_ID}.r2.cloudflarestorage.com` : "");
+    if (!endpoint) {
+      throw new Error('R2_ENDPOINT or R2_ACCOUNT_ID is not set');
     }
 
     s3Client = new S3Client({
       region: 'auto',
-      endpoint: `https://${accountId}.r2.cloudflarestorage.com`,
+      endpoint,
       credentials: {
         accessKeyId: process.env.R2_ACCESS_KEY_ID!,
         secretAccessKey: process.env.R2_SECRET_ACCESS_KEY!,
@@ -85,14 +85,14 @@ export async function uploadGameplayToStorage(
   gameplayJobId: string,
 ): Promise<GameplayUploadResult> {
   const hasR2Config =
-    process.env.R2_ACCOUNT_ID && process.env.R2_ACCESS_KEY_ID && process.env.R2_SECRET_ACCESS_KEY;
+    (process.env.R2_ENDPOINT || process.env.R2_ACCOUNT_ID) && process.env.R2_ACCESS_KEY_ID && process.env.R2_SECRET_ACCESS_KEY;
 
   if (!hasR2Config) {
     log.warn('R2 credentials not configured - using local storage demo mode');
     return uploadToLocalStorage(videoBuffer, thumbnailBuffer, userId, gameplayJobId);
   }
 
-  const bucket = process.env.R2_BUCKET_NAME || 'reelforge-media';
+  const bucket = process.env.R2_BUCKET || process.env.R2_BUCKET_NAME || 'reelforge-videos';
   const cdnUrl = process.env.CDN_URL || `https://${process.env.R2_ACCOUNT_ID}.r2.dev`;
   const client = getS3Client();
 
