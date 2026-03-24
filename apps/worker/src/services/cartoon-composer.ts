@@ -222,7 +222,7 @@ async function generateSceneVideo(
   execSync(
     `ffmpeg -y -loop 1 -i "${imagePath}" ` +
     `-vf "${zoompanFilter}" ` +
-    `-t ${duration} -c:v libx264 -preset fast -pix_fmt yuv420p ` +
+    `-t ${duration} -c:v libx264 -preset ultrafast -pix_fmt yuv420p ` +
     `-r ${fps} "${outputPath}"`,
     { timeout: 120_000, stdio: 'pipe', maxBuffer: 50 * 1024 * 1024 }
   );

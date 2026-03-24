@@ -100,7 +100,7 @@ export async function composeLongForm(opts: ComposeLongFormOptions): Promise<Buf
       const outputOpts: string[] = [
         '-shortest',
         '-pix_fmt yuv420p',
-        '-preset fast',
+        '-preset ultrafast',
         '-movflags +faststart',
       ];
 
@@ -186,7 +186,7 @@ async function reencodeVideo(
       .fps(30)
       .outputOptions([
         '-pix_fmt yuv420p',
-        '-preset fast',
+        '-preset ultrafast',
         '-an', // Remove original audio (we overlay our own)
       ])
       .output(outputPath)
@@ -237,7 +237,7 @@ async function generateVideoFromImage(
           .videoCodec('libx264')
           .size(`${width}x${height}`)
           .fps(30)
-          .outputOptions(['-pix_fmt yuv420p', '-preset fast', '-an'])
+          .outputOptions(['-pix_fmt yuv420p', '-preset ultrafast', '-an'])
           .output(outputPath)
           .on('end', () => resolve())
           .on('error', (err) => reject(err))
@@ -289,7 +289,7 @@ async function generateBlankVideo(
         .videoCodec('libx264')
         .size(`${width}x${height}`)
         .fps(30)
-        .outputOptions(['-pix_fmt yuv420p', '-preset fast', '-an'])
+        .outputOptions(['-pix_fmt yuv420p', '-preset ultrafast', '-an'])
         .output(outputPath)
         .on('end', () => resolve())
         .on('error', (err) => reject(err))

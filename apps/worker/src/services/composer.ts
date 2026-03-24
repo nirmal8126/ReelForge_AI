@@ -82,10 +82,11 @@ export async function composeReel(opts: ComposeOptions): Promise<Buffer> {
 
       const outputOpts: string[] = [
         '-c:v', 'libx264',
-        '-preset', 'fast',
-        '-crf', '23',
+        '-preset', 'ultrafast',
+        '-crf', '28',
+        '-threads', '1',
         '-c:a', 'aac',
-        '-b:a', '192k',
+        '-b:a', '128k',
         '-shortest',
         '-movflags', '+faststart',
       ];

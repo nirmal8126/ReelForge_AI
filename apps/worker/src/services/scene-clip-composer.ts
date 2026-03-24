@@ -154,7 +154,7 @@ async function trimAndNormalize(
       .outputOptions([
         '-map', '[outv]',
         '-c:v', 'libx264',
-        '-preset', 'fast',
+        '-preset', 'ultrafast',
         '-crf', '23',
         '-pix_fmt', 'yuv420p',
         '-an',
@@ -201,7 +201,7 @@ async function createVideoFromImage(
         .outputOptions([
           '-map', '[outv]',
           '-c:v', 'libx264',
-          '-preset', 'fast',
+          '-preset', 'ultrafast',
           '-crf', '23',
           '-pix_fmt', 'yuv420p',
           '-an',
@@ -260,7 +260,7 @@ async function xfadeConcatenate(
       .outputOptions([
         '-map', '[outv]',
         '-c:v', 'libx264',
-        '-preset', 'fast',
+        '-preset', 'ultrafast',
         '-crf', '23',
         '-pix_fmt', 'yuv420p',
         '-movflags', '+faststart',

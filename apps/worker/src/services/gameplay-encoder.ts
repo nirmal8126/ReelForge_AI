@@ -38,7 +38,7 @@ export async function encodeGameplay(options: EncodeOptions): Promise<Buffer> {
 
   args.push(
     '-c:v', 'libx264',
-    '-preset', 'fast',
+    '-preset', 'ultrafast',
     '-crf', '23',
     '-pix_fmt', 'yuv420p',
     '-movflags', '+faststart',         // web-optimized
