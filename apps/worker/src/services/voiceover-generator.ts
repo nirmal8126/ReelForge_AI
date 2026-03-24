@@ -161,11 +161,61 @@ async function generateWithGoogleTTS(script: string, language?: string): Promise
 
   const lang = language || 'en';
   const voiceName = GOOGLE_TTS_VOICES[lang] || GOOGLE_TTS_VOICES['en'];
+
+  log.info({ language: lang, voiceName, scriptLength: script.length }, 'Generating voiceover via Gemini TTS');
+
+  // Use Gemini 2.5 Flash TTS via generateContent with audio output
+  try {
+    const response = await axios.post(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-tts:generateContent?key=${geminiKey}`,
+      {
+        contents: [{ parts: [{ text: script }] }],
+        generationConfig: {
+          responseModalities: ['AUDIO'],
+          speechConfig: {
+            voiceConfig: {
+              prebuiltVoiceConfig: {
+                voiceName: lang === 'hi' ? 'Puck' : lang === 'es' ? 'Kore' : 'Kore',
+              },
+            },
+          },
+        },
+      },
+      {
+        headers: { 'Content-Type': 'application/json' },
+        timeout: 180_000,
+      },
+    );
+
+    const audioData = response.data?.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
+    if (!audioData) {
+      throw new Error('Gemini TTS returned no audio data');
+    }
+
+    // Gemini returns PCM audio, convert to MP3 via ffmpeg
+    const pcmBuffer = Buffer.from(audioData, 'base64');
+    const tmpPcm = path.join(os.tmpdir(), `gemini-tts-${Date.now()}.pcm`);
+    const tmpMp3 = path.join(os.tmpdir(), `gemini-tts-${Date.now()}.mp3`);
+
+    try {
+      fs.writeFileSync(tmpPcm, pcmBuffer);
+      execSync(
+        `ffmpeg -y -f s16le -ar 24000 -ac 1 -i "${tmpPcm}" -codec:a libmp3lame -b:a 128k "${tmpMp3}"`,
+        { timeout: 60_000, stdio: 'pipe' },
+      );
+      const mp3Buffer = fs.readFileSync(tmpMp3);
+      log.info({ audioSizeBytes: mp3Buffer.length, voiceName }, 'Gemini TTS voiceover generated successfully');
+      return mp3Buffer;
+    } finally {
+      try { fs.unlinkSync(tmpPcm); } catch { /* ignore */ }
+      try { fs.unlinkSync(tmpMp3); } catch { /* ignore */ }
+    }
+  } catch (geminiErr: unknown) {
+    log.error({ err: geminiErr }, 'Gemini TTS failed, trying Google Cloud TTS API');
+  }
+
+  // Fallback: Google Cloud TTS API
   const langCode = voiceName.split('-').slice(0, 2).join('-');
-
-  log.info({ language: lang, voiceName, scriptLength: script.length }, 'Generating voiceover via Google Cloud TTS');
-
-  // Use Google Cloud TTS API (free tier: 1M chars/month for Standard voices)
   const response = await axios.post(
     `https://texttospeech.googleapis.com/v1/text:synthesize?key=${geminiKey}`,
     {
@@ -192,7 +242,7 @@ async function generateWithGoogleTTS(script: string, language?: string): Promise
   }
 
   const audioBuffer = Buffer.from(response.data.audioContent, 'base64');
-  log.info({ audioSizeBytes: audioBuffer.length, voiceName }, 'Google TTS voiceover generated successfully');
+  log.info({ audioSizeBytes: audioBuffer.length, voiceName }, 'Google Cloud TTS voiceover generated successfully');
   return audioBuffer;
 }
 
