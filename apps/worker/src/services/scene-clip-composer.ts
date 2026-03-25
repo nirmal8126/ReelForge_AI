@@ -33,10 +33,10 @@ export interface ConcatenateOptions {
 
 function getResolution(aspectRatio: string): { width: number; height: number } {
   switch (aspectRatio) {
-    case '9:16': return { width: 1080, height: 1920 };
-    case '1:1':  return { width: 1080, height: 1080 };
+    case '9:16': return { width: 720, height: 1280 };
+    case '1:1':  return { width: 720, height: 720 };
     case '16:9':
-    default:     return { width: 1920, height: 1080 };
+    default:     return { width: 1280, height: 720 };
   }
 }
 

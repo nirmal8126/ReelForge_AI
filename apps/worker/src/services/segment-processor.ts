@@ -224,6 +224,6 @@ async function getFallbackVisual(
 }
 
 function generateStaticImageUrl(title: string, aspectRatio: string): string {
-  const dimensions = aspectRatio === '9:16' ? '1080x1920' : aspectRatio === '1:1' ? '1080x1080' : '1920x1080';
+  const dimensions = aspectRatio === '9:16' ? '720x1280' : aspectRatio === '1:1' ? '720x720' : '1280x720';
   return `https://placehold.co/${dimensions}/6366F1/FFFFFF?text=${encodeURIComponent(title.substring(0, 40))}`;
 }

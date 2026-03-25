@@ -32,9 +32,9 @@ export interface ComposeCartoonOptions {
 // ---------------------------------------------------------------------------
 
 const RESOLUTION_MAP: Record<string, { width: number; height: number }> = {
-  '16:9': { width: 1920, height: 1080 },
-  '9:16': { width: 1080, height: 1920 },
-  '1:1': { width: 1080, height: 1080 },
+  '16:9': { width: 1280, height: 720 },
+  '9:16': { width: 720, height: 1280 },
+  '1:1': { width: 720, height: 720 },
 };
 
 // ---------------------------------------------------------------------------
