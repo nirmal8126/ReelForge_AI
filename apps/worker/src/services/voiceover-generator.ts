@@ -57,6 +57,17 @@ export async function generateVoiceover(opts: VoiceoverOptions): Promise<Buffer>
     return generateSilentAudio(script);
   }
 
+  // Try Gemini TTS first if GEMINI_API_KEY is available (avoids ElevenLabs rate limits on cloud servers)
+  const geminiKey = process.env.GEMINI_API_KEY;
+  if (geminiKey) {
+    try {
+      log.info({ language, scriptLength: script.length }, 'Trying Gemini TTS first');
+      return await generateWithGoogleTTS(script, language);
+    } catch (geminiErr) {
+      log.warn({ err: geminiErr }, 'Gemini TTS failed, falling back to ElevenLabs');
+    }
+  }
+
   const apiKey = process.env.ELEVENLABS_API_KEY;
   if (!apiKey) {
     log.warn('ELEVENLABS_API_KEY is not set, generating silent audio fallback');
