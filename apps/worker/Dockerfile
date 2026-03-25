@@ -3,6 +3,7 @@ FROM node:20-slim AS base
 # Install ffmpeg and dependencies for canvas
 RUN apt-get update && apt-get install -y \
   ffmpeg \
+  curl \
   build-essential \
   libcairo2-dev \
   libpango1.0-dev \
