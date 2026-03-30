@@ -35,9 +35,14 @@ RUN node -e "const p=require('./packages/db/package.json');p.main='./dist/index.
 # Build worker
 RUN cd apps/worker && npx tsc
 
+# Find the actual compiled index.js path and create a symlink
+RUN ENTRY=$(find apps/worker/dist -name "index.js" -path "*/src/index.js" | head -1) && \
+    echo "Found entry: $ENTRY" && \
+    ln -sf /app/$ENTRY /app/apps/worker/dist/index.js
+
 WORKDIR /app/apps/worker
 
 EXPOSE 8080
 ENV PORT=8080
 
-CMD ["node", "dist/apps/worker/src/index.js"]
+CMD ["node", "dist/index.js"]
