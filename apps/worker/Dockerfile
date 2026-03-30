@@ -37,4 +37,7 @@ RUN cd apps/worker && npx tsc
 
 WORKDIR /app/apps/worker
 
+EXPOSE 8080
+ENV PORT=8080
+
 CMD ["node", "dist/apps/worker/src/index.js"]
