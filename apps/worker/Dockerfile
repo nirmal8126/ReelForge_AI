@@ -35,14 +35,20 @@ RUN node -e "const p=require('./packages/db/package.json');p.main='./dist/index.
 # Build worker
 RUN cd apps/worker && npx tsc
 
-# Find the actual compiled index.js path and create a symlink
+# Find the compiled entry and write a launcher that requires it.
+# This avoids fragile symlinks AND keeps relative imports working.
 RUN ENTRY=$(find apps/worker/dist -name "index.js" -path "*/src/index.js" | head -1) && \
-    echo "Found entry: $ENTRY" && \
-    ln -sf /app/$ENTRY /app/apps/worker/dist/index.js
+    echo "=== Found compiled entry: $ENTRY ===" && \
+    test -n "$ENTRY" && test -f "$ENTRY" && \
+    REL_ENTRY="${ENTRY#apps/worker/}" && \
+    echo "=== Relative entry: $REL_ENTRY ===" && \
+    echo "require('./$REL_ENTRY');" > /app/apps/worker/main.js && \
+    cat /app/apps/worker/main.js
 
 WORKDIR /app/apps/worker
 
 EXPOSE 8080
 ENV PORT=8080
 
-CMD ["node", "dist/index.js"]
+# Wrap node in sh so we get clear startup logging on Railway
+CMD ["sh", "-c", "echo '=== Worker container starting ===' && pwd && ls -la main.js && exec node main.js"]
