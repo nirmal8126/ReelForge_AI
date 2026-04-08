@@ -11,6 +11,7 @@ const REFRESH_BUFFER_MS = 30 * 60 * 1000; // 30 minutes before expiry
 
 async function refreshYouTubeToken(account: {
   id: string;
+  accountName: string | null;
   refreshToken: string;
 }): Promise<boolean> {
   const clientId = process.env.GOOGLE_CLIENT_ID;
@@ -33,8 +34,36 @@ async function refreshYouTubeToken(account: {
   });
 
   if (!res.ok) {
-    const err = await res.text().catch(() => '');
-    logger.error({ accountId: account.id, error: err }, 'YouTube token refresh failed');
+    const errText = await res.text().catch(() => '');
+    let errCode = '';
+    try {
+      errCode = (JSON.parse(errText) as { error?: string }).error || '';
+    } catch {
+      // ignore parse error
+    }
+
+    logger.error(
+      { accountId: account.id, accountName: account.accountName, error: errText },
+      'YouTube token refresh failed'
+    );
+
+    // Permanent failures: mark account inactive so we stop retrying and the user
+    // is forced to reconnect. invalid_grant means the refresh token is dead
+    // (revoked, expired in Testing-mode OAuth, or user removed app access).
+    if (errCode === 'invalid_grant' || errCode === 'invalid_client') {
+      await prisma.socialAccount.update({
+        where: { id: account.id },
+        data: {
+          isActive: false,
+          tokenExpiry: new Date(0), // mark as expired
+        },
+      });
+      logger.warn(
+        { accountId: account.id, accountName: account.accountName, errCode },
+        'Marked social account as inactive — user must reconnect'
+      );
+    }
+
     return false;
   }
 
@@ -91,6 +120,7 @@ export async function processTokenRefresher(_job: Job) {
       if (account.platform === 'YOUTUBE') {
         success = await refreshYouTubeToken({
           id: account.id,
+          accountName: account.accountName,
           refreshToken: account.refreshToken,
         });
       }
